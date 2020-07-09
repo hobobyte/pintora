@@ -36,7 +36,7 @@ namespace Pinta.Core
 
 		public AddinActions ()
 		{
-			AddinManager = new Gtk.Action ("AddinManager", Catalog.GetString ("Add-in Manager"),
+			AddinManager = new Gtk.Action ("AddinManager", Translations.GetString ("Add-in Manager"),
 			                               null, "Menu.Edit.Addins.png");
 		}
 
