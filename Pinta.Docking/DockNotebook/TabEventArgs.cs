@@ -25,17 +25,11 @@
 // THE SOFTWARE.
 
 using System;
-using System.ComponentModel;
 
-namespace Pinta.Docking.DockNotebook
+namespace Pinta.Docking
 {
-	public class TabEventArgs : EventArgs
+	class TabEventArgs : EventArgs
 	{
 		public DockNotebookTab Tab { get; set; }
 	}
-
-    public class TabClosedEventArgs : CancelEventArgs
-    {
-        public DockNotebookTab Tab { get; set; }       
-    }
 }
