@@ -35,12 +35,12 @@ namespace Pinta.Actions
 		#region IActionHandler Members
 		public void Initialize ()
 		{
-			PintaCore.Actions.File.Exit.Activated += Activated;
+			PintaCore.Actions.App.Exit.Activated += Activated;
 		}
 
 		public void Uninitialize ()
 		{
-			PintaCore.Actions.File.Exit.Activated -= Activated;
+			PintaCore.Actions.App.Exit.Activated -= Activated;
 		}
 		#endregion
 
@@ -58,9 +58,9 @@ namespace Pinta.Actions
 			}
 
 			// Let everyone know we are quitting
-			PintaCore.Actions.File.RaiseBeforeQuit ();
+			PintaCore.Actions.App.RaiseBeforeQuit ();
 
-			Application.Quit ();
+			(PintaCore.Chrome.Application as GLib.Application).Quit ();
 		}
 	}
 }
