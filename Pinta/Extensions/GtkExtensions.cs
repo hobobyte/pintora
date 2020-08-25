@@ -32,6 +32,8 @@ namespace Pinta
 {
 	public static class GtkExtensions
 	{
+		// TODO-GTK3 (docking)
+#if false
 		public static DockToolButton CreateDockToolBarItem(this Pinta.Core.Command action)
 		{
 			DockToolButton item = new DockToolButton(action.IconName, null)
@@ -45,5 +47,6 @@ namespace Pinta
 
 			return item;
 		}
+#endif
 	}
 }
