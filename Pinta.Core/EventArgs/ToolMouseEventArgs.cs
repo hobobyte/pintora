@@ -21,6 +21,16 @@ namespace Pinta.Core
 		public bool IsControlPressed => State.HasFlag (ModifierType.ControlMask);
 
 		/// <summary>
+		/// Specifies whether the left mouse button is currently pressed.
+		/// </summary>
+		public bool IsLeftMousePressed => State.HasFlag (ModifierType.Button1Mask);
+
+		/// <summary>
+		/// Specifies whether the right mouse button is currently pressed.
+		/// </summary>
+		public bool IsRightMousePressed => State.HasFlag (ModifierType.Button3Mask);
+
+		/// <summary>
 		/// Specifies whether the Shift key is currently pressed.
 		/// </summary>
 		public bool IsShiftPressed => State.HasFlag (ModifierType.ShiftMask);
