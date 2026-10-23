@@ -188,7 +188,7 @@ internal sealed class CanvasPaintingTests
 		Assert.That (canvas.Scale, Is.EqualTo (1.0));
 		Assert.That (canvas.CanUndoStroke, Is.False);
 		Assert.That (canvas.CanRedoStroke, Is.False);
-		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.White));
 	}
 
 	[Test]

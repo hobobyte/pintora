@@ -19,7 +19,7 @@
           <SolidColorBrush x:Key="Pintora.Menu.Hover" Color="#E8F1FF" />
           <SolidColorBrush x:Key="Pintora.Toolbar.Background" Color="#FFFFFF" />
           <SolidColorBrush x:Key="Pintora.Panel.Background" Color="#F3F0EA" />
-          <SolidColorBrush x:Key="Pintora.Canvas.Background" Color="#D7DCE3" />
+          <SolidColorBrush x:Key="Pintora.Canvas.Background" Color="#FFFFFF" />
           <SolidColorBrush x:Key="Pintora.Status.Background" Color="#FFFFFF" />
           <SolidColorBrush x:Key="MenuFlyoutItemForeground" Color="#2F343B" />
           <SolidColorBrush x:Key="MenuFlyoutItemForegroundPointerOver" Color="#2F343B" />

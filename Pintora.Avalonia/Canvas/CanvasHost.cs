@@ -28,6 +28,13 @@ public sealed class CanvasHost : Control
 	public enum CanvasTool
 	{
 		Brush,
+		Pencil,
+		Line,
+		Rectangle,
+		Ellipse,
+		Fill,
+		ColorPicker,
+		Zoom,
 		Eraser
 	}
 
@@ -36,6 +43,8 @@ public sealed class CanvasHost : Control
 	private WriteableBitmap? bitmap;
 	private bool is_painting;
 	private PointD? last_canvas_point;
+	private PointD? stroke_start_point;
+	private PointD? line_preview_point;
 	private ColorBgra stroke_color;
 	private Rect rendered_canvas_rect;
 	private readonly Stack<ColorBgra[]> undo_stack = new ();
@@ -68,6 +77,8 @@ public sealed class CanvasHost : Control
 	public double BrushHardness { get; set; } = 1.0;
 	public ColorBgra BrushColor { get; set; } = ColorBgra.Black;
 	public ColorBgra SecondaryBrushColor { get; set; } = ColorBgra.White;
+	public int FillTolerance { get; set; } = 0;
+	public bool ShapeFilled { get; set; }
 	public CanvasTool ActiveTool { get; set; } = CanvasTool.Brush;
 	public Pinta.Core.Size ImageSize => session.ImageSize;
 	public Pinta.Core.Size ViewSize => session.ViewSize;
@@ -133,7 +144,7 @@ public sealed class CanvasHost : Control
 		if (Surface is null)
 			return;
 
-		Surface.GetPixelData ().Clear ();
+		Surface.GetPixelData ().Fill (ColorBgra.White);
 		undo_stack.Clear ();
 		redo_stack.Clear ();
 		session.SetScale (1.0);
@@ -288,6 +299,22 @@ public sealed class CanvasHost : Control
 		}
 	}
 
+	private void PaintPencilLine (PointD from, PointD to, ColorBgra color)
+	{
+		double distance = Math.Sqrt (Math.Pow (to.X - from.X, 2) + Math.Pow (to.Y - from.Y, 2));
+		int steps = Math.Max ((int) Math.Ceiling (distance), 1);
+		Span<ColorBgra> pixels = Surface!.GetPixelData ();
+		for (int i = 0; i <= steps; i++) {
+			double progress = i / (double) steps;
+			int x = (int) Math.Round (from.X + (to.X - from.X) * progress);
+			int y = (int) Math.Round (from.Y + (to.Y - from.Y) * progress);
+			if ((uint) x < Surface.Width && (uint) y < Surface.Height)
+				pixels[y * Surface.Width + x] = color;
+		}
+		bitmap = null;
+		InvalidateVisual ();
+	}
+
 	public bool CanUndoStroke => undo_stack.Count > 0 && Surface is not null;
 	public bool CanRedoStroke => redo_stack.Count > 0 && Surface is not null;
 
@@ -341,17 +368,29 @@ public sealed class CanvasHost : Control
 	{
 		base.Render (context);
 
-		context.FillRectangle (Brushes.LightGray, new Rect (Bounds.Size));
+		context.FillRectangle (Brushes.White, new Rect (Bounds.Size));
 
 		Pinta.Core.Size viewSize = session.ViewSize;
 		Point origin = GetCanvasOrigin ();
 		rendered_canvas_rect = new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height));
+		DrawTransparencyGrid (context, rendered_canvas_rect);
 
 		if (Surface is not null)
 			DrawSurface (context, origin, CreateCompositeSurface ());
 		else
 			context.FillRectangle (Brushes.White, new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height)));
 		context.DrawRectangle (new Pen (Brushes.Gray, 1), new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height)));
+		if ((ActiveTool == CanvasTool.Line || ActiveTool == CanvasTool.Rectangle) && is_painting && stroke_start_point is PointD start && line_preview_point is PointD preview) {
+			var preview_pen = new Pen (new SolidColorBrush (ToAvaloniaColor (stroke_color)), Math.Max (1, BrushSize * Scale));
+			Point first = origin + new Vector (start.X * Scale, start.Y * Scale);
+			Point last = origin + new Vector (preview.X * Scale, preview.Y * Scale);
+			if (ActiveTool == CanvasTool.Line)
+				context.DrawLine (preview_pen, first, last);
+			else if (ActiveTool == CanvasTool.Rectangle)
+				context.DrawRectangle (preview_pen, new Rect (Math.Min (first.X, last.X), Math.Min (first.Y, last.Y), Math.Abs (last.X - first.X), Math.Abs (last.Y - first.Y)));
+			else
+				context.DrawEllipse (null, preview_pen, new Rect (Math.Min (first.X, last.X), Math.Min (first.Y, last.Y), Math.Abs (last.X - first.X), Math.Abs (last.Y - first.Y)));
+		}
 
 		var text = new FormattedText (
 			$"Canvas {session.ImageSize.Width} × {session.ImageSize.Height}\n{Scale:P0}",
@@ -361,6 +400,27 @@ public sealed class CanvasHost : Control
 			14,
 			Brushes.Gray);
 		context.DrawText (text, origin + new Vector (16, 16));
+	}
+
+	private static void DrawTransparencyGrid (DrawingContext context, Rect canvasRect)
+	{
+		const double tileSize = 16;
+		IBrush light = new SolidColorBrush (Color.Parse ("#FFFFFF"));
+		IBrush dark = new SolidColorBrush (Color.Parse ("#E5E7EB"));
+		int columns = (int) Math.Ceiling (canvasRect.Width / tileSize);
+		int rows = (int) Math.Ceiling (canvasRect.Height / tileSize);
+		for (int y = 0; y < rows; y++)
+			for (int x = 0; x < columns; x++)
+			{
+				double tileX = canvasRect.X + x * tileSize;
+				double tileY = canvasRect.Y + y * tileSize;
+				double width = Math.Min (tileSize, canvasRect.Right - tileX);
+				double height = Math.Min (tileSize, canvasRect.Bottom - tileY);
+				if (width <= 0 || height <= 0)
+					continue;
+				var tile = new Rect (tileX, tileY, width, height);
+				context.FillRectangle ((x + y) % 2 == 0 ? light : dark, tile);
+			}
 	}
 
 	private MemoryImageSurface CreateCompositeSurface ()
@@ -422,8 +482,6 @@ public sealed class CanvasHost : Control
 		if (!properties.IsLeftButtonPressed && !properties.IsRightButtonPressed)
 			return;
 
-		is_painting = true;
-		BeginStroke ();
 		stroke_color = properties.IsRightButtonPressed
 			? SecondaryBrushColor
 			: ActiveTool == CanvasTool.Eraser ? ColorBgra.Zero : BrushColor;
@@ -431,14 +489,96 @@ public sealed class CanvasHost : Control
 		Point position = e.GetPosition (this);
 		Point origin = GetCanvasOrigin ();
 		last_canvas_point = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
-		PaintCanvasPoint (last_canvas_point.Value, stroke_color);
+		if (ActiveTool == CanvasTool.Zoom) {
+			SetScale (Math.Clamp (Scale * (properties.IsRightButtonPressed ? 1 / 1.25 : 1.25), 0.1, 32));
+			is_painting = false;
+			e.Pointer.Capture (null);
+			e.Handled = true;
+			return;
+		}
+		if (ActiveTool == CanvasTool.ColorPicker) {
+			PickColor (last_canvas_point.Value);
+			return;
+		}
+		if (ActiveTool == CanvasTool.Fill) {
+			BeginStroke ();
+			FillCanvas (last_canvas_point.Value, stroke_color);
+			return;
+		}
+		is_painting = true;
+		BeginStroke ();
+		stroke_start_point = last_canvas_point;
+		line_preview_point = last_canvas_point;
+		if (ActiveTool != CanvasTool.Line && ActiveTool != CanvasTool.Rectangle && ActiveTool != CanvasTool.Ellipse)
+			if (ActiveTool == CanvasTool.Pencil)
+				PaintPencilLine (last_canvas_point.Value, last_canvas_point.Value, stroke_color);
+			else
+				PaintCanvasPoint (last_canvas_point.Value, stroke_color);
 		e.Handled = true;
+	}
+
+	private void PickColor (PointD point)
+	{
+		if (Surface is null)
+			return;
+		int x = (int) Math.Round (point.X);
+		int y = (int) Math.Round (point.Y);
+		if ((uint) x < Surface.Width && (uint) y < Surface.Height)
+			BrushColor = Surface.GetReadOnlyPixelData ()[y * Surface.Width + x];
+	}
+
+	private void FillCanvas (PointD point, ColorBgra color)
+	{
+		if (Surface is null)
+			return;
+		int startX = (int) Math.Round (point.X);
+		int startY = (int) Math.Round (point.Y);
+		if ((uint) startX >= Surface.Width || (uint) startY >= Surface.Height)
+			return;
+		Span<ColorBgra> pixels = Surface.GetPixelData ();
+		ColorBgra target = pixels[startY * Surface.Width + startX];
+		if (target == color)
+			return;
+		var queue = new Queue<(int X, int Y)> ();
+		queue.Enqueue ((startX, startY));
+		while (queue.Count > 0) {
+			(int x, int y) = queue.Dequeue ();
+			if ((uint) x >= Surface.Width || (uint) y >= Surface.Height || !MatchesFillColor (pixels[y * Surface.Width + x], target))
+				continue;
+			pixels[y * Surface.Width + x] = color;
+			queue.Enqueue ((x + 1, y));
+			queue.Enqueue ((x - 1, y));
+			queue.Enqueue ((x, y + 1));
+			queue.Enqueue ((x, y - 1));
+		}
+		bitmap = null;
+		InvalidateVisual ();
+	}
+
+	private bool MatchesFillColor (ColorBgra actual, ColorBgra target)
+	{
+		int difference = Math.Abs (actual.R - target.R) + Math.Abs (actual.G - target.G) + Math.Abs (actual.B - target.B) + Math.Abs (actual.A - target.A);
+		return difference <= Math.Clamp (FillTolerance, 0, 255) * 4;
 	}
 
 	private void OnPointerReleased (object? sender, PointerReleasedEventArgs e)
 	{
+		if (is_painting && (ActiveTool == CanvasTool.Line || ActiveTool == CanvasTool.Rectangle || ActiveTool == CanvasTool.Ellipse) && stroke_start_point is PointD start) {
+			Point position = e.GetPosition (this);
+			Point origin = GetCanvasOrigin ();
+			PointD end = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
+			if (ActiveTool == CanvasTool.Line)
+				PaintCanvasLine (start, end, stroke_color);
+			else if (ActiveTool == CanvasTool.Rectangle)
+				PaintCanvasRectangle (start, end, stroke_color);
+			else
+				PaintCanvasEllipse (start, end, stroke_color);
+		}
 		is_painting = false;
 		last_canvas_point = null;
+		stroke_start_point = null;
+		line_preview_point = null;
+		InvalidateVisual ();
 		e.Pointer.Capture (null);
 	}
 
@@ -450,8 +590,16 @@ public sealed class CanvasHost : Control
 		Point position = e.GetPosition (this);
 		Point origin = GetCanvasOrigin ();
 		PointD current = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
+		if (ActiveTool == CanvasTool.Line || ActiveTool == CanvasTool.Rectangle || ActiveTool == CanvasTool.Ellipse) {
+			line_preview_point = current;
+			InvalidateVisual ();
+			return;
+		}
 		if (last_canvas_point is PointD previous)
-			PaintCanvasLine (previous, current, stroke_color);
+			if (ActiveTool == CanvasTool.Pencil)
+				PaintPencilLine (previous, current, stroke_color);
+			else
+				PaintCanvasLine (previous, current, stroke_color);
 		else
 			PaintCanvasPoint (current, stroke_color);
 		last_canvas_point = current;
@@ -485,6 +633,46 @@ public sealed class CanvasHost : Control
 
 		Pinta.Core.Size viewSize = ViewSize;
 		return new Rect (GetCanvasOrigin (), new global::Avalonia.Size (viewSize.Width, viewSize.Height));
+	}
+
+	private static global::Avalonia.Media.Color ToAvaloniaColor (ColorBgra color)
+		=> global::Avalonia.Media.Color.FromArgb (color.A, color.R, color.G, color.B);
+
+	private void PaintCanvasRectangle (PointD from, PointD to, ColorBgra color)
+	{
+		PointD topLeft = new (Math.Min (from.X, to.X), Math.Min (from.Y, to.Y));
+		PointD bottomRight = new (Math.Max (from.X, to.X), Math.Max (from.Y, to.Y));
+		if (ShapeFilled && Surface is not null) {
+			for (int y = (int) topLeft.Y; y <= (int) bottomRight.Y; y++)
+				PaintCanvasLine (new PointD (topLeft.X, y), new PointD (bottomRight.X, y), color);
+			return;
+		}
+		PaintCanvasLine (topLeft, new PointD (bottomRight.X, topLeft.Y), color);
+		PaintCanvasLine (new PointD (bottomRight.X, topLeft.Y), bottomRight, color);
+		PaintCanvasLine (bottomRight, new PointD (topLeft.X, bottomRight.Y), color);
+		PaintCanvasLine (new PointD (topLeft.X, bottomRight.Y), topLeft, color);
+	}
+
+	private void PaintCanvasEllipse (PointD from, PointD to, ColorBgra color)
+	{
+		PointD center = new ((from.X + to.X) / 2, (from.Y + to.Y) / 2);
+		double radiusX = Math.Abs (to.X - from.X) / 2;
+		double radiusY = Math.Abs (to.Y - from.Y) / 2;
+		if (radiusX == 0 || radiusY == 0) {
+			PaintCanvasLine (from, to, color);
+			return;
+		}
+		int steps = Math.Max (64, (int) Math.Ceiling (2 * Math.PI * Math.Max (radiusX, radiusY)));
+		for (int i = 0; i <= steps; i++) {
+			double angle = 2 * Math.PI * i / steps;
+			PointD point = new (center.X + radiusX * Math.Cos (angle), center.Y + radiusY * Math.Sin (angle));
+			if (ShapeFilled) {
+				PaintCanvasLine (center, point, color);
+			} else if (i > 0) {
+				double previousAngle = 2 * Math.PI * (i - 1) / steps;
+				PaintCanvasLine (new PointD (center.X + radiusX * Math.Cos (previousAngle), center.Y + radiusY * Math.Sin (previousAngle)), point, color);
+			}
+		}
 	}
 
 	private Point GetCanvasOrigin ()
