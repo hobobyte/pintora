@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
@@ -17,6 +18,7 @@ public sealed class MainWindow : Window
 	private readonly PintoraKeyboardSettings keyboard;
 	private readonly SettingsManager settings;
 	private Action? refresh_layers;
+	private StackPanel? tool_options;
 
 	public MainWindow ()
 	{
@@ -44,32 +46,19 @@ public sealed class MainWindow : Window
 
 	private Control CreateToolbar (CanvasHost canvas)
 	{
+		tool_options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
 		var toolbar = new Border {
 			Padding = new global::Avalonia.Thickness (16, 10),
 			Child = new StackPanel {
 				Orientation = Orientation.Horizontal,
 				Spacing = 8,
 				Children = {
-					new TextBlock { Text = "Pintora", FontSize = 14, VerticalAlignment = VerticalAlignment.Center },
-					new TextBlock { Text = "Brush:" , VerticalAlignment = VerticalAlignment.Center },
-					CreateBrushSizeInput (canvas),
-					new TextBlock { Text = "Hardness", VerticalAlignment = VerticalAlignment.Center },
-					CreateBrushSlider (0, 1, canvas.BrushHardness, value => canvas.BrushHardness = value, 110),
-					new TextBlock { Text = "Opacity", VerticalAlignment = VerticalAlignment.Center },
-					CreateBrushSlider (0, 1, canvas.BrushOpacity, value => canvas.BrushOpacity = value, 110),
-					CreateBrushButton ("Black", () => canvas.BrushColor = ColorBgra.Black),
-					CreateColorSwatch ("#E95B64", () => canvas.BrushColor = ColorBgra.FromBgra (100, 91, 233, 255)),
-					CreateColorSwatch ("#3B8CFF", () => canvas.BrushColor = ColorBgra.FromBgra (255, 140, 59, 255)),
-					CreateColorSwatch ("#72C991", () => canvas.BrushColor = ColorBgra.FromBgra (145, 201, 114, 255)),
-					CreateBrushButton ("Brush", () => canvas.ActiveTool = CanvasHost.CanvasTool.Brush),
-					CreateBrushButton ("Eraser", () => canvas.ActiveTool = CanvasHost.CanvasTool.Eraser),
-					CreateBrushButton ("Size 1", () => canvas.BrushSize = 1),
-					CreateBrushButton ("Size 3", () => canvas.BrushSize = 3),
-					CreateBrushButton ("Size 8", () => canvas.BrushSize = 8),
-					CreateBrushButton ("Theme", App.ToggleTheme)
+					new Separator (),
+					tool_options
 				}
 			}
 		};
+		RefreshToolOptions (canvas);
 		toolbar.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Toolbar.Background"));
 		Grid.SetRow (toolbar, 0);
 		Grid.SetRow (toolbar, 1);
@@ -281,22 +270,51 @@ public sealed class MainWindow : Window
 		return workspace;
 	}
 
-	private static Control CreateToolPanel (CanvasHost canvas)
+	private Control CreateToolPanel (CanvasHost canvas)
 	{
 		var tools = new StackPanel { Spacing = 6 };
+		var buttons = new List<(Button Button, CanvasHost.CanvasTool Tool)> ();
 		Button brush = CreateToolButton (canvas, "Brush", CanvasHost.CanvasTool.Brush,
 			"M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z");
+		Button pencil = CreateToolButton (canvas, "Pencil", CanvasHost.CanvasTool.Pencil,
+			"M4 17.25V21h3.75L18.81 9.94l-3.75-3.75L4 17.25zM20.71 8.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z");
+		Button line = CreateToolButton (canvas, "Line", CanvasHost.CanvasTool.Line,
+			"M4 19.5l16-15L21.5 6l-16 15L4 19.5z");
+		Button rectangle = CreateToolButton (canvas, "Rectangle", CanvasHost.CanvasTool.Rectangle,
+			"M4 4h16v16H4V4zm2 2v12h12V6H6z");
+		Button ellipse = CreateToolButton (canvas, "Ellipse", CanvasHost.CanvasTool.Ellipse,
+			"M12 4a8 8 0 1 0 0 16 8 8 0 1 0 0-16z");
+		Button fill = CreateToolButton (canvas, "Fill", CanvasHost.CanvasTool.Fill,
+			"M5 3h10v2H5V3zm0 4h10v2H5V7zm0 4h10v2H5v-2zm12-8h2v18h-2V3z");
+		Button picker = CreateToolButton (canvas, "Color Picker", CanvasHost.CanvasTool.ColorPicker,
+			"M19.35 10.04L14 4.69 15.41 3.28 20.76 8.63 19.35 10.04zM3 17.25V21h3.75l10.81-10.81-3.75-3.75L3 17.25z");
+		Button zoom = CreateToolButton (canvas, "Zoom", CanvasHost.CanvasTool.Zoom,
+			"M9.5 3a6.5 6.5 0 1 0 4.06 11.58L19 20l1-1-5.44-5.42A6.5 6.5 0 0 0 9.5 3zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z");
 		Button eraser = CreateToolButton (canvas, "Eraser", CanvasHost.CanvasTool.Eraser,
 			"M15.8698 2.66878L20.8384 7.6373C21.717 8.51598 21.717 9.9406 20.8384 10.8193L12.1566 19.4998L18.2544 19.5C18.6341 19.5 18.9479 19.7821 18.9976 20.1482L19.0044 20.25C19.0044 20.6297 18.7223 20.9435 18.3562 20.9931L18.2544 21L9.84443 21.0012C9.22822 21.0348 8.60082 20.8163 8.1301 20.3456L3.16157 15.377C2.28289 14.4984 2.28289 13.0737 3.16157 12.1951L12.6879 2.66878C13.5665 1.7901 14.9912 1.7901 15.8698 2.66878Z");
-		brush.Click += (_, _) => { canvas.ActiveTool = CanvasHost.CanvasTool.Brush; UpdateToolButtons (brush, eraser, canvas.ActiveTool); };
-		eraser.Click += (_, _) => { canvas.ActiveTool = CanvasHost.CanvasTool.Eraser; UpdateToolButtons (brush, eraser, canvas.ActiveTool); };
-		tools.Children.Add (brush);
-		tools.Children.Add (eraser);
+		buttons.Add ((brush, CanvasHost.CanvasTool.Brush));
+		buttons.Add ((pencil, CanvasHost.CanvasTool.Pencil));
+		buttons.Add ((line, CanvasHost.CanvasTool.Line));
+		buttons.Add ((rectangle, CanvasHost.CanvasTool.Rectangle));
+		buttons.Add ((ellipse, CanvasHost.CanvasTool.Ellipse));
+		buttons.Add ((fill, CanvasHost.CanvasTool.Fill));
+		buttons.Add ((picker, CanvasHost.CanvasTool.ColorPicker));
+		buttons.Add ((zoom, CanvasHost.CanvasTool.Zoom));
+		buttons.Add ((eraser, CanvasHost.CanvasTool.Eraser));
+		foreach ((Button button, CanvasHost.CanvasTool tool) in buttons) {
+			button.Click += (_, _) => {
+				canvas.ActiveTool = tool;
+				UpdateToolButtons (buttons, canvas.ActiveTool);
+				RefreshToolOptions (canvas);
+			};
+			tools.Children.Add (button);
+		}
 		var panel = new Border {
 			Padding = new global::Avalonia.Thickness (16),
 			Child = new StackPanel { Spacing = 8, Children = {
 				new TextBlock { Text = "Tools", FontSize = 15 },
 				tools,
+				CreatePalette (canvas),
 				new Separator ()
 			} }
 		};
@@ -305,10 +323,90 @@ public sealed class MainWindow : Window
 		return panel;
 	}
 
+	private static Control CreatePalette (CanvasHost canvas)
+	{
+		var primary = new Button { Content = "FG", Width = 42, Height = 32, Background = new SolidColorBrush (Colors.Black) };
+		var secondary = new Button { Content = "BG", Width = 42, Height = 32, Background = new SolidColorBrush (Colors.White) };
+		primary.Click += (_, _) => canvas.BrushColor = canvas.BrushColor;
+		secondary.Click += (_, _) => canvas.BrushColor = canvas.SecondaryBrushColor;
+		var swap = CreateBrushButton ("⇄", () => {
+			(canvas.BrushColor, canvas.SecondaryBrushColor) = (canvas.SecondaryBrushColor, canvas.BrushColor);
+		});
+		var colors = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+		foreach ((string Hex, ColorBgra Color) color in new[] {
+			("#000000", ColorBgra.Black),
+			("#FFFFFF", ColorBgra.White),
+			("#E95B64", ColorBgra.FromBgra (100, 91, 233, 255)),
+			("#3B8CFF", ColorBgra.FromBgra (255, 140, 59, 255)),
+			("#72C991", ColorBgra.FromBgra (145, 201, 114, 255)),
+			("#F0B75E", ColorBgra.FromBgra (94, 183, 240, 255))
+		})
+			colors.Children.Add (CreateColorSwatch (color.Hex, () => canvas.BrushColor = color.Color));
+		var picker = new Button { Content = "Color Picker" };
+		picker.Click += (_, _) => canvas.ActiveTool = CanvasHost.CanvasTool.ColorPicker;
+		return new StackPanel {
+			Spacing = 5,
+			Children = {
+				new TextBlock { Text = "Colors", FontSize = 15 },
+				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Children = { primary, secondary, swap } },
+				colors,
+				picker
+			}
+		};
+	}
+
+	private void RefreshToolOptions (CanvasHost canvas)
+	{
+		if (tool_options is null)
+			return;
+		tool_options.Children.Clear ();
+		switch (canvas.ActiveTool) {
+			case CanvasHost.CanvasTool.Brush:
+				tool_options.Children.Add (new TextBlock { Text = "Size", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateBrushSizeInput (canvas));
+				tool_options.Children.Add (new TextBlock { Text = "Hardness", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateBrushSlider (0, 1, canvas.BrushHardness, value => canvas.BrushHardness = value, 90));
+				tool_options.Children.Add (new TextBlock { Text = "Opacity", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateBrushSlider (0, 1, canvas.BrushOpacity, value => canvas.BrushOpacity = value, 90));
+				break;
+			case CanvasHost.CanvasTool.Pencil:
+				break;
+			case CanvasHost.CanvasTool.Line:
+				tool_options.Children.Add (new TextBlock { Text = "Width", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateBrushSizeInput (canvas));
+				break;
+			case CanvasHost.CanvasTool.Rectangle:
+			case CanvasHost.CanvasTool.Ellipse:
+				tool_options.Children.Add (new TextBlock { Text = "Width", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateBrushSizeInput (canvas));
+				var fill = new CheckBox { Content = "Fill", IsChecked = canvas.ShapeFilled };
+				fill.IsCheckedChanged += (_, _) => canvas.ShapeFilled = fill.IsChecked == true;
+				tool_options.Children.Add (fill);
+				break;
+			case CanvasHost.CanvasTool.Fill:
+				tool_options.Children.Add (new TextBlock { Text = "Tolerance", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateBrushSlider (0, 255, canvas.FillTolerance, value => canvas.FillTolerance = (int) value, 90));
+				break;
+			case CanvasHost.CanvasTool.Eraser:
+				tool_options.Children.Add (new TextBlock { Text = "Size", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateBrushSizeInput (canvas));
+				break;
+		}
+	}
+
 	private static Button CreateToolButton (CanvasHost canvas, string label, CanvasHost.CanvasTool tool, string path)
 	{
 		var button = new Button {
-			Content = new PathIcon { Data = StreamGeometry.Parse (path), Width = 20, Height = 20 },
+			Content = new StackPanel {
+				Spacing = 2,
+				HorizontalAlignment = HorizontalAlignment.Center,
+				Children = {
+					new PathIcon { Data = StreamGeometry.Parse (path), Width = 20, Height = 20 },
+					new TextBlock { Text = label, FontSize = 10, HorizontalAlignment = HorizontalAlignment.Center }
+				}
+			},
+			Width = 92,
+			Height = 52,
 			HorizontalContentAlignment = HorizontalAlignment.Center,
 			Classes = { "tool-button" }
 		};
@@ -318,10 +416,10 @@ public sealed class MainWindow : Window
 		return button;
 	}
 
-	private static void UpdateToolButtons (Button brush, Button eraser, CanvasHost.CanvasTool active)
+	private static void UpdateToolButtons (IEnumerable<(Button Button, CanvasHost.CanvasTool Tool)> buttons, CanvasHost.CanvasTool active)
 	{
-		brush.Classes.Set ("active", active == CanvasHost.CanvasTool.Brush);
-		eraser.Classes.Set ("active", active == CanvasHost.CanvasTool.Eraser);
+		foreach ((Button button, CanvasHost.CanvasTool tool) in buttons)
+			button.Classes.Set ("active", active == tool);
 	}
 
 	private static Control CreateCanvasPlaceholder (CanvasHost canvas)
@@ -338,10 +436,7 @@ public sealed class MainWindow : Window
 	private static CanvasHost CreateCanvasHost (PintoraKeyboardSettings keyboard)
 	{
 		MemoryImageSurface surface = new (800, 600);
-		Span<ColorBgra> pixels = surface.GetPixelData ();
-		for (int y = 0; y < surface.Height; y++)
-			for (int x = 0; x < surface.Width; x++)
-				pixels[y * surface.Width + x] = ColorBgra.FromBgra ((byte) (x / 4), (byte) (y / 3), 180, 255);
+		surface.Fill (ColorBgra.White);
 
 		return new CanvasHost (new Pinta.Core.Size (surface.Width, surface.Height), surface, keyboard);
 	}
