@@ -164,6 +164,17 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void BrushOpacityChangesPaintAlpha ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface) { BrushOpacity = 0.5 };
+
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[0].A, Is.EqualTo (128).Within (1));
+	}
+
+	[Test]
 	public void NewDocument_ClearsPixelsHistoryAndResetsScale ()
 	{
 		using MemoryImageSurface surface = new (10, 10);

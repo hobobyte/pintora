@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using System.Linq;
+using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -62,6 +64,8 @@ public sealed class CanvasHost : Control
 
 	public double Scale => session.Scale;
 	public int BrushSize { get; set; } = 1;
+	public double BrushOpacity { get; set; } = 1.0;
+	public double BrushHardness { get; set; } = 1.0;
 	public ColorBgra BrushColor { get; set; } = ColorBgra.Black;
 	public ColorBgra SecondaryBrushColor { get; set; } = ColorBgra.White;
 	public CanvasTool ActiveTool { get; set; } = CanvasTool.Brush;
@@ -140,24 +144,74 @@ public sealed class CanvasHost : Control
 	public void OpenPng (string path)
 	{
 		using Bitmap image = new (path);
-		PixelSize size = image.PixelSize;
-		var bytes = new byte[size.Width * size.Height * ColorBgra.SizeOf];
-		using var decoded = new WriteableBitmap (size, new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
-		using (ILockedFramebuffer locked = decoded.Lock ()) {
-			image.CopyPixels (locked);
-			for (int y = 0; y < size.Height; y++)
-				Marshal.Copy (locked.Address + y * locked.RowBytes, bytes, y * size.Width * ColorBgra.SizeOf, size.Width * ColorBgra.SizeOf);
-		}
-		var surface = new MemoryImageSurface (size.Width, size.Height);
-		MemoryMarshal.Cast<byte, ColorBgra> (bytes).CopyTo (surface.GetPixelData ());
-		session = new AvaloniaDocumentSession (new Pinta.Core.Size (size.Width, size.Height), surface);
+		MemoryImageSurface surface = DecodeSurface (image);
+		session = new AvaloniaDocumentSession (new Pinta.Core.Size (surface.Width, surface.Height), surface);
 		undo_stack.Clear ();
 		redo_stack.Clear ();
 		bitmap = null;
 		InvalidateVisual ();
 	}
 
+	public void OpenOra (string path)
+	{
+		using var archive = new ZipArchive (File.OpenRead (path), ZipArchiveMode.Read);
+		XElement image = XElement.Parse (new StreamReader (archive.GetEntry ("stack.xml")!.Open ()).ReadToEnd ());
+		List<XElement> layerNodes = image.Element ("stack")?.Elements ("layer").Reverse ().ToList () ?? new List<XElement> ();
+		if (layerNodes.Count == 0)
+			throw new InvalidDataException ("The ORA file contains no layers.");
+
+		MemoryImageSurface firstSurface = DecodeSurface (new Bitmap (archive.GetEntry (layerNodes[0].Attribute ("src")!.Value)!.Open ()));
+		session = new AvaloniaDocumentSession (new Pinta.Core.Size (firstSurface.Width, firstSurface.Height), firstSurface);
+		ApplyLayerMetadata (session.ActiveLayer!, layerNodes[0]);
+		for (int i = 1; i < layerNodes.Count; i++) {
+			XElement node = layerNodes[i];
+			MemoryImageSurface source = DecodeSurface (new Bitmap (archive.GetEntry (node.Attribute ("src")!.Value)!.Open ()));
+			AvaloniaLayer layer = session.AddLayer (node.Attribute ("name")?.Value ?? $"Layer {i}");
+			source.GetReadOnlyPixelData ().CopyTo (layer.Surface.GetPixelData ());
+			ApplyLayerMetadata (layer, node);
+		}
+		undo_stack.Clear ();
+		redo_stack.Clear ();
+		bitmap = null;
+		InvalidateVisual ();
+	}
+
+	private static void ApplyLayerMetadata (AvaloniaLayer layer, XElement node)
+	{
+		layer.Name = node.Attribute ("name")?.Value ?? layer.Name;
+		layer.IsVisible = node.Attribute ("visibility")?.Value != "hidden";
+		if (double.TryParse (node.Attribute ("opacity")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double opacity))
+			layer.Opacity = Math.Clamp (opacity, 0, 1);
+	}
+
+	private static MemoryImageSurface DecodeSurface (Bitmap image)
+	{
+		using (image) {
+			PixelSize size = image.PixelSize;
+			var bytes = new byte[size.Width * size.Height * ColorBgra.SizeOf];
+			using var decoded = new WriteableBitmap (size, new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+			using (ILockedFramebuffer locked = decoded.Lock ()) {
+				image.CopyPixels (locked);
+				for (int y = 0; y < size.Height; y++)
+					Marshal.Copy (locked.Address + y * locked.RowBytes, bytes, y * size.Width * ColorBgra.SizeOf, size.Width * ColorBgra.SizeOf);
+			}
+			var surface = new MemoryImageSurface (size.Width, size.Height);
+			MemoryMarshal.Cast<byte, ColorBgra> (bytes).CopyTo (surface.GetPixelData ());
+			return surface;
+		}
+	}
+
 	public void SavePng (string path)
+	{
+		SaveBitmap (path, PngBitmapEncoderOptions.Default);
+	}
+
+	public void SaveJpeg (string path, int quality = 95)
+	{
+		SaveBitmap (path, new JpegBitmapEncoderOptions { Quality = Math.Clamp (quality, 1, 100) });
+	}
+
+	private void SaveBitmap (string path, BitmapEncoderOptions options)
 	{
 		if (Surface is null)
 			throw new InvalidOperationException ("A document surface is required to save the image.");
@@ -165,7 +219,7 @@ public sealed class CanvasHost : Control
 		using MemoryImageSurface composite = CreateCompositeSurface ();
 		WriteableBitmap image = CreateBitmap (composite);
 		using FileStream stream = File.Create (path);
-		image.Save (stream, PngBitmapEncoderOptions.Default);
+		image.Save (stream, options);
 	}
 
 	public void SaveOra (string path)
@@ -210,6 +264,8 @@ public sealed class CanvasHost : Control
 		Span<ColorBgra> pixels = Surface.GetPixelData ();
 		int centerX = (int) Math.Round (canvasPoint.X);
 		int centerY = (int) Math.Round (canvasPoint.Y);
+		if (color.A > 0 && BrushOpacity < 1)
+			color = ColorBgra.FromBgra (color.B, color.G, color.R, (byte) Math.Round (color.A * Math.Clamp (BrushOpacity, 0, 1)));
 		for (int y = centerY - radius; y <= centerY + radius; y++)
 			for (int x = centerX - radius; x <= centerX + radius; x++)
 				if ((uint) x < Surface.Width && (uint) y < Surface.Height)
