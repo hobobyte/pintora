@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Text;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -91,6 +93,20 @@ public sealed class CanvasHost : Control
 		}
 	}
 
+	public void MoveLayer (int direction)
+	{
+		if (session.MoveActiveLayer (direction)) {
+			bitmap = null;
+			InvalidateVisual ();
+		}
+	}
+
+	public void RenameLayer (string name)
+	{
+		session.RenameActiveLayer (name);
+		InvalidateVisual ();
+	}
+
 	public void SetScale (double scale)
 	{
 		session.SetScale (scale);
@@ -149,6 +165,39 @@ public sealed class CanvasHost : Control
 		using MemoryImageSurface composite = CreateCompositeSurface ();
 		WriteableBitmap image = CreateBitmap (composite);
 		using FileStream stream = File.Create (path);
+		image.Save (stream, PngBitmapEncoderOptions.Default);
+	}
+
+	public void SaveOra (string path)
+	{
+		if (Surface is null)
+			throw new InvalidOperationException ("A document surface is required to save the image.");
+
+		using var archive = new ZipArchive (File.Create (path), ZipArchiveMode.Create);
+		WriteTextEntry (archive, "mimetype", "image/openraster");
+		WritePngEntry (archive, "mergedimage.png", CreateCompositeSurface ());
+		var xml = new StringBuilder ($"<image version=\"0.0.1\" w=\"{ImageSize.Width}\" h=\"{ImageSize.Height}\"><stack>");
+		for (int i = Layers.Count - 1; i >= 0; i--) {
+			AvaloniaLayer layer = Layers[i];
+			string source = $"data/layer{i}.png";
+			WritePngEntry (archive, source, layer.Surface);
+			xml.Append ($"<layer name=\"{System.Security.SecurityElement.Escape (layer.Name)}\" src=\"{source}\" opacity=\"{layer.Opacity.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" visibility=\"{(layer.IsVisible ? "visible" : "hidden")}\" />");
+		}
+		xml.Append ("</stack></image>");
+		WriteTextEntry (archive, "stack.xml", xml.ToString ());
+	}
+
+	private static void WriteTextEntry (ZipArchive archive, string name, string text)
+	{
+		using Stream stream = archive.CreateEntry (name).Open ();
+		using var writer = new StreamWriter (stream, Encoding.UTF8);
+		writer.Write (text);
+	}
+
+	private static void WritePngEntry (ZipArchive archive, string name, IImageSurface surface)
+	{
+		using Stream stream = archive.CreateEntry (name).Open ();
+		using WriteableBitmap image = CreateBitmap (surface);
 		image.Save (stream, PngBitmapEncoderOptions.Default);
 	}
 

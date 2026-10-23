@@ -50,6 +50,7 @@ public sealed class MainWindow : Window
 					CreateBrushButton ("New", canvas.NewDocument),
 					CreateBrushButton ("Open PNG", () => _ = OpenPngAsync (canvas)),
 					CreateBrushButton ("Save PNG", () => _ = SavePngAsync (canvas)),
+					CreateBrushButton ("Save ORA", () => _ = SaveOraAsync (canvas)),
 					CreateBrushButton ("Fit", canvas.FitToWindow),
 					CreateBrushButton ("Black", () => canvas.BrushColor = ColorBgra.Black),
 					CreateBrushButton ("Red", () => canvas.BrushColor = ColorBgra.Red),
@@ -109,7 +110,20 @@ public sealed class MainWindow : Window
 			canvas.OpenPng (file[0].Path.LocalPath);
 	}
 
-	private static Control CreateWorkspace (CanvasHost canvas)
+	private async Task SaveOraAsync (CanvasHost canvas)
+	{
+		if (StorageProvider is null)
+			return;
+		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
+			SuggestedFileName = "pintora.ora",
+			DefaultExtension = "ora",
+			FileTypeChoices = new[] { new FilePickerFileType ("OpenRaster image") { Patterns = new[] { "*.ora" } } }
+		});
+		if (file is not null)
+			canvas.SaveOra (file.Path.LocalPath);
+	}
+
+	private Control CreateWorkspace (CanvasHost canvas)
 	{
 		var workspace = new Grid {
 			ColumnDefinitions = new ColumnDefinitions ("220,*,280"),
@@ -156,7 +170,7 @@ public sealed class MainWindow : Window
 		return new CanvasHost (new Pinta.Core.Size (surface.Width, surface.Height), surface, keyboard);
 	}
 
-	private static Control CreateLayersPanel (CanvasHost canvas)
+	private Control CreateLayersPanel (CanvasHost canvas)
 	{
 		var layers = new StackPanel { Spacing = 6 };
 		void RebuildLayers ()
@@ -185,6 +199,9 @@ public sealed class MainWindow : Window
 			new TextBlock { Text = "Opacity" },
 			CreateOpacitySlider (canvas),
 			new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = {
+				CreateBrushButton ("↑", () => { canvas.MoveLayer (1); RebuildLayers (); }),
+				CreateBrushButton ("↓", () => { canvas.MoveLayer (-1); RebuildLayers (); }),
+				CreateBrushButton ("Rename", () => new LayerRenameWindow (canvas, canvas.Layers[canvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
 				CreateBrushButton ("+", () => { canvas.AddLayer (); RebuildLayers (); }),
 				CreateBrushButton ("−", () => { canvas.RemoveLayer (); RebuildLayers (); })
 			} }
