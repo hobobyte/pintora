@@ -89,7 +89,7 @@ public sealed class CanvasRenderer
 			Cairo.ImageSurface surface =
 				(enable_live_preview && layer == workspace.ActiveDocument.Layers.CurrentUserLayer && live_preview.IsEnabled)
 				? live_preview.LivePreviewSurface // If we're in LivePreview, choose preview layer
-				: layer.Surface;
+				: layer.CairoSurface;
 
 			g.Save ();
 

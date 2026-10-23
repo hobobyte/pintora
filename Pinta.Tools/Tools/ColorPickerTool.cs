@@ -192,7 +192,7 @@ public sealed class ColorPickerTool : BaseTool
 	private ColorBgra GetPixel (Document document, PointI position)
 	{
 		if (SampleLayerOnly)
-			return document.Layers.CurrentUserLayer.Surface.GetColorBgra (position);
+			return document.Layers.CurrentUserLayer.CairoSurface.GetColorBgra (position);
 		else
 			return document.GetComputedPixel (position);
 	}

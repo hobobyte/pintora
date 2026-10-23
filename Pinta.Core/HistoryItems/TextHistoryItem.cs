@@ -66,8 +66,8 @@ public sealed class TextHistoryItem : BaseHistoryItem
 		user_layer = passedUserLayer;
 
 		text_surface_diff = SurfaceDiff.Create (
-			original: passedTextSurface,
-			updated: user_layer.TextLayer.Layer.Surface,
+			original: (IImageSurface) CairoImageSurface.Wrap (passedTextSurface),
+			updated: user_layer.TextLayer.Layer.RasterSurface,
 			force: true);
 
 		if (text_surface_diff == null) {
@@ -75,8 +75,8 @@ public sealed class TextHistoryItem : BaseHistoryItem
 		}
 
 		user_surface_diff = SurfaceDiff.Create (
-			original: passedUserSurface,
-			updated: user_layer.Surface,
+			original: (IImageSurface) CairoImageSurface.Wrap (passedUserSurface),
+			updated: user_layer.RasterSurface,
 			force: true);
 
 		if (user_surface_diff == null) {
@@ -107,7 +107,7 @@ public sealed class TextHistoryItem : BaseHistoryItem
 	private void Swap ()
 	{
 		// Grab the original surface
-		ImageSurface surf = user_layer.TextLayer.Layer.Surface;
+		ImageSurface surf = user_layer.TextLayer.Layer.CairoSurface;
 
 		if (text_surface_diff != null) {
 			text_surface_diff.ApplyAndSwap (surf);
@@ -121,7 +121,7 @@ public sealed class TextHistoryItem : BaseHistoryItem
 		}
 
 		// Grab the original surface
-		surf = user_layer.Surface;
+		surf = user_layer.CairoSurface;
 
 		if (user_surface_diff != null) {
 			user_surface_diff.ApplyAndSwap (surf);

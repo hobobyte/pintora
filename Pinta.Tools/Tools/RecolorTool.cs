@@ -109,8 +109,8 @@ public class RecolorTool : BaseBrushTool
 		if (document.Workspace.PointInCanvas (e.PointDouble))
 			surface_modified = true;
 
-		var surf = document.Layers.CurrentUserLayer.Surface;
-		var tmp_layer = document.Layers.ToolLayer.Surface;
+		var surf = document.Layers.CurrentUserLayer.CairoSurface;
+		var tmp_layer = document.Layers.ToolLayer.CairoSurface;
 
 		int roiPadding = BrushWidth + 2;
 		RectangleI roi = RectangleI.FromPoints (last_point.Value, new PointI (x, y)).Inflated (roiPadding, roiPadding);

@@ -64,12 +64,12 @@ public sealed class PaintBucketTool : FloodTool
 
 	protected override void OnFillRegionComputed (Document document, BitMask stencil)
 	{
-		var surf = document.Layers.ToolLayer.Surface;
+		var surf = document.Layers.ToolLayer.CairoSurface;
 
 		using Context tool_layer_ctx = new (surf) {
 			Operator = Operator.Source
 		};
-		tool_layer_ctx.SetSourceSurface (document.Layers.CurrentUserLayer.Surface, 0, 0);
+		tool_layer_ctx.SetSourceSurface (document.Layers.CurrentUserLayer.CairoSurface, 0, 0);
 		tool_layer_ctx.Paint ();
 
 		var hist = new SimpleHistoryItem (Icon, Name);

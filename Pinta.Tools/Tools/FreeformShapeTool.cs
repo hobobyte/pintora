@@ -83,7 +83,7 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
 	{
 		surface_modified = false;
-		undo_surface = document.Layers.CurrentUserLayer.Surface.Clone ();
+		undo_surface = document.Layers.CurrentUserLayer.CairoSurface.Clone ();
 		path = null;
 
 		document.Layers.ToolLayer.Clear ();

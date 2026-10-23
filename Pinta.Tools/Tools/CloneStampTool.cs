@@ -96,7 +96,7 @@ public sealed class CloneStampTool : BaseBrushTool
 			document.Layers.ToolLayer.Hidden = false;
 
 			surface_modified = false;
-			undo_surface = document.Layers.CurrentUserLayer.Surface.Clone ();
+		undo_surface = document.Layers.CurrentUserLayer.CairoSurface.Clone ();
 		} else {
 			origin = e.Point;
 			offset = null;
@@ -128,7 +128,7 @@ public sealed class CloneStampTool : BaseBrushTool
 		g.MoveTo (last_point.Value.X, last_point.Value.Y);
 		g.LineTo (x, y);
 
-		g.SetSourceSurface (document.Layers.CurrentUserLayer.Surface, offset.Value.X, offset.Value.Y);
+		g.SetSourceSurface (document.Layers.CurrentUserLayer.CairoSurface, offset.Value.X, offset.Value.Y);
 		g.LineWidth = BrushWidth;
 		g.LineCap = Cairo.LineCap.Round;
 
@@ -149,8 +149,8 @@ public sealed class CloneStampTool : BaseBrushTool
 		if (e.IsControlPressed)
 			handle.Active = true;
 
-		using Cairo.Context g = new (document.Layers.CurrentUserLayer.Surface);
-		g.SetSourceSurface (document.Layers.ToolLayer.Surface, 0, 0);
+		using Cairo.Context g = new (document.Layers.CurrentUserLayer.CairoSurface);
+		g.SetSourceSurface (document.Layers.ToolLayer.CairoSurface, 0, 0);
 		g.Paint ();
 
 		base.OnMouseUp (document, e);

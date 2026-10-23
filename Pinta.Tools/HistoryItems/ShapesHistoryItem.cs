@@ -73,7 +73,10 @@ public sealed class ShapesHistoryItem : BaseHistoryItem
 		user_layer = passedUserLayer;
 
 
-		user_surface_diff = SurfaceDiff.Create (passedUserSurface, user_layer.Surface, true);
+		user_surface_diff = SurfaceDiff.Create (
+			(IImageSurface) CairoImageSurface.Wrap (passedUserSurface),
+			user_layer.RasterSurface,
+			true);
 
 		if (user_surface_diff == null) {
 			user_surface = passedUserSurface;
@@ -100,7 +103,7 @@ public sealed class ShapesHistoryItem : BaseHistoryItem
 	private void Swap (bool redraw)
 	{
 		// Grab the original surface
-		ImageSurface surf = user_layer.Surface;
+		ImageSurface surf = user_layer.CairoSurface;
 
 		if (user_surface_diff != null) {
 			user_surface_diff.ApplyAndSwap (surf);

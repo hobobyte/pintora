@@ -49,9 +49,15 @@ public sealed class SurfaceDiff
 	}
 
 	public static SurfaceDiff? Create (ImageSurface original, ImageSurface updated, bool force = false)
+		=> CreateCore (CairoImageSurface.Wrap (original), CairoImageSurface.Wrap (updated), force);
+
+	public static SurfaceDiff? Create (IImageSurface original, IImageSurface updated, bool force = false)
+		=> CreateCore (original, updated, force);
+
+	private static SurfaceDiff? CreateCore (IImageSurface original, IImageSurface updated, bool force)
 	{
-		Size originalSize = original.GetSize ();
-		Size updatedSize = updated.GetSize ();
+		Size originalSize = new (original.Width, original.Height);
+		Size updatedSize = new (updated.Width, updated.Height);
 
 		if (originalSize != updatedSize) {
 
@@ -99,8 +105,8 @@ public sealed class SurfaceDiff
 	}
 
 	private static (int ChangeCount, BitArray BitMask) CalculateChanges (
-		ImageSurface original,
-		ImageSurface updated,
+		IImageSurface original,
+		IImageSurface updated,
 		RectangleI bounds,
 		Size size)
 	{
@@ -139,7 +145,7 @@ public sealed class SurfaceDiff
 		return (result, bitmask);
 	}
 
-	private static RectangleI? CalculateDifferenceBounds (ImageSurface original, ImageSurface updated, Size size)
+	private static RectangleI? CalculateDifferenceBounds (IImageSurface original, IImageSurface updated, Size size)
 	{
 		RectangleI? diffBounds = null;
 
@@ -213,21 +219,27 @@ public sealed class SurfaceDiff
 
 	public void Apply (ImageSurface dst)
 	{
-		ApplyAndSwap (dst, false);
+		ApplyCore (CairoImageSurface.Wrap (dst), false);
+		dst.MarkDirty ();
 	}
+
+	public void Apply (IImageSurface dst)
+		=> ApplyCore (dst, false);
 
 	public void ApplyAndSwap (ImageSurface dst)
 	{
-		ApplyAndSwap (dst, true);
+		ApplyCore (CairoImageSurface.Wrap (dst), true);
+		dst.MarkDirty ();
 	}
+
+	public void ApplyAndSwap (IImageSurface dst)
+		=> ApplyCore (dst, true);
 
 	public RectangleI GetBounds ()
 		=> bounds;
 
-	private void ApplyAndSwap (ImageSurface destination, bool swap)
+	private void ApplyCore (IImageSurface destination, bool swap)
 	{
-		destination.Flush ();
-
 		int destinationWidth = destination.Width;
 		Span<ColorBgra> destinationData = destination.GetPixelData ();
 		int maskIndex = 0;
@@ -254,6 +266,5 @@ public sealed class SurfaceDiff
 
 		}
 
-		destination.MarkDirty ();
 	}
 }

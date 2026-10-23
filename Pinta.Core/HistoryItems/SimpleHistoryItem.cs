@@ -40,7 +40,9 @@ public sealed class SimpleHistoryItem : BaseHistoryItem
 
 		layer_index = layerIndex;
 
-		surface_diff = SurfaceDiff.Create (oldSurface, doc.Layers[layer_index].Surface);
+		surface_diff = SurfaceDiff.Create (
+			(IImageSurface) CairoImageSurface.Wrap (oldSurface),
+			doc.Layers[layer_index].RasterSurface);
 
 		// If the diff was too big, store the original surface, else, dispose it
 		if (surface_diff == null)
@@ -66,7 +68,7 @@ public sealed class SimpleHistoryItem : BaseHistoryItem
 		var doc = PintaCore.Workspace.ActiveDocument;
 
 		// Grab the original surface
-		ImageSurface surf = doc.Layers[layer_index].Surface;
+		ImageSurface surf = doc.Layers[layer_index].CairoSurface;
 
 		if (surface_diff != null) {
 			surface_diff.ApplyAndSwap (surf);
@@ -87,7 +89,7 @@ public sealed class SimpleHistoryItem : BaseHistoryItem
 		var doc = PintaCore.Workspace.ActiveDocument;
 
 		layer_index = layerIndex;
-		old_surface = doc.Layers[layerIndex].Surface.Clone ();
+		old_surface = doc.Layers[layerIndex].CairoSurface.Clone ();
 	}
 
 	public void TakeSnapshotOfLayer (UserLayer layer)
@@ -95,6 +97,6 @@ public sealed class SimpleHistoryItem : BaseHistoryItem
 		var doc = PintaCore.Workspace.ActiveDocument;
 
 		layer_index = doc.Layers.IndexOf (layer);
-		old_surface = layer.Surface.Clone ();
+		old_surface = layer.CairoSurface.Clone ();
 	}
 }

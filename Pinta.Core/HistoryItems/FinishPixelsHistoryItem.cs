@@ -49,8 +49,8 @@ public sealed class FinishPixelsHistoryItem : BaseHistoryItem
 		doc.Layers.ShowSelectionLayer = true;
 
 		Matrix swap_transform = doc.Layers.SelectionLayer.Transform;
-		ImageSurface swap_surf = doc.Layers.CurrentUserLayer.Surface;
-		ImageSurface swap_sel = doc.Layers.SelectionLayer.Surface;
+		ImageSurface swap_surf = doc.Layers.CurrentUserLayer.CairoSurface;
+		ImageSurface swap_sel = doc.Layers.SelectionLayer.CairoSurface;
 
 		doc.Layers.SelectionLayer.Surface = old_selection_layer!; // NRT - Set in TakeSnapshot
 		doc.Layers.SelectionLayer.Transform = old_transform;
@@ -69,8 +69,8 @@ public sealed class FinishPixelsHistoryItem : BaseHistoryItem
 		var doc = PintaCore.Workspace.ActiveDocument;
 
 		Matrix swap_transfrom = doc.Layers.SelectionLayer.Transform;
-		ImageSurface swap_surf = doc.Layers.CurrentUserLayer.Surface.Clone ();
-		ImageSurface swap_sel = doc.Layers.SelectionLayer.Surface;
+		ImageSurface swap_surf = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
+		ImageSurface swap_sel = doc.Layers.SelectionLayer.CairoSurface;
 
 		doc.Layers.CurrentUserLayer.Surface = old_surface!; // NRT - Set in TakeSnapshot
 		doc.Layers.SelectionLayer.Surface = old_selection_layer!;
@@ -88,8 +88,8 @@ public sealed class FinishPixelsHistoryItem : BaseHistoryItem
 	{
 		var doc = PintaCore.Workspace.ActiveDocument;
 
-		old_selection_layer = doc.Layers.SelectionLayer.Surface.Clone ();
-		old_surface = doc.Layers.CurrentUserLayer.Surface.Clone ();
+		old_selection_layer = doc.Layers.SelectionLayer.CairoSurface.Clone ();
+		old_surface = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
 		old_transform = doc.Layers.SelectionLayer.Transform.Clone ();
 	}
 }

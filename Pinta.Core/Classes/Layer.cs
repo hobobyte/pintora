@@ -58,6 +58,16 @@ public class Layer : ObservableObject
 	}
 
 	public ImageSurface Surface { get; set; }
+
+	/// <summary>
+	/// Explicit Cairo access for code that still needs the current renderer.
+	/// </summary>
+	public ImageSurface CairoSurface => Surface;
+
+	/// <summary>
+	/// UI-independent access to this layer's pixel surface.
+	/// </summary>
+	public IImageSurface RasterSurface => CairoImageSurface.Wrap (Surface);
 	public Matrix Transform { get; set; }
 
 	public static string OpacityProperty { get; } = nameof (Opacity);

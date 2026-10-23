@@ -68,7 +68,7 @@ public sealed partial class LayersListViewItem
 
 		// Directly use the layer's surface if there isn't any blending required.
 		if (layers.Count == 1)
-			return layers[0].Surface;
+			return layers[0].CairoSurface;
 
 		canvas_renderer ??= new CanvasRenderer (
 			PintaCore.LivePreview,

@@ -33,6 +33,20 @@ public sealed class DocumentWorkspace
 	private readonly Document document;
 
 	private readonly ActionManager actions;
+	private readonly DocumentViewportState viewport;
+
+	/// <summary>
+	/// Optional UI host for viewport operations. The legacy GTK path is used when unset.
+	/// </summary>
+	private IDocumentViewportHost? viewport_host;
+
+	public IDocumentViewportHost? ViewportHost {
+		get => viewport_host;
+		set {
+			viewport_host = value;
+			viewport_host?.UpdateContentSize (viewport.ViewSize);
+		}
+	}
 
 	private enum ZoomType
 	{
@@ -48,6 +62,7 @@ public sealed class DocumentWorkspace
 		this.actions = actions;
 
 		this.document = document;
+		viewport = new DocumentViewportState (document.ImageSize);
 
 		History = new DocumentHistory (document);
 	}
@@ -66,6 +81,9 @@ public sealed class DocumentWorkspace
 	/// </summary>
 	public bool ImageViewFitsInWindow {
 		get {
+			if (ViewportHost is not null)
+				return ViewportHost.ImageViewFitsInWindow;
+
 			Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
 			int window_x = view.GetAllocatedWidth ();
 			int window_y = view.GetAllocatedHeight ();
@@ -77,14 +95,14 @@ public sealed class DocumentWorkspace
 	/// Size of the zoomed image.
 	/// </summary>
 	public Size ViewSize {
-		get => view_size;
+		get => viewport.ViewSize;
 		set {
-			if (view_size == value) return;
-			view_size = value;
+			if (viewport.ViewSize == value) return;
+			viewport.SetScale (value.Width / (double) viewport.ImageSize.Width);
+			ViewportHost?.UpdateContentSize (viewport.ViewSize);
 			OnViewSizeChanged ();
 		}
 	}
-	private Size view_size;
 
 	public DocumentHistory History { get; }
 
@@ -93,6 +111,9 @@ public sealed class DocumentWorkspace
 	/// </summary>
 	public bool ImageFitsInWindow {
 		get {
+			if (ViewportHost is not null)
+				return ViewportHost.ImageFitsInWindow;
+
 			Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
 			int window_x = view.GetAllocatedWidth ();
 			int window_y = view.GetAllocatedHeight ();
@@ -104,31 +125,25 @@ public sealed class DocumentWorkspace
 	/// Scale factor for the zoomed image.
 	/// </summary>
 	public double Scale {
-		get => ViewSize.Width / (double) document.ImageSize.Width;
+		get => viewport.Scale;
 		set {
-			if (value == ViewSize.Width / (double) document.ImageSize.Width && value == ViewSize.Height / (double) document.ImageSize.Height)
+			if (value == Scale)
 				return;
 
-			document.ImageSize = CoercedToPositive (document.ImageSize);
-			ViewSize = GetNewViewSize (document.ImageSize, value);
+			viewport.SetScale (value);
+			OnViewSizeChanged ();
 
 			Invalidate ();
 		}
 	}
 
-	/// <summary>
-	/// Ensures that the size has a width and a height of at least 1
-	/// </summary>
-	private static Size CoercedToPositive (Size baseSize)
-		=> new (
-			Width: Math.Max (baseSize.Width, 1),
-			Height: Math.Max (baseSize.Height, 1));
-
-	private static Size GetNewViewSize (Size imageSize, double scale)
+	internal void SetImageSize (Size imageSize)
 	{
-		int new_x = Math.Max ((int) (imageSize.Width * scale), 1);
-		int new_y = Math.Max ((int) ((long) new_x * imageSize.Height / imageSize.Width), 1);
-		return new (new_x, new_y);
+		Size oldViewSize = viewport.ViewSize;
+		viewport.ImageSize = imageSize;
+		ViewportHost?.UpdateContentSize (viewport.ViewSize);
+		if (viewport.ViewSize != oldViewSize)
+			OnViewSizeChanged ();
 	}
 
 	#endregion
@@ -172,6 +187,11 @@ public sealed class DocumentWorkspace
 	/// </summary>
 	public void GrabFocusToCanvas ()
 	{
+		if (ViewportHost is not null) {
+			ViewportHost.GrabFocus ();
+			return;
+		}
+
 		bool gained_focus = CanvasWindow.GrabFocus ();
 		// Log a warning if something went wrong, e.g. there is a non-focusable widget
 		// in the hierarchy.
@@ -198,6 +218,11 @@ public sealed class DocumentWorkspace
 
 	public void RecenterView (PointD point)
 	{
+		if (ViewportHost is not null) {
+			ViewportHost.Recenter (point, Scale);
+			return;
+		}
+
 		Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
 
 		var h_adjust = view.GetHadjustment ()!;
@@ -209,6 +234,11 @@ public sealed class DocumentWorkspace
 
 	public void ScrollCanvas (PointI delta)
 	{
+		if (ViewportHost is not null) {
+			ViewportHost.Scroll (delta);
+			return;
+		}
+
 		Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
 
 		var h_adjust = view.GetHadjustment ()!;
@@ -228,20 +258,13 @@ public sealed class DocumentWorkspace
 	/// The Y coordinate of the view point
 	/// </param>
 	public PointD ViewPointToCanvas (PointD viewPoint)
-	{
-		Fraction<int> sf = ScaleFactor.CreateClamped (document.ImageSize.Width, ViewSize.Width);
-		PointD pt = sf.ScalePoint (viewPoint);
-		return new (pt.X, pt.Y);
-	}
+		=> viewport.ViewPointToCanvas (viewPoint);
 
 	/// <summary>
 	/// Converts a point from canvas coordinates to view coordinates
 	/// </summary>
 	public PointD CanvasPointToView (PointD canvasPoint)
-	{
-		Fraction<int> sf = ScaleFactor.CreateClamped (document.ImageSize.Width, ViewSize.Width);
-		return sf.UnscalePoint (canvasPoint);
-	}
+		=> viewport.CanvasPointToView (canvasPoint);
 
 	public void ZoomIn ()
 	{
@@ -312,10 +335,7 @@ public sealed class DocumentWorkspace
 	/// </summary>
 	private void ZoomAroundCenter (ZoomType zoomType)
 	{
-		Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
-		PointD center = new (
-			view.Hadjustment!.Value + (view.Hadjustment.PageSize / 2.0),
-			view.Vadjustment!.Value + (view.Vadjustment.PageSize / 2.0));
+		PointD center = ViewportHost?.ViewCenter ?? GetLegacyViewportCenter ();
 		ZoomAndRecenterView (zoomType, center);
 	}
 
@@ -335,10 +355,9 @@ public sealed class DocumentWorkspace
 
 		actions.View.SuspendZoomUpdate ();
 
-		Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
-
-		double scroll_offset_x = center_point.X - view.Hadjustment!.Value;
-		double scroll_offset_y = center_point.Y - view.Vadjustment!.Value;
+		PointD scroll_offset = ViewportHost?.ScrollOffset ?? GetLegacyViewportScrollOffset ();
+		double scroll_offset_x = center_point.X - scroll_offset.X;
+		double scroll_offset_y = center_point.Y - scroll_offset.Y;
 
 		PointD canvas_point = ViewPointToCanvas (center_point);
 
@@ -389,17 +408,33 @@ public sealed class DocumentWorkspace
 
 		// Quick fix : need to manually update Upper limit because the value is not changing after updating the canvas scale.
 		// TODO : I think there is an event need to be fired so that those values updated automatically.
-		view.Hadjustment!.Upper = ViewSize.Width < view.Hadjustment.PageSize ? view.Hadjustment.PageSize : ViewSize.Width;
-		view.Vadjustment!.Upper = ViewSize.Height < view.Vadjustment.PageSize ? view.Vadjustment.PageSize : ViewSize.Height;
+		ViewportHost?.UpdateContentSize (ViewSize);
 
 		// Scroll so that the canvas position under 'center_point' is still the same after zooming.
 		// Note that the canvas widget might not have resized yet, so using Offset is important for taking
 		// the size difference into account.
 		PointD new_center_point = CanvasPointToView (canvas_point);
-		view.Hadjustment.Value = new_center_point.X - scroll_offset_x;
-		view.Vadjustment.Value = new_center_point.Y - scroll_offset_y;
+		if (ViewportHost is not null)
+			ViewportHost.SetScrollOffset (new PointD (new_center_point.X - scroll_offset_x, new_center_point.Y - scroll_offset_y));
+		else {
+			Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
+			view.Hadjustment!.Value = new_center_point.X - scroll_offset_x;
+			view.Vadjustment!.Value = new_center_point.Y - scroll_offset_y;
+		}
 
 		actions.View.ResumeZoomUpdate ();
+	}
+
+	private PointD GetLegacyViewportCenter ()
+	{
+		Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
+		return new PointD (view.Hadjustment!.Value + view.Hadjustment.PageSize / 2.0, view.Vadjustment!.Value + view.Vadjustment.PageSize / 2.0);
+	}
+
+	private PointD GetLegacyViewportScrollOffset ()
+	{
+		Gtk.Viewport view = (Gtk.Viewport) Canvas.Parent!;
+		return new PointD (view.Hadjustment!.Value, view.Vadjustment!.Value);
 	}
 
 	#endregion
