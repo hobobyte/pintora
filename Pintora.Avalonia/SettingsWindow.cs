@@ -24,8 +24,12 @@ public sealed class SettingsWindow : Window
 			settings.PutSetting ("Pintora.Theme", theme.SelectedIndex == 1 ? "Light" : theme.SelectedIndex == 2 ? "Dark" : "System");
 		};
 
-		var filled = new CheckBox { Content = "Fill shapes by default", IsChecked = canvas.ShapeFilled };
-		filled.IsCheckedChanged += (_, _) => { canvas.ShapeFilled = filled.IsChecked == true; settings.PutSetting ("Pintora.Shape.Filled", canvas.ShapeFilled); };
+		var shapeFill = new ComboBox { Width = 180, ItemsSource = new[] { "Outline", "Fill", "Fill + outline" }, SelectedIndex = (int) canvas.FillStyle };
+		shapeFill.SelectionChanged += (_, _) => {
+			if (shapeFill.SelectedIndex < 0) return;
+			canvas.FillStyle = (CanvasHost.ShapeFillStyle) shapeFill.SelectedIndex;
+			settings.PutSetting ("Pintora.Shape.FillStyle", canvas.FillStyle.ToString ());
+		};
 		var reversed = new CheckBox { Content = "Reverse gradients by default", IsChecked = canvas.GradientReversed };
 		reversed.IsCheckedChanged += (_, _) => { canvas.GradientReversed = reversed.IsChecked == true; settings.PutSetting ("Pintora.Gradient.Reversed", canvas.GradientReversed); };
 
@@ -49,7 +53,7 @@ public sealed class SettingsWindow : Window
 			Row ("Brush opacity", opacity),
 			Row ("Brush hardness", hardness),
 			Row ("Fill tolerance", tolerance),
-			filled, reversed,
+			Row ("Shape fill style", shapeFill), reversed,
 			new Separator (), open_shortcuts
 		} };
 		Content = new Border { Padding = new global::Avalonia.Thickness (22), Child = content };

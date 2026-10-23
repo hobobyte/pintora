@@ -62,6 +62,88 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void FillAtMaximumToleranceVisitsEachPixelOnce ()
+	{
+		using MemoryImageSurface surface = new (3, 2);
+		surface.Fill (ColorBgra.White);
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 2), surface) { FillTolerance = 255 };
+
+		Assert.That (canvas.FillAt (new PointD (0, 0), ColorBgra.Blue), Is.True);
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Blue));
+		canvas.UndoLastStroke ();
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.White));
+	}
+
+	[Test]
+	public void UndoAndRedoChangeThePaintedLayerAfterSelectionChanges ()
+	{
+		using MemoryImageSurface background = new (2, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), background);
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+		canvas.CommitStroke ();
+		canvas.AddLayer ();
+		canvas.Surface!.GetPixelData ()[1] = ColorBgra.Blue;
+
+		canvas.UndoLastStroke ();
+		Assert.That (background.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Zero));
+		Assert.That (canvas.Surface.GetReadOnlyPixelData ()[1], Is.EqualTo (ColorBgra.Blue));
+		canvas.RedoLastStroke ();
+		Assert.That (background.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Red));
+		Assert.That (canvas.Surface.GetReadOnlyPixelData ()[1], Is.EqualTo (ColorBgra.Blue));
+	}
+
+	[Test]
+	public void NewDocumentClearsLayerUndoAndHistory ()
+	{
+		using MemoryImageSurface surface = new (2, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface);
+		canvas.AddLayer ();
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+		canvas.CommitStroke ();
+
+		canvas.NewDocument (3, 1);
+
+		Assert.That (canvas.CanUndoLayerOperation, Is.False);
+		Assert.That (canvas.CanUndoStroke, Is.False);
+		Assert.That (canvas.History, Is.Empty);
+	}
+
+	[Test]
+	public void ResizeAndCropClearSnapshotsFromEarlierDimensions ()
+	{
+		using MemoryImageSurface surface = new (3, 2);
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 2), surface);
+		canvas.AddLayer ();
+		canvas.ResizeImage (2, 2);
+		Assert.That (canvas.CanUndoLayerOperation, Is.False);
+
+		canvas.AddLayer ();
+		canvas.CropImage (0, 0, 1, 1);
+		Assert.That (canvas.CanUndoLayerOperation, Is.False);
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (3));
+	}
+
+	[Test]
+	public void RasterUndoKeepsLayerIdentityAfterLayerUndo ()
+	{
+		using MemoryImageSurface background = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), background);
+		canvas.AddLayer ();
+		canvas.UndoLayerOperation ();
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+		canvas.CommitStroke ();
+
+		canvas.RedoLayerOperation ();
+		canvas.UndoLastStroke ();
+
+		Assert.That (background.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
 	public void RectangleCanBeUndoneAsOneOperation ()
 	{
 		using MemoryImageSurface surface = new (8, 8);
@@ -85,6 +167,135 @@ internal sealed class CanvasPaintingTests
 		canvas.UndoLastStroke ();
 
 		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+	}
+
+	[TestCase (CanvasHost.ShapeKind.Line)]
+	[TestCase (CanvasHost.ShapeKind.Rectangle)]
+	[TestCase (CanvasHost.ShapeKind.Ellipse)]
+	public void ShapesToolDrawsSelectedKind (CanvasHost.ShapeKind kind)
+	{
+		using MemoryImageSurface surface = new (7, 7);
+		CanvasHost canvas = new (new Pinta.Core.Size (7, 7), surface) {
+			ActiveTool = CanvasHost.CanvasTool.Shapes,
+			SelectedShape = kind,
+			ShapeOutlineWidth = 1,
+			ShapeAntialias = false
+		};
+
+		canvas.BeginStroke ();
+		canvas.PaintCanvasShape (canvas.SelectedShape, new PointD (1, 1), new PointD (5, 5), ColorBgra.Red);
+		canvas.CommitStroke ();
+
+		int paintedIndex = kind switch {
+			CanvasHost.ShapeKind.Line => 1 * 7 + 1,
+			CanvasHost.ShapeKind.Rectangle => 1 * 7 + 5,
+			_ => 1 * 7 + 3
+		};
+		Assert.That (surface.GetReadOnlyPixelData ()[paintedIndex], Is.EqualTo (ColorBgra.Red));
+		Assert.That (surface.GetReadOnlyPixelData ()[1 * 7 + 5], Is.EqualTo (kind == CanvasHost.ShapeKind.Rectangle ? ColorBgra.Red : ColorBgra.Zero));
+		canvas.UndoLastStroke ();
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void FillAndOutlineUsesBothPaletteColors ()
+	{
+		using MemoryImageSurface surface = new (11, 11);
+		CanvasHost canvas = new (new Pinta.Core.Size (11, 11), surface) {
+			FillStyle = CanvasHost.ShapeFillStyle.FillAndOutline,
+			ShapeOutlineWidth = 1,
+			SecondaryBrushColor = ColorBgra.Blue,
+			ShapeAntialias = false
+		};
+
+		canvas.BeginStroke ();
+		canvas.PaintCanvasShape (CanvasHost.ShapeKind.Rectangle, new PointD (2, 2), new PointD (8, 8), ColorBgra.Red);
+		canvas.CommitStroke ();
+
+		Assert.That (surface.GetReadOnlyPixelData ()[2 * 11 + 5], Is.EqualTo (ColorBgra.Red));
+		Assert.That (surface.GetReadOnlyPixelData ()[5 * 11 + 5], Is.EqualTo (ColorBgra.Blue));
+		canvas.UndoLastStroke ();
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void OutlineWidthChangesLineThickness ()
+	{
+		using MemoryImageSurface surface = new (12, 9);
+		CanvasHost canvas = new (new Pinta.Core.Size (12, 9), surface) { ShapeOutlineWidth = 3, ShapeAntialias = false };
+
+		canvas.PaintCanvasShape (CanvasHost.ShapeKind.Line, new PointD (1, 4), new PointD (10, 4), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[3 * 12 + 5], Is.EqualTo (ColorBgra.Red));
+		Assert.That (surface.GetReadOnlyPixelData ()[5 * 12 + 5], Is.EqualTo (ColorBgra.Red));
+		Assert.That (surface.GetReadOnlyPixelData ()[2 * 12 + 5], Is.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void DashedOutlineLeavesGaps ()
+	{
+		using MemoryImageSurface surface = new (30, 3);
+		CanvasHost canvas = new (new Pinta.Core.Size (30, 3), surface) {
+			ShapeOutlineWidth = 1,
+			DashStyle = CanvasHost.ShapeDashStyle.Dash,
+			ShapeAntialias = false
+		};
+
+		canvas.PaintCanvasShape (CanvasHost.ShapeKind.Line, new PointD (1, 1), new PointD (25, 1), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[1 * 30 + 3], Is.EqualTo (ColorBgra.Red));
+		Assert.That (surface.GetReadOnlyPixelData ()[1 * 30 + 9], Is.EqualTo (ColorBgra.Zero));
+		Assert.That (surface.GetReadOnlyPixelData ()[1 * 30 + 13], Is.EqualTo (ColorBgra.Red));
+	}
+
+	[Test]
+	public void RoundedRectangleDoesNotPaintSquareCorners ()
+	{
+		using MemoryImageSurface surface = new (20, 20);
+		CanvasHost canvas = new (new Pinta.Core.Size (20, 20), surface) {
+			ShapeOutlineWidth = 1,
+			ShapeCornerRadius = 5,
+			FillStyle = CanvasHost.ShapeFillStyle.Fill,
+			ShapeAntialias = false
+		};
+
+		canvas.PaintCanvasShape (CanvasHost.ShapeKind.RoundedRectangle, new PointD (2, 2), new PointD (16, 16), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[2 * 20 + 2], Is.EqualTo (ColorBgra.Zero));
+		Assert.That (surface.GetReadOnlyPixelData ()[2 * 20 + 9], Is.EqualTo (ColorBgra.Red));
+		Assert.That (surface.GetReadOnlyPixelData ()[9 * 20 + 9], Is.EqualTo (ColorBgra.Red));
+	}
+
+	[Test]
+	public void SmoothShapeProducesPartialEdgeCoverage ()
+	{
+		using MemoryImageSurface surface = new (12, 12);
+		CanvasHost canvas = new (new Pinta.Core.Size (12, 12), surface) {
+			FillStyle = CanvasHost.ShapeFillStyle.Fill,
+			ShapeAntialias = true
+		};
+
+		canvas.PaintCanvasShape (CanvasHost.ShapeKind.Rectangle, new PointD (2.25, 2.25), new PointD (8.75, 8.75), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[5 * 12 + 5].A, Is.EqualTo (255));
+		Assert.That (surface.GetReadOnlyPixelData ()[5 * 12 + 2].A, Is.InRange (1, 254));
+	}
+
+	[Test]
+	public void SmoothDashedOutlineKeepsItsGaps ()
+	{
+		using MemoryImageSurface surface = new (45, 6);
+		CanvasHost canvas = new (new Pinta.Core.Size (45, 6), surface) {
+			ShapeOutlineWidth = 2,
+			DashStyle = CanvasHost.ShapeDashStyle.Dash,
+			ShapeAntialias = true
+		};
+
+		canvas.PaintCanvasShape (CanvasHost.ShapeKind.Line, new PointD (1, 3), new PointD (41, 3), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[3 * 45 + 4].A, Is.GreaterThan (0));
+		Assert.That (surface.GetReadOnlyPixelData ()[3 * 45 + 17].A, Is.EqualTo (0));
+		Assert.That (surface.GetReadOnlyPixelData ()[3 * 45 + 24].A, Is.GreaterThan (0));
 	}
 
 	[Test]
