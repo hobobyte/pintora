@@ -194,7 +194,7 @@ internal sealed class PasteAction : IActionHandler
 
 		doc.Layers.ShowSelectionLayer = true;
 
-		using Cairo.Context g = new (doc.Layers.SelectionLayer.Surface);
+		using Cairo.Context g = new (doc.Layers.SelectionLayer.CairoSurface);
 
 		g.SetSourceSurface (cb_image, 0, 0);
 		g.Paint ();

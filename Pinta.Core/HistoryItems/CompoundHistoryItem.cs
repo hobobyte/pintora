@@ -65,7 +65,7 @@ public class CompoundHistoryItem : BaseHistoryItem
 	{
 		snapshots = [];
 		foreach (UserLayer item in PintaCore.Workspace.ActiveDocument.Layers.UserLayers) {
-			snapshots.Add (item.Surface.Clone ());
+			snapshots.Add (item.CairoSurface.Clone ());
 		}
 	}
 

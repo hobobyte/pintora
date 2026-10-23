@@ -89,7 +89,7 @@ public sealed class GradientTool : BaseTool
 			return;
 
 		undo_data = this.Data;
-		undo_surface = document.Layers.CurrentUserLayer.Surface.Clone ();
+		undo_surface = document.Layers.CurrentUserLayer.CairoSurface.Clone ();
 
 		if (handle.BeginDrag (e.PointDouble)) {
 			SetCursor (DefaultCursor);
@@ -182,7 +182,7 @@ public sealed class GradientTool : BaseTool
 
 		if (document != null) {
 			undo_data = Data;
-			undo_surface = document.Layers.CurrentUserLayer.Surface.Clone ();
+			undo_surface = document.Layers.CurrentUserLayer.CairoSurface.Clone ();
 			document.History.PushNewItem (new GradientHistoryItem (Icon, Name + " " + Translations.GetString ("Finalized"), undo_surface,
 						document.Layers.CurrentUserLayerIndex, undo_data!.Value, this));
 		}
@@ -235,7 +235,7 @@ public sealed class GradientTool : BaseTool
 		gr.BeforeRender ();
 
 		var selection_bounds = document.GetSelectedBounds (true);
-		var scratch_layer = document.Layers.ToolLayer.Surface;
+		var scratch_layer = document.Layers.ToolLayer.CairoSurface;
 		document.Layers.ToolLayer.Hidden = true;
 
 		// Initialize the scratch layer with the (original) current layer, if any blending is required.

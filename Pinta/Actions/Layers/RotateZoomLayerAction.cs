@@ -119,7 +119,7 @@ public sealed class RotateZoomLayerAction : IActionHandler
 
 		tools.Commit ();
 
-		var old_surf = doc.Layers.CurrentUserLayer.Surface.Clone ();
+		var old_surf = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
 
 		var xform = ComputeMatrix (data);
 

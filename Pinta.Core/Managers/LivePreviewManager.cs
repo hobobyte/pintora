@@ -110,7 +110,7 @@ public sealed class LivePreviewManager : ILivePreview
 			() => AsyncEffectRenderer.Start (
 				settings,
 				effect,
-				layer.Surface,
+				layer.CairoSurface,
 				LivePreviewSurface
 			)
 		);
@@ -128,7 +128,7 @@ public sealed class LivePreviewManager : ILivePreview
 		try {
 			// Paint the pre-effect layer surface into into the working surface.
 			using Context ctx = new (LivePreviewSurface);
-			layer.Draw (ctx, layer.Surface, 1);
+			layer.Draw (ctx, layer.CairoSurface, 1);
 
 			Debug.WriteLine (DateTime.Now.ToString ("HH:mm:ss:ffff") + "Start Live preview.");
 
@@ -174,7 +174,7 @@ public sealed class LivePreviewManager : ILivePreview
 
 			Debug.WriteLine ("Render completed without the user canceling");
 
-			using Context context = new (layer.Surface);
+			using Context context = new (layer.CairoSurface);
 
 			context.Save ();
 			workspace.ActiveDocument.Selection.Clip (context);

@@ -85,14 +85,14 @@ public sealed class MoveSelectedTool : BaseTransformTool
 			document.Layers.SelectionLayer.Opacity = document.Layers.CurrentUserLayer.Opacity;
 			document.Layers.SelectionLayer.Hidden = document.Layers.CurrentUserLayer.Hidden;
 
-			using Context selection_ctx = new (document.Layers.SelectionLayer.Surface);
+			using Context selection_ctx = new (document.Layers.SelectionLayer.CairoSurface);
 			selection_ctx.AppendPath (document.Selection.SelectionPath);
 			selection_ctx.FillRule = FillRule.EvenOdd;
-			selection_ctx.SetSourceSurface (document.Layers.CurrentUserLayer.Surface, 0, 0);
+			selection_ctx.SetSourceSurface (document.Layers.CurrentUserLayer.CairoSurface, 0, 0);
 			selection_ctx.Clip ();
 			selection_ctx.Paint ();
 
-			var surf = document.Layers.CurrentUserLayer.Surface;
+			var surf = document.Layers.CurrentUserLayer.CairoSurface;
 
 			using Context surf_ctx = new (surf);
 			surf_ctx.AppendPath (document.Selection.SelectionPath);

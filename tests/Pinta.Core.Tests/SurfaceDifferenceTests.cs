@@ -78,4 +78,20 @@ internal sealed class SurfaceDifferenceTests
 		SurfaceDiff? difference = SurfaceDiff.Create (empty, withChanges, force: false);
 		Assert.That (difference, Is.Not.Null);
 	}
+
+	[Test]
+	public void Interface_Overload_Uses_Image_Surface_Contract ()
+	{
+		using ImageSurface original = new (Format.Argb32, 16, 16);
+		using ImageSurface updated = new (Format.Argb32, 16, 16);
+		using IImageSurface originalAdapter = new CairoImageSurface (original);
+		using IImageSurface updatedAdapter = new CairoImageSurface (updated);
+
+		updatedAdapter.GetPixelData ()[0] = ColorBgra.Red;
+		updated.MarkDirty ();
+
+		SurfaceDiff? difference = SurfaceDiff.Create (originalAdapter, updatedAdapter);
+
+		Assert.That (difference, Is.Not.Null);
+	}
 }

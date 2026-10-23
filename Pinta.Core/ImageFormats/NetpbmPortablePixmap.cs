@@ -36,9 +36,9 @@ public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter
 			"ppm");
 
 		Layer layer = newDocument.Layers.AddNewLayer (file.GetDisplayName ());
-		Span<ColorBgra> pixelData = layer.Surface.GetPixelData ();
+		Span<ColorBgra> pixelData = layer.CairoSurface.GetPixelData ();
 
-		layer.Surface.Flush ();
+		layer.CairoSurface.Flush ();
 
 		int pixelCount = width * height;
 		if (maxValue == 255) {
@@ -49,7 +49,7 @@ public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter
 				pixelData[i] = ReadPixel (ref tokenizer, maxValue);
 		}
 
-		layer.Surface.MarkDirty ();
+		layer.CairoSurface.MarkDirty ();
 
 		return newDocument;
 

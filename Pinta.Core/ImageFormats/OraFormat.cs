@@ -114,7 +114,7 @@ public sealed class OraFormat : IImageImporter, IImageExporter
 				layer.BlendMode = StandardToBlendMode (GetAttribute (layerElement, "composite-op", "svg:src-over"));
 
 				using Pixbuf pb = Pixbuf.NewFromFile (tmp_file)!; // NRT: only nullable when an error is thrown
-				using Context g = new (layer.Surface);
+				using Context g = new (layer.CairoSurface);
 				g.DrawPixbuf (pb, (PointD) position);
 
 				try {
@@ -157,8 +157,8 @@ public sealed class OraFormat : IImageImporter, IImageExporter
 		};
 
 		writer.WriteStartElement ("image");
-		writer.WriteAttributeString ("w", layers[0].Surface.Width.ToString ());
-		writer.WriteAttributeString ("h", layers[0].Surface.Height.ToString ());
+		writer.WriteAttributeString ("w", layers[0].CairoSurface.Width.ToString ());
+		writer.WriteAttributeString ("h", layers[0].CairoSurface.Height.ToString ());
 		writer.WriteAttributeString ("version", "0.0.5"); // Current version of the spec.
 
 		writer.WriteStartElement ("stack");
@@ -209,7 +209,7 @@ public sealed class OraFormat : IImageImporter, IImageExporter
 	private static void AddLayerEntries (ZipArchive archive, Document document)
 	{
 		for (int i = 0; i < document.Layers.UserLayers.Count; i++) {
-			using Pixbuf pb = document.Layers.UserLayers[i].Surface.ToPixbuf ();
+			using Pixbuf pb = document.Layers.UserLayers[i].CairoSurface.ToPixbuf ();
 			byte[] buf = pb.SaveToBuffer ("png");
 			ZipArchiveEntry layerEntry = archive.CreateEntry ($"data/layer{i}.png");
 			using Stream layerStream = layerEntry.Open ();

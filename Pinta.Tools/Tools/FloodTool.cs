@@ -84,7 +84,7 @@ public abstract class FloodTool : BaseTool
 		if (!currentRegion.ContainsPoint (pos.X, pos.Y) && LimitToSelection)
 			return;
 
-		var surface = document.Layers.CurrentUserLayer.Surface;
+		var surface = document.Layers.CurrentUserLayer.CairoSurface;
 		var stencilBuffer = new BitMask (surface.Width, surface.Height);
 		var tol = (int) (Tolerance * Tolerance * 256);
 

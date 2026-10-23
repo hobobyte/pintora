@@ -151,7 +151,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 		if (!last_point.HasValue)
 			last_point = e.Point;
 
-		var surf = document.Layers.ToolLayer.Surface;
+		var surf = document.Layers.ToolLayer.CairoSurface;
 		using Context g = document.CreateClippedToolContext ();
 
 		g.Antialias = UseAntialiasing ? Antialias.Subpixel : Antialias.None;
@@ -191,7 +191,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 	protected override void OnMouseUp (Document document, ToolMouseEventArgs e)
 	{
 		CancelRepeatingDraw ();
-		using Context g = new (document.Layers.CurrentUserLayer.Surface);
+		using Context g = new (document.Layers.CurrentUserLayer.CairoSurface);
 
 		document.Layers.ToolLayer.Draw (g);
 

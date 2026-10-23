@@ -248,7 +248,7 @@ public sealed class LayerActions
 		using (Gio.FileInputStream fs = choice.Read (null)) {
 			try {
 				using GdkPixbuf.Pixbuf bg = GdkPixbuf.Pixbuf.NewFromStream (fs, cancellable: null)!; // NRT: only nullable when an error is thrown
-				using Cairo.Context context = new (layer.Surface);
+				using Cairo.Context context = new (layer.CairoSurface);
 				context.DrawPixbuf (bg, PointD.Zero);
 			} finally {
 				fs.Close (null);
@@ -328,7 +328,7 @@ public sealed class LayerActions
 		tools.Commit ();
 
 		int bottomLayerIndex = doc.Layers.CurrentUserLayerIndex - 1;
-		Cairo.ImageSurface oldBottomSurface = doc.Layers.UserLayers[bottomLayerIndex].Surface.Clone ();
+		Cairo.ImageSurface oldBottomSurface = doc.Layers.UserLayers[bottomLayerIndex].CairoSurface.Clone ();
 
 		CompoundHistoryItem hist = new (
 			Resources.Icons.LayerMergeDown,

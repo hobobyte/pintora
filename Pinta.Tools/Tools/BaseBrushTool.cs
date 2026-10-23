@@ -76,7 +76,7 @@ public abstract class BaseBrushTool : BaseTool
 			return;
 
 		surface_modified = false;
-		undo_surface = document.Layers.CurrentUserLayer.Surface.Clone ();
+		undo_surface = document.Layers.CurrentUserLayer.CairoSurface.Clone ();
 		mouse_button = e.MouseButton;
 
 		OnMouseMove (document, e);

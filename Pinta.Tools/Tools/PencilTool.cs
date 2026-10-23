@@ -62,7 +62,7 @@ public sealed class PencilTool : BaseTool
 			return;
 
 		surface_modified = false;
-		undo_surface = document.Layers.CurrentUserLayer.Surface.Clone ();
+		undo_surface = document.Layers.CurrentUserLayer.CairoSurface.Clone ();
 		mouse_button = e.MouseButton;
 
 		Color tool_color;

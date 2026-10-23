@@ -213,7 +213,7 @@ public sealed class ImageActions
 		ImageSurface oldBottomSurface =
 			doc.Layers
 			.UserLayers[0]
-			.Surface
+			.CairoSurface
 			.Clone ();
 
 		CompoundHistoryItem hist = new (

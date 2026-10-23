@@ -185,6 +185,7 @@ internal sealed class MainWindow
 		canvas.RulerMetric = GetCurrentRulerMetric ();
 		doc.Workspace.CanvasWindow = canvas;
 		doc.Workspace.Canvas = canvas.Canvas;
+		doc.Workspace.ViewportHost = new GtkDocumentViewportHost (canvas, doc);
 
 		DocumentViewContent my_content = new (doc, canvas);
 

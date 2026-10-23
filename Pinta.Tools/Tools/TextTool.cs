@@ -1096,8 +1096,8 @@ public sealed class TextTool : BaseTool
 		ignore_clone_finalizations = true;
 
 		//Store the previous state of the current UserLayer's and TextLayer's ImageSurfaces.
-		user_undo_surface = workspace.ActiveDocument.Layers.CurrentUserLayer.Surface.Clone ();
-		text_undo_surface = workspace.ActiveDocument.Layers.CurrentUserLayer.TextLayer.Layer.Surface.Clone ();
+		user_undo_surface = workspace.ActiveDocument.Layers.CurrentUserLayer.CairoSurface.Clone ();
+		text_undo_surface = workspace.ActiveDocument.Layers.CurrentUserLayer.TextLayer.Layer.CairoSurface.Clone ();
 
 		//Store the previous state of the Text Engine.
 		undo_engine = CurrentTextEngine.Clone ();
@@ -1165,7 +1165,7 @@ public sealed class TextTool : BaseTool
 	private void ClearTextLayer ()
 	{
 		//Clear the TextLayer.
-		workspace.ActiveDocument.Layers.CurrentUserLayer.TextLayer.Layer.Surface.Clear ();
+		workspace.ActiveDocument.Layers.CurrentUserLayer.TextLayer.Layer.CairoSurface.Clear ();
 
 		//Redraw the previous text boundary.
 		InflateAndInvalidate (workspace.ActiveDocument.Layers.CurrentUserLayer.PreviousTextBounds);
@@ -1192,10 +1192,10 @@ public sealed class TextTool : BaseTool
 
 		if (!useTextLayer) {
 			//Draw text on the current UserLayer's surface as finalized text.
-			surf = workspace.ActiveDocument.Layers.CurrentUserLayer.Surface;
+			surf = workspace.ActiveDocument.Layers.CurrentUserLayer.CairoSurface;
 		} else {
 			//Draw text on the current UserLayer's TextLayer's surface as re-editable text.
-			surf = workspace.ActiveDocument.Layers.CurrentUserLayer.TextLayer.Layer.Surface;
+			surf = workspace.ActiveDocument.Layers.CurrentUserLayer.TextLayer.Layer.CairoSurface;
 
 			ClearTextLayer ();
 		}
@@ -1332,8 +1332,8 @@ public sealed class TextTool : BaseTool
 		Document doc = workspace.ActiveDocument;
 
 		//Create a backup of everything before redrawing the text and etc.
-		ImageSurface oldTextSurface = doc.Layers.CurrentUserLayer.TextLayer.Layer.Surface.Clone ();
-		ImageSurface oldUserSurface = doc.Layers.CurrentUserLayer.Surface.Clone ();
+		ImageSurface oldTextSurface = doc.Layers.CurrentUserLayer.TextLayer.Layer.CairoSurface.Clone ();
+		ImageSurface oldUserSurface = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
 		TextEngine oldTextEngine = CurrentTextEngine.Clone ();
 
 		//Draw the text onto the UserLayer (without the cursor) rather than the TextLayer.

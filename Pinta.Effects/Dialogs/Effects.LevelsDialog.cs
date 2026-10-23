@@ -346,7 +346,7 @@ public sealed partial class LevelsDialog
 	{
 		Document doc = workspace.ActiveDocument;
 
-		ImageSurface surface = doc.Layers.CurrentUserLayer.Surface;
+		ImageSurface surface = doc.Layers.CurrentUserLayer.CairoSurface;
 		RectangleI rect = doc.Selection.GetBounds ().ToInt ();
 		histogram_input.Histogram.UpdateHistogram (surface, rect);
 		UpdateOutputHistogram ();

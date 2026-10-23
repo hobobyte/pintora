@@ -305,9 +305,9 @@ public sealed class EditActions
 
 		tools.Commit ();
 
-		ImageSurface old = doc.Layers.CurrentUserLayer.Surface.Clone ();
+		ImageSurface old = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
 
-		using Context g = new (doc.Layers.CurrentUserLayer.Surface);
+		using Context g = new (doc.Layers.CurrentUserLayer.CairoSurface);
 
 		g.AppendPath (doc.Selection.SelectionPath);
 		g.FillRule = FillRule.EvenOdd;
@@ -352,9 +352,9 @@ public sealed class EditActions
 
 		tools.Commit ();
 
-		ImageSurface old = doc.Layers.CurrentUserLayer.Surface.Clone ();
+		ImageSurface old = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
 
-		using Context g = new (doc.Layers.CurrentUserLayer.Surface);
+		using Context g = new (doc.Layers.CurrentUserLayer.CairoSurface);
 
 		g.AppendPath (doc.Selection.SelectionPath);
 		g.FillRule = FillRule.EvenOdd;

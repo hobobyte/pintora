@@ -131,7 +131,7 @@ public static class WorkspaceServiceExtensions
 		Layer background = doc.Layers.AddNewLayer (Translations.GetString ("Background"));
 
 		if (backgroundColor.A != 0) {
-			using Context g = new (background.Surface);
+			using Context g = new (background.CairoSurface);
 			g.SetSourceColor (backgroundColor);
 			g.Paint ();
 		}
@@ -294,7 +294,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 			new Size (image.Width, image.Height),
 			new Color (0, 0, 0, 0));
 
-		using Context g = new (doc.Layers[0].Surface);
+		using Context g = new (doc.Layers[0].CairoSurface);
 		g.SetSourceSurface (image, 0, 0);
 		g.Paint ();
 

@@ -688,7 +688,7 @@ public abstract class BaseEditEngine
 					this,
 					owner.Icon,
 					ShapeName + " " + Translations.GetString ("Deleted"),
-					doc.Layers.CurrentUserLayer.Surface.Clone (),
+					doc.Layers.CurrentUserLayer.CairoSurface.Clone (),
 					doc.Layers.CurrentUserLayer,
 					SelectedPointIndex,
 					SelectedShapeIndex,
@@ -850,7 +850,7 @@ public abstract class BaseEditEngine
 
 			//Create a new ShapesHistoryItem so that the creation of a new shape can be undone.
 			doc.History.PushNewItem (new ShapesHistoryItem (this, owner.Icon, ShapeName + " " + Translations.GetString ("Added"),
-				doc.Layers.CurrentUserLayer.Surface.Clone (), doc.Layers.CurrentUserLayer, SelectedPointIndex, SelectedShapeIndex, false));
+				doc.Layers.CurrentUserLayer.CairoSurface.Clone (), doc.Layers.CurrentUserLayer, SelectedPointIndex, SelectedShapeIndex, false));
 
 			//Create the shape, add its starting points, and add it to SEngines.
 			SEngines.Add (CreateShape (ctrlKey, clicked_control_point, prevSelPoint));
@@ -1101,7 +1101,7 @@ public abstract class BaseEditEngine
 		ImageSurface? undoSurface = null;
 
 		if (createHistoryItem && engine.ControlPoints.Count > 0) //We only need to create a history item if there was a previous shape.
-			undoSurface = doc.Layers.CurrentUserLayer.Surface.Clone ();
+			undoSurface = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
 
 		//Draw the finalized shape.
 		RectangleD dirty = DrawShape (engine, doc.Layers.CurrentUserLayer, false, false, false);
@@ -1185,7 +1185,7 @@ public abstract class BaseEditEngine
 
 		Document doc = workspace.ActiveDocument;
 
-		using Context g = new (l.Surface);
+		using Context g = new (l.CairoSurface);
 
 		g.AppendPath (doc.Selection.SelectionPath);
 		g.FillRule = FillRule.EvenOdd;
@@ -1367,7 +1367,7 @@ public abstract class BaseEditEngine
 
 		Document doc = workspace.ActiveDocument;
 
-		ImageSurface undoSurface = doc.Layers.CurrentUserLayer.Surface.Clone ();
+		ImageSurface undoSurface = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
 
 		int previousSelectedPointIndex = SelectedPointIndex;
 

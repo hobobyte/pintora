@@ -72,7 +72,7 @@ public sealed class MovePixelsHistoryItem : BaseHistoryItem
 
 		if (lifted) {
 			// Grab the original surface
-			ImageSurface surf = doc.Layers[layer_index].Surface;
+			ImageSurface surf = doc.Layers[layer_index].CairoSurface;
 
 			// Undo to the "old" surface
 			doc.Layers[layer_index].Surface = old_surface!; // NRT - Set in TakeSnapshot
@@ -96,7 +96,7 @@ public sealed class MovePixelsHistoryItem : BaseHistoryItem
 
 		if (lift) {
 			layer_index = doc.Layers.CurrentUserLayerIndex;
-			old_surface = doc.Layers.CurrentUserLayer.Surface.Clone ();
+			old_surface = doc.Layers.CurrentUserLayer.CairoSurface.Clone ();
 		}
 
 		old_selection = doc.Selection.Clone ();

@@ -154,7 +154,7 @@ public sealed class ZoomTool : BaseTool
 		document.Layers.ToolLayer.Clear ();
 		document.Layers.ToolLayer.Hidden = false;
 
-		using Context g = new (document.Layers.ToolLayer.Surface);
+		using Context g = new (document.Layers.ToolLayer.CairoSurface);
 
 		RectangleD dirty = g.FillRectangle (r, new Color (0.7, 0.8, 0.9, 0.4));
 

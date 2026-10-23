@@ -58,7 +58,7 @@ public class GdkPixbufFormat : IImageImporter, IImageExporter
 
 		Layer layer = newDocument.Layers.AddNewLayer (file.GetDisplayName ());
 
-		using Context g = new (layer.Surface);
+		using Context g = new (layer.CairoSurface);
 
 		g.DrawPixbuf (effectiveBuffer, PointD.Zero);
 

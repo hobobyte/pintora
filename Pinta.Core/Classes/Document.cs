@@ -78,12 +78,12 @@ public sealed class Document
 
 		PreviousSelection = new ();
 		Selection = new DocumentSelection ();
+		ImageSize = size;
 
 		Layers = new DocumentLayers (tools, this);
 		Workspace = new DocumentWorkspace (actions, this);
 		IsDirty = false;
 		HasBeenSavedInSession = false;
-		ImageSize = size;
 
 		this.actions = actions;
 		this.tools = tools;
@@ -149,7 +149,15 @@ public sealed class Document
 
 	public DocumentHistory History => Workspace.History;
 
-	public Size ImageSize { get; set; }
+	private Size image_size;
+	public Size ImageSize {
+		get => image_size;
+		set {
+			image_size = value;
+			if (Workspace is not null)
+				Workspace.SetImageSize (value);
+		}
+	}
 
 	public bool IsDirty {
 		get => is_dirty;
@@ -202,14 +210,14 @@ public sealed class Document
 
 	public Context CreateClippedContext ()
 	{
-		Context g = new (Layers.CurrentUserLayer.Surface);
+		Context g = new (Layers.CurrentUserLayer.CairoSurface);
 		Selection.Clip (g);
 		return g;
 	}
 
 	public Context CreateClippedToolContext ()
 	{
-		Context g = new (Layers.ToolLayer.Surface);
+		Context g = new (Layers.ToolLayer.CairoSurface);
 		Selection.Clip (g);
 		return g;
 	}
@@ -226,7 +234,7 @@ public sealed class Document
 
 		Layer layer = Layers.SelectionLayer;
 
-		using Context g = new (Layers.CurrentUserLayer.Surface);
+		using Context g = new (Layers.CurrentUserLayer.CairoSurface);
 		selection.Clip (g);
 		layer.DrawWithOperator (g, Operator.Source, opacity: 1.0, transform: true);
 
@@ -268,7 +276,7 @@ public sealed class Document
 
 		foreach (var layer in Layers.GetLayersToPaint ()) {
 
-			Color color = layer.Surface.GetColorBgra (position).ToCairoColor ();
+			Color color = layer.CairoSurface.GetColorBgra (position).ToCairoColor ();
 
 			g.SetBlendMode (layer.BlendMode);
 			g.SetSourceColor (color);

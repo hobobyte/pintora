@@ -66,7 +66,7 @@ public sealed class DocumentLayers
 	/// </summary>
 	public Layer ToolLayer {
 		get {
-			if (tool_layer is null || tool_layer.Surface.Width != document.ImageSize.Width || tool_layer.Surface.Height != document.ImageSize.Height) {
+			if (tool_layer is null || tool_layer.CairoSurface.Width != document.ImageSize.Width || tool_layer.CairoSurface.Height != document.ImageSize.Height) {
 				tool_layer = CreateLayer ("Tool Layer");
 				tool_layer.Hidden = true;
 			}
@@ -204,8 +204,8 @@ public sealed class DocumentLayers
 		// {0} is the name of the source layer. Example: "Layer 3 copy".
 		UserLayer layer = CreateLayer (Translations.GetString ("{0} copy", source.Name));
 
-		using Context g = new (layer.Surface);
-		g.SetSourceSurface (source.Surface, 0, 0);
+		using Context g = new (layer.CairoSurface);
+		g.SetSourceSurface (source.CairoSurface, 0, 0);
 		g.Paint ();
 
 		layer.Hidden = source.Hidden;
@@ -330,7 +330,7 @@ public sealed class DocumentLayers
 		UserLayer dest = user_layers[CurrentUserLayerIndex - 1];
 
 		// Blend the layers
-		using Context g = new (dest.Surface);
+		using Context g = new (dest.CairoSurface);
 		source.Draw (g);
 
 		DeleteCurrentLayer ();
