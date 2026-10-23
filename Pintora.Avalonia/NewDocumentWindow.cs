@@ -25,7 +25,8 @@ public sealed class NewDocumentWindow : Window
 			}
 		};
 		Content = new StackPanel {
-			Margin = new global::Avalonia.Thickness (16), Spacing = 10,
+			Margin = new global::Avalonia.Thickness (16),
+			Spacing = 10,
 			Children = { new TextBlock { Text = "Width" }, width, new TextBlock { Text = "Height" }, height, error, create }
 		};
 	}

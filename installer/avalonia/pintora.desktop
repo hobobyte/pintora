@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Pintora
+Comment=Raster graphics editor
+Exec=pintora %F
+Icon=pintora
+Terminal=false
+Categories=Graphics;RasterGraphics;2DGraphics;
+MimeType=image/png;image/jpeg;image/bmp;image/tiff;image/webp;

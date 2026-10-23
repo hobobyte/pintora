@@ -1,8 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Styling;
-using Pintora.Avalonia.Canvas;
 using Pinta.Core;
+using Pintora.Avalonia.Canvas;
 
 namespace Pintora.Avalonia;
 
@@ -44,7 +44,9 @@ public sealed class SettingsWindow : Window
 
 		var open_shortcuts = new Button { Content = "Configure keyboard shortcuts" };
 		open_shortcuts.Click += (_, _) => new KeyboardSettingsWindow (keyboard).Show (this);
-		var content = new StackPanel { Spacing = 12, Children = {
+		var content = new StackPanel {
+			Spacing = 12,
+			Children = {
 			new TextBlock { Text = "Appearance", FontSize = 17 },
 			Row ("Theme", theme),
 			new Separator (),
@@ -55,7 +57,8 @@ public sealed class SettingsWindow : Window
 			Row ("Fill tolerance", tolerance),
 			Row ("Shape fill style", shapeFill), reversed,
 			new Separator (), open_shortcuts
-		} };
+		}
+		};
 		Content = new Border { Padding = new global::Avalonia.Thickness (22), Child = content };
 	}
 

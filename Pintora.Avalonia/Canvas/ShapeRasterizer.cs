@@ -69,8 +69,11 @@ internal static class ShapeRasterizer
 		}
 		if (kind != CanvasHost.ShapeKind.Line && style != CanvasHost.ShapeFillStyle.Outline) {
 			ColorBgra fillColor = style == CanvasHost.ShapeFillStyle.Fill ? outline : fill;
-			using var paint = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Fill,
-				Color = new SKColor (fillColor.R, fillColor.G, fillColor.B, fillColor.A) };
+			using var paint = new SKPaint {
+				IsAntialias = true,
+				Style = SKPaintStyle.Fill,
+				Color = new SKColor (fillColor.R, fillColor.G, fillColor.B, fillColor.A)
+			};
 			canvas.DrawPath (path, paint);
 		}
 		if (kind == CanvasHost.ShapeKind.Line || style != CanvasHost.ShapeFillStyle.Fill) {

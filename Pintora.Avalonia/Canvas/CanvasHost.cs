@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Text;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -11,7 +12,6 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using System.Runtime.InteropServices;
 using Pinta.Core;
 using Pintora.Avalonia.Document;
 using Pintora.Avalonia.Imaging;
@@ -73,7 +73,7 @@ public sealed class CanvasHost : Control
 	private readonly Stack<string> redo_history_stack = new ();
 	private readonly Stack<LayerStackSnapshot> layer_undo_stack = new ();
 	private readonly Stack<LayerStackSnapshot> layer_redo_stack = new ();
-	private sealed record RasterSnapshot (AvaloniaLayer Layer, ColorBgra[] Pixels);
+	private sealed record RasterSnapshot (AvaloniaLayer Layer, ColorBgra[] Pixels, ShapeTool.ShapeSnapshot? Shape);
 	private sealed record LayerSnapshot (AvaloniaLayer Layer, string Name, bool IsVisible, bool IsLocked, double Opacity, ColorBgra[] Pixels);
 	private sealed record LayerStackSnapshot (List<LayerSnapshot> Layers, int ActiveIndex);
 
@@ -141,7 +141,9 @@ public sealed class CanvasHost : Control
 		get => shape_fill_style;
 		set {
 			if (!Enum.IsDefined (value)) throw new ArgumentOutOfRangeException (nameof (value));
+			if (shape_fill_style == value) return;
 			shape_fill_style = value;
+			UpdateSelectedShapeOptions ();
 			InvalidateVisual ();
 		}
 	}
@@ -152,22 +154,45 @@ public sealed class CanvasHost : Control
 	private int shape_outline_width = 2;
 	public int ShapeOutlineWidth {
 		get => shape_outline_width;
-		set { shape_outline_width = Math.Clamp (value, 1, 256); InvalidateVisual (); }
+		set {
+			int next = Math.Clamp (value, 1, 256);
+			if (shape_outline_width == next) return;
+			shape_outline_width = next;
+			UpdateSelectedShapeOptions ();
+			InvalidateVisual ();
+		}
 	}
 	public ShapeDashStyle DashStyle {
 		get;
 		set {
 			if (!Enum.IsDefined (value)) throw new ArgumentOutOfRangeException (nameof (value));
+			if (field == value) return;
 			field = value;
+			UpdateSelectedShapeOptions ();
 			InvalidateVisual ();
 		}
 	}
 	private int shape_corner_radius = 8;
 	public int ShapeCornerRadius {
 		get => shape_corner_radius;
-		set { shape_corner_radius = Math.Clamp (value, 1, 256); InvalidateVisual (); }
+		set {
+			int next = Math.Clamp (value, 1, 256);
+			if (shape_corner_radius == next) return;
+			shape_corner_radius = next;
+			UpdateSelectedShapeOptions ();
+			InvalidateVisual ();
+		}
 	}
-	public bool ShapeAntialias { get; set; } = true;
+	private bool shape_antialias = true;
+	public bool ShapeAntialias {
+		get => shape_antialias;
+		set {
+			if (shape_antialias == value) return;
+			shape_antialias = value;
+			UpdateSelectedShapeOptions ();
+			InvalidateVisual ();
+		}
+	}
 	public ShapeKind SelectedShape {
 		get => shape_kind;
 		set {
@@ -176,17 +201,27 @@ public sealed class CanvasHost : Control
 			if (shape_kind == value)
 				return;
 			shape_kind = value;
+			UpdateSelectedShapeOptions ();
 			SelectedShapeChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
 		}
 	}
 	public event EventHandler? SelectedShapeChanged;
+	private void UpdateSelectedShapeOptions ()
+	{
+		if (shape_tool.UpdateSelectedOptions (session.ActiveLayer, Surface as MemoryImageSurface,
+			shape_kind, shape_fill_style, shape_outline_width, DashStyle, shape_corner_radius,
+			shape_antialias, BeginStroke, CommitStroke))
+			bitmap = null;
+	}
 	public bool GradientReversed { get; set; }
 	public CanvasTool ActiveTool {
 		get => active_tool;
 		set {
 			if (active_tool == value)
 				return;
+			if (active_tool == CanvasTool.Shapes && value != CanvasTool.Shapes && !shape_tool.IsEditing)
+				shape_tool.ClearSelectedShape ();
 			active_tool = value;
 			ActiveToolChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
@@ -721,8 +756,7 @@ public sealed class CanvasHost : Control
 	private static void WriteTiffEntry (BinaryWriter writer, ushort tag, ushort type, uint count, uint value)
 	{
 		writer.Write (tag); writer.Write (type); writer.Write (count);
-		if (type == 3 && count == 1) { writer.Write ((ushort) value); writer.Write ((ushort) 0); }
-		else writer.Write (value);
+		if (type == 3 && count == 1) { writer.Write ((ushort) value); writer.Write ((ushort) 0); } else writer.Write (value);
 	}
 
 	private void SaveBitmap (string path, BitmapEncoderOptions options)
@@ -837,7 +871,7 @@ public sealed class CanvasHost : Control
 		if (Surface is null)
 			return;
 
-		undo_stack.Push (new RasterSnapshot (session.ActiveLayer!, Surface.GetReadOnlyPixelData ().ToArray ()));
+		undo_stack.Push (new RasterSnapshot (session.ActiveLayer!, Surface.GetReadOnlyPixelData ().ToArray (), shape_tool.CaptureState ()));
 		redo_stack.Clear ();
 		redo_history_stack.Clear ();
 		history_stack.Push ("Raster operation");
@@ -858,6 +892,7 @@ public sealed class CanvasHost : Control
 		RasterSnapshot snapshot = undo_stack.Pop ();
 		history_stack.Pop ();
 		snapshot.Pixels.AsSpan ().CopyTo (snapshot.Layer.Surface.GetPixelData ());
+		shape_tool.RestoreState (snapshot.Shape);
 		has_current_stroke = false;
 		bitmap = null;
 		InvalidateVisual ();
@@ -895,8 +930,9 @@ public sealed class CanvasHost : Control
 
 		RasterSnapshot snapshot = undo_stack.Pop ();
 		AvaloniaLayer layer = snapshot.Layer;
-		redo_stack.Push (new RasterSnapshot (layer, layer.Surface.GetReadOnlyPixelData ().ToArray ()));
+		redo_stack.Push (new RasterSnapshot (layer, layer.Surface.GetReadOnlyPixelData ().ToArray (), shape_tool.CaptureState ()));
 		snapshot.Pixels.AsSpan ().CopyTo (layer.Surface.GetPixelData ());
+		shape_tool.RestoreState (snapshot.Shape);
 		redo_history_stack.Push (history_stack.Pop ());
 		bitmap = null;
 		InvalidateVisual ();
@@ -910,8 +946,9 @@ public sealed class CanvasHost : Control
 
 		RasterSnapshot snapshot = redo_stack.Pop ();
 		AvaloniaLayer layer = snapshot.Layer;
-		undo_stack.Push (new RasterSnapshot (layer, layer.Surface.GetReadOnlyPixelData ().ToArray ()));
+		undo_stack.Push (new RasterSnapshot (layer, layer.Surface.GetReadOnlyPixelData ().ToArray (), shape_tool.CaptureState ()));
 		snapshot.Pixels.AsSpan ().CopyTo (layer.Surface.GetPixelData ());
+		shape_tool.RestoreState (snapshot.Shape);
 		history_stack.Push (redo_history_stack.Pop ());
 		bitmap = null;
 		InvalidateVisual ();
@@ -989,8 +1026,7 @@ public sealed class CanvasHost : Control
 		int columns = (int) Math.Ceiling (canvasRect.Width / tileSize);
 		int rows = (int) Math.Ceiling (canvasRect.Height / tileSize);
 		for (int y = 0; y < rows; y++)
-			for (int x = 0; x < columns; x++)
-			{
+			for (int x = 0; x < columns; x++) {
 				double tileX = canvasRect.X + x * tileSize;
 				double tileY = canvasRect.Y + y * tileSize;
 				double width = Math.Min (tileSize, canvasRect.Right - tileX);
@@ -1258,7 +1294,10 @@ public sealed class CanvasHost : Control
 	{
 		if (Surface is not MemoryImageSurface surface || IsActiveLayerLocked)
 			return;
+		ColorBgra[] basePixels = surface.GetReadOnlyPixelData ().ToArray ();
 		ShapeRasterizer.Draw (surface, shape, from, to, outline, fill, style, width, dash, cornerRadius, antialias);
+		shape_tool.RegisterPaintedShape (ActiveLayer, basePixels, shape, from, to, outline, fill,
+			style, width, dash, cornerRadius, antialias);
 		bitmap = null;
 		InvalidateVisual ();
 	}

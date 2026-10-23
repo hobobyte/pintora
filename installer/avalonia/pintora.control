@@ -1,0 +1,9 @@
+Package: pintora
+Version: __VERSION__
+Section: graphics
+Priority: optional
+Architecture: amd64
+Maintainer: Pintora contributors
+Description: Cross-platform raster graphics editor
+ Pintora is an open-source raster graphics editor.
+Depends: libc6, libgcc-s1, libfontconfig1, libfreetype6, libx11-6, libice6, libsm6, libxrender1, libxext6

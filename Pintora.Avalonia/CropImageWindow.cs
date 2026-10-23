@@ -25,7 +25,8 @@ public sealed class CropImageWindow : Window
 			} catch (ArgumentOutOfRangeException exception) { error.Text = exception.Message; }
 		};
 		Content = new StackPanel {
-			Margin = new global::Avalonia.Thickness (16), Spacing = 8,
+			Margin = new global::Avalonia.Thickness (16),
+			Spacing = 8,
 			Children = { new TextBlock { Text = "Left" }, left, new TextBlock { Text = "Top" }, top, new TextBlock { Text = "Width" }, width, new TextBlock { Text = "Height" }, height, error, apply }
 		};
 	}

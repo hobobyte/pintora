@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
-using System.Threading.Tasks;
+using Pinta.Core;
 using Pintora.Avalonia.Canvas;
 using Pintora.Avalonia.Imaging;
 using Pintora.Avalonia.Input;
-using Pinta.Core;
 
 namespace Pintora.Avalonia;
 
@@ -23,7 +24,12 @@ public sealed class MainWindow : Window
 
 	public MainWindow ()
 	{
-		Title = "Pintora — Simple. Powerful. Creative.";
+		string version = typeof (MainWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?.InformationalVersion
+			?? "0.0.1-alpha";
+		int buildMetadata = version.IndexOf ('+');
+		if (buildMetadata >= 0)
+			version = version[..buildMetadata];
+		Title = $"Pintora {version} — Simple. Powerful. Creative.";
 		Width = 1200;
 		Height = 760;
 		MinWidth = 900;
@@ -231,7 +237,8 @@ public sealed class MainWindow : Window
 	private static Control CreateShapeWidthInput (CanvasHost canvas)
 	{
 		var value = new TextBox { Text = canvas.ShapeOutlineWidth.ToString (), Width = 42, Height = 30 };
-		void ApplyText () {
+		void ApplyText ()
+		{
 			if (int.TryParse (value.Text, out int width)) canvas.ShapeOutlineWidth = width;
 			value.Text = canvas.ShapeOutlineWidth.ToString ();
 		}
@@ -335,7 +342,8 @@ public sealed class MainWindow : Window
 	{
 		if (StorageProvider is null) return;
 		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
-			SuggestedFileName = "pintora.webp", DefaultExtension = "webp",
+			SuggestedFileName = "pintora.webp",
+			DefaultExtension = "webp",
 			FileTypeChoices = new[] { new FilePickerFileType ("WebP image") { Patterns = new[] { "*.webp" } } }
 		});
 		if (file is not null) canvas.SaveWebp (file.Path.LocalPath);
@@ -345,7 +353,8 @@ public sealed class MainWindow : Window
 	{
 		if (StorageProvider is null) return;
 		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
-			SuggestedFileName = "pintora.tiff", DefaultExtension = "tiff",
+			SuggestedFileName = "pintora.tiff",
+			DefaultExtension = "tiff",
 			FileTypeChoices = new[] { new FilePickerFileType ("TIFF image") { Patterns = new[] { "*.tif", "*.tiff" } } }
 		});
 		if (file is not null) canvas.SaveTiff (file.Path.LocalPath);
@@ -425,12 +434,15 @@ public sealed class MainWindow : Window
 		};
 		var panel = new Border {
 			Padding = new global::Avalonia.Thickness (16),
-			Child = new StackPanel { Spacing = 8, Children = {
+			Child = new StackPanel {
+				Spacing = 8,
+				Children = {
 				new TextBlock { Text = "Tools", FontSize = 15 },
 				tools,
 				CreatePalette (canvas),
 				new Separator ()
-			} }
+			}
+			}
 		};
 		panel.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Panel.Background"));
 		Grid.SetColumn (panel, 0);
@@ -441,12 +453,14 @@ public sealed class MainWindow : Window
 	{
 		var primary = new Button { Content = "FG", Width = 42, Height = 32, Background = new SolidColorBrush (Colors.Black) };
 		var secondary = new Button { Content = "BG", Width = 42, Height = 32, Background = new SolidColorBrush (Colors.White) };
-		void RefreshColors () {
+		void RefreshColors ()
+		{
 			primary.Background = new SolidColorBrush (ToAvaloniaColor (canvas.BrushColor));
 			secondary.Background = new SolidColorBrush (ToAvaloniaColor (canvas.SecondaryBrushColor));
 		}
 		canvas.ColorsChanged += (_, _) => RefreshColors ();
-		void SaveColors () {
+		void SaveColors ()
+		{
 			settings.PutSetting ("Pintora.Palette.Primary", ToAvaloniaColor (canvas.BrushColor).ToString ());
 			settings.PutSetting ("Pintora.Palette.Secondary", ToAvaloniaColor (canvas.SecondaryBrushColor).ToString ());
 			RefreshColors ();
@@ -655,9 +669,13 @@ public sealed class MainWindow : Window
 				};
 				locked.IsCheckedChanged += (_, _) => canvas.SetLayerLocked (index, locked.IsChecked == true);
 				var button = new Button {
-					Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = {
+					Content = new StackPanel {
+						Orientation = Orientation.Horizontal,
+						Spacing = 6,
+						Children = {
 						new TextBlock { Text = index == canvas.ActiveLayerIndex ? "●" : "○" }, visibility, locked
-					} },
+					}
+					},
 					HorizontalContentAlignment = HorizontalAlignment.Left
 				};
 				button.PointerPressed += (_, args) => {
@@ -674,7 +692,9 @@ public sealed class MainWindow : Window
 				layers.Children.Add (button);
 			}
 		}
-		var controls = new StackPanel { Spacing = 8, Children = {
+		var controls = new StackPanel {
+			Spacing = 8,
+			Children = {
 			new TextBlock { Text = "Layers", FontSize = 15 },
 			layers,
 			new TextBlock { Text = "Opacity" },
@@ -689,7 +709,8 @@ public sealed class MainWindow : Window
 				CreateBrushButton ("+", () => { canvas.AddLayer (); RebuildLayers (); }),
 				CreateBrushButton ("−", () => { canvas.RemoveLayer (); RebuildLayers (); })
 			} }
-		} };
+		}
+		};
 		RebuildLayers ();
 		refresh_layers = RebuildLayers;
 		var panel = new Border {

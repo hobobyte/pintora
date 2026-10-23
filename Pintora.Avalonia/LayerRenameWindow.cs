@@ -1,6 +1,6 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Layout;
-using System;
 using Pintora.Avalonia.Canvas;
 
 namespace Pintora.Avalonia;

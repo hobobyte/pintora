@@ -14,22 +14,54 @@ internal sealed class ShapeTool : ICanvasTool
 	{
 		public required AvaloniaLayer Layer { get; init; }
 		public required ColorBgra[] BasePixels { get; init; }
-		public CanvasHost.ShapeKind Kind { get; init; }
+		public CanvasHost.ShapeKind Kind { get; set; }
 		public PointD From { get; set; }
 		public PointD To { get; set; }
 		public ColorBgra Outline { get; init; }
 		public ColorBgra Fill { get; init; }
-		public CanvasHost.ShapeFillStyle FillStyle { get; init; }
-		public int Width { get; init; }
-		public CanvasHost.ShapeDashStyle Dash { get; init; }
-		public int CornerRadius { get; init; }
-		public bool Antialias { get; init; }
+		public CanvasHost.ShapeFillStyle FillStyle { get; set; }
+		public int Width { get; set; }
+		public CanvasHost.ShapeDashStyle Dash { get; set; }
+		public int CornerRadius { get; set; }
+		public bool Antialias { get; set; }
 		public double Rotation { get; set; }
 	}
+	internal sealed record ShapeSnapshot (AvaloniaLayer Layer, ColorBgra[] BasePixels,
+		CanvasHost.ShapeKind Kind, PointD From, PointD To, ColorBgra Outline, ColorBgra Fill,
+		CanvasHost.ShapeFillStyle FillStyle, int Width, CanvasHost.ShapeDashStyle Dash,
+		int CornerRadius, bool Antialias, double Rotation);
 
 	internal enum HitKind { None, Move, Resize, Rotate }
 	internal readonly record struct HitTarget (HitKind Kind, int HandleIndex = -1);
 	public ShapeState? SelectedShape { get; set; }
+	public void ClearSelectedShape () => SelectedShape = null;
+	public ShapeSnapshot? CaptureState ()
+	{
+		if (SelectedShape is not ShapeState shape)
+			return null;
+		return new ShapeSnapshot (shape.Layer, shape.BasePixels, shape.Kind, shape.From, shape.To,
+			shape.Outline, shape.Fill, shape.FillStyle, shape.Width, shape.Dash,
+			shape.CornerRadius, shape.Antialias, shape.Rotation);
+	}
+
+	public void RestoreState (ShapeSnapshot? snapshot)
+	{
+		SelectedShape = snapshot is ShapeSnapshot state ? new ShapeState {
+			Layer = state.Layer,
+			BasePixels = state.BasePixels,
+			Kind = state.Kind,
+			From = state.From,
+			To = state.To,
+			Outline = state.Outline,
+			Fill = state.Fill,
+			FillStyle = state.FillStyle,
+			Width = state.Width,
+			Dash = state.Dash,
+			CornerRadius = state.CornerRadius,
+			Antialias = state.Antialias,
+			Rotation = state.Rotation
+		} : null;
+	}
 	public bool IsEditing { get; private set; }
 	public bool IsCreating { get; private set; }
 	private bool moving;
@@ -96,6 +128,55 @@ internal sealed class ShapeTool : ICanvasTool
 
 	public void CancelPointerAction () => CancelCreate ();
 
+	public bool UpdateSelectedOptions (AvaloniaLayer? activeLayer, MemoryImageSurface? surface,
+		CanvasHost.ShapeKind kind, CanvasHost.ShapeFillStyle fillStyle, int width,
+		CanvasHost.ShapeDashStyle dash, int cornerRadius, bool antialias,
+		Action beginStroke, Action commitStroke)
+	{
+		if (SelectedShape is not ShapeState shape || surface is null || activeLayer?.IsLocked == true
+			|| !ReferenceEquals (shape.Layer, activeLayer))
+			return false;
+		if (shape.Kind == kind && shape.FillStyle == fillStyle && shape.Width == width
+			&& shape.Dash == dash && shape.CornerRadius == cornerRadius && shape.Antialias == antialias)
+			return false;
+
+		beginStroke ();
+		shape.BasePixels.AsSpan ().CopyTo (surface.GetPixelData ());
+		shape.Kind = kind;
+		shape.FillStyle = fillStyle;
+		shape.Width = width;
+		shape.Dash = dash;
+		shape.CornerRadius = cornerRadius;
+		shape.Antialias = antialias;
+		ShapeRasterizer.DrawRotated (surface, shape.Kind, shape.From, shape.To, shape.Outline, shape.Fill,
+			shape.FillStyle, shape.Width, shape.Dash, shape.CornerRadius, shape.Antialias, shape.Rotation);
+		commitStroke ();
+		return true;
+	}
+
+	public void RegisterPaintedShape (AvaloniaLayer? layer, ColorBgra[] basePixels,
+		CanvasHost.ShapeKind kind, PointD from, PointD to, ColorBgra outline, ColorBgra fill,
+		CanvasHost.ShapeFillStyle fillStyle, int width, CanvasHost.ShapeDashStyle dash,
+		int cornerRadius, bool antialias)
+	{
+		if (layer is null)
+			return;
+		SelectedShape = new ShapeState {
+			Layer = layer,
+			BasePixels = basePixels,
+			Kind = kind,
+			From = from,
+			To = to,
+			Outline = outline,
+			Fill = fill,
+			FillStyle = fillStyle,
+			Width = width,
+			Dash = dash,
+			CornerRadius = cornerRadius,
+			Antialias = antialias
+		};
+	}
+
 	public bool BeginCreate (PointD point, MemoryImageSurface? surface, CanvasHost.ShapeKind kind,
 		ColorBgra outline, ColorBgra fill, CanvasHost.ShapeFillStyle fillStyle, int width,
 		CanvasHost.ShapeDashStyle dash, int cornerRadius, bool antialias)
@@ -151,10 +232,18 @@ internal sealed class ShapeTool : ICanvasTool
 		ShapeRasterizer.Draw (surface, creationKind, creationStart, creationEnd, creationOutline, creationFill,
 			creationFillStyle, creationWidth, creationDash, creationCornerRadius, creationAntialias);
 		SelectedShape = new ShapeState {
-			Layer = layer, BasePixels = creationBasePixels, Kind = creationKind,
-			From = creationStart, To = creationEnd, Outline = creationOutline, Fill = creationFill,
-			FillStyle = creationFillStyle, Width = creationWidth, Dash = creationDash,
-			CornerRadius = creationCornerRadius, Antialias = creationAntialias
+			Layer = layer,
+			BasePixels = creationBasePixels,
+			Kind = creationKind,
+			From = creationStart,
+			To = creationEnd,
+			Outline = creationOutline,
+			Fill = creationFill,
+			FillStyle = creationFillStyle,
+			Width = creationWidth,
+			Dash = creationDash,
+			CornerRadius = creationCornerRadius,
+			Antialias = creationAntialias
 		};
 		ResetCreation ();
 		commitStroke ();
