@@ -21,8 +21,9 @@ public sealed class KeyboardSettingsWindow : Window
 		rows.Children.Add (CreateRow ("Toggle eraser", PintoraKeyCommands.ToggleEraser, settings));
 		rows.Children.Add (CreateRow ("Brush", PintoraKeyCommands.Brush, settings));
 		rows.Children.Add (CreateRow ("Pencil", PintoraKeyCommands.Pencil, settings));
-		rows.Children.Add (CreateRow ("Line", PintoraKeyCommands.Line, settings));
-		rows.Children.Add (CreateRow ("Rectangle", PintoraKeyCommands.Rectangle, settings));
+		rows.Children.Add (CreateRow ("Shapes", PintoraKeyCommands.Shapes, settings));
+		rows.Children.Add (CreateRow ("Line shape", PintoraKeyCommands.Line, settings));
+		rows.Children.Add (CreateRow ("Rectangle shape", PintoraKeyCommands.Rectangle, settings));
 		rows.Children.Add (CreateRow ("Fill", PintoraKeyCommands.Fill, settings));
 		rows.Children.Add (CreateRow ("Color picker", PintoraKeyCommands.ColorPicker, settings));
 		rows.Children.Add (CreateRow ("Zoom", PintoraKeyCommands.Zoom, settings));

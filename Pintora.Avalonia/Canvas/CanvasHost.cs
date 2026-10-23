@@ -31,9 +31,7 @@ public sealed class CanvasHost : Control
 		Selection,
 		Brush,
 		Pencil,
-		Line,
-		Rectangle,
-		Ellipse,
+		Shapes,
 		Gradient,
 		Fill,
 		ColorPicker,
@@ -41,32 +39,43 @@ public sealed class CanvasHost : Control
 		Eraser
 	}
 
+	public enum ShapeKind { Line, Rectangle, Ellipse, RoundedRectangle }
+	public enum ShapeFillStyle { Outline, Fill, FillAndOutline }
+	public enum ShapeDashStyle { Solid, Dash, Dot, DashDot }
+
 	private AvaloniaDocumentSession session;
+	private readonly CanvasToolSet tool_set = CanvasToolFactory.CreateTools ();
+	private ShapeTool shape_tool => tool_set.Get<ShapeTool> (CanvasTool.Shapes);
+	private GradientTool gradient_tool => tool_set.Get<GradientTool> (CanvasTool.Gradient);
+	private FillTool fill_tool => tool_set.Get<FillTool> (CanvasTool.Fill);
+	private SelectionTool selection_tool => tool_set.Get<SelectionTool> (CanvasTool.Selection);
+	private ColorPickerTool color_picker_tool => tool_set.Get<ColorPickerTool> (CanvasTool.ColorPicker);
+	private ZoomTool zoom_tool => tool_set.Get<ZoomTool> (CanvasTool.Zoom);
+	private BrushTool brush_tool => tool_set.Brush (CanvasTool.Brush);
+	private BrushTool pencil_tool => tool_set.Brush (CanvasTool.Pencil);
+	private BrushTool eraser_tool => tool_set.Brush (CanvasTool.Eraser);
 	private readonly PintoraKeyboardSettings keyboard;
 	private WriteableBitmap? bitmap;
 	private bool is_painting;
+	private CanvasTool? pointer_action_tool;
 	private bool has_current_stroke;
 	private PointD? last_canvas_point;
-	private PointD? stroke_start_point;
-	private PointD? selection_start_point;
-	private PointD? line_preview_point;
 	private Point? pan_start_view_point;
 	private Vector pan_start_offset;
 	private ColorBgra stroke_color;
 	private CanvasTool active_tool = CanvasTool.Brush;
+	private ShapeKind shape_kind = ShapeKind.Rectangle;
 	private Rect rendered_canvas_rect;
 	private Vector viewport_offset;
-	private readonly Stack<ColorBgra[]> undo_stack = new ();
-	private readonly Stack<ColorBgra[]> redo_stack = new ();
+	private readonly Stack<RasterSnapshot> undo_stack = new ();
+	private readonly Stack<RasterSnapshot> redo_stack = new ();
 	private readonly Stack<string> history_stack = new ();
 	private readonly Stack<string> redo_history_stack = new ();
 	private readonly Stack<LayerStackSnapshot> layer_undo_stack = new ();
 	private readonly Stack<LayerStackSnapshot> layer_redo_stack = new ();
-	private sealed record LayerSnapshot (string Name, bool IsVisible, bool IsLocked, double Opacity, ColorBgra[] Pixels);
+	private sealed record RasterSnapshot (AvaloniaLayer Layer, ColorBgra[] Pixels);
+	private sealed record LayerSnapshot (AvaloniaLayer Layer, string Name, bool IsVisible, bool IsLocked, double Opacity, ColorBgra[] Pixels);
 	private sealed record LayerStackSnapshot (List<LayerSnapshot> Layers, int ActiveIndex);
-	private RectangleI? selection;
-	private ColorBgra[]? clipboard_pixels;
-	private Pinta.Core.Size clipboard_size;
 
 	public CanvasHost () : this (new Pinta.Core.Size (800, 600))
 	{
@@ -90,6 +99,12 @@ public sealed class CanvasHost : Control
 	}
 
 	public double Scale => session.Scale;
+	internal void InvalidateToolVisual () => InvalidateVisual ();
+	internal void MarkCanvasChanged ()
+	{
+		bitmap = null;
+		InvalidateVisual ();
+	}
 	public event EventHandler? ScaleChanged;
 	private int brush_size = 1;
 	public int BrushSize {
@@ -121,7 +136,51 @@ public sealed class CanvasHost : Control
 		get => fill_tolerance;
 		set => fill_tolerance = Math.Clamp (value, 0, 255);
 	}
-	public bool ShapeFilled { get; set; }
+	private ShapeFillStyle shape_fill_style;
+	public ShapeFillStyle FillStyle {
+		get => shape_fill_style;
+		set {
+			if (!Enum.IsDefined (value)) throw new ArgumentOutOfRangeException (nameof (value));
+			shape_fill_style = value;
+			InvalidateVisual ();
+		}
+	}
+	public bool ShapeFilled {
+		get => FillStyle != ShapeFillStyle.Outline;
+		set => FillStyle = value ? ShapeFillStyle.Fill : ShapeFillStyle.Outline;
+	}
+	private int shape_outline_width = 2;
+	public int ShapeOutlineWidth {
+		get => shape_outline_width;
+		set { shape_outline_width = Math.Clamp (value, 1, 256); InvalidateVisual (); }
+	}
+	public ShapeDashStyle DashStyle {
+		get;
+		set {
+			if (!Enum.IsDefined (value)) throw new ArgumentOutOfRangeException (nameof (value));
+			field = value;
+			InvalidateVisual ();
+		}
+	}
+	private int shape_corner_radius = 8;
+	public int ShapeCornerRadius {
+		get => shape_corner_radius;
+		set { shape_corner_radius = Math.Clamp (value, 1, 256); InvalidateVisual (); }
+	}
+	public bool ShapeAntialias { get; set; } = true;
+	public ShapeKind SelectedShape {
+		get => shape_kind;
+		set {
+			if (!Enum.IsDefined (value))
+				throw new ArgumentOutOfRangeException (nameof (value));
+			if (shape_kind == value)
+				return;
+			shape_kind = value;
+			SelectedShapeChanged?.Invoke (this, EventArgs.Empty);
+			InvalidateVisual ();
+		}
+	}
+	public event EventHandler? SelectedShapeChanged;
 	public bool GradientReversed { get; set; }
 	public CanvasTool ActiveTool {
 		get => active_tool;
@@ -138,60 +197,33 @@ public sealed class CanvasHost : Control
 	public Pinta.Core.Size ViewSize => session.ViewSize;
 	public IImageSurface? Surface => session.Surface;
 	public bool IsActiveLayerLocked => session.ActiveLayer?.IsLocked == true;
+	internal AvaloniaLayer? ActiveLayer => session.ActiveLayer;
 	public IReadOnlyList<AvaloniaLayer> Layers => session.Layers;
 	public int ActiveLayerIndex => session.ActiveLayerIndex;
-	public RectangleI? Selection => selection;
+	public RectangleI? Selection => selection_tool.Selection;
 
 	public bool SelectRectangle (PointI start, PointI end)
 	{
-		RectangleI requested = RectangleI.FromPoints (start, end);
-		int left = Math.Clamp (requested.X, 0, ImageSize.Width);
-		int top = Math.Clamp (requested.Y, 0, ImageSize.Height);
-		int right = Math.Clamp (requested.X + requested.Width, 0, ImageSize.Width);
-		int bottom = Math.Clamp (requested.Y + requested.Height, 0, ImageSize.Height);
-		if (right <= left || bottom <= top) {
-			selection = null;
-			return false;
-		}
-		selection = new RectangleI (left, top, right - left, bottom - top);
+		bool selected = selection_tool.SelectRectangle (start, end, ImageSize);
 		InvalidateVisual ();
-		return true;
+		return selected;
 	}
 
 	public void ClearSelection ()
 	{
-		selection = null;
+		selection_tool.Clear ();
 		InvalidateVisual ();
 	}
 
 	public bool CopySelection ()
 	{
-		if (Surface is null || selection is not RectangleI area)
-			return false;
-		clipboard_size = new Pinta.Core.Size (area.Width, area.Height);
-		clipboard_pixels = new ColorBgra[area.Width * area.Height];
-		ReadOnlySpan<ColorBgra> source = Surface.GetReadOnlyPixelData ();
-		for (int y = 0; y < area.Height; y++)
-			source.Slice ((area.Y + y) * Surface.Width + area.X, area.Width).CopyTo (clipboard_pixels.AsSpan (y * area.Width, area.Width));
-		return true;
+		return selection_tool.Copy (Surface);
 	}
 
 	public bool PasteSelection (PointI destination)
 	{
-		if (clipboard_pixels is null || clipboard_size.Width <= 0 || clipboard_size.Height <= 0)
+		if (!selection_tool.Paste (destination, name => session.AddLayer ($"{name} {Layers.Count}")))
 			return false;
-		AvaloniaLayer layer = session.AddLayer ($"Pasted Layer {Layers.Count}");
-		Span<ColorBgra> target = layer.Surface.GetPixelData ();
-		for (int y = 0; y < clipboard_size.Height; y++) {
-			int targetY = destination.Y + y;
-			if ((uint) targetY >= (uint) layer.Surface.Height)
-				continue;
-			for (int x = 0; x < clipboard_size.Width; x++) {
-				int targetX = destination.X + x;
-				if ((uint) targetX < (uint) layer.Surface.Width)
-					target[targetY * layer.Surface.Width + targetX] = clipboard_pixels[y * clipboard_size.Width + x];
-			}
-		}
 		bitmap = null;
 		InvalidateVisual ();
 		return true;
@@ -199,32 +231,14 @@ public sealed class CanvasHost : Control
 
 	public bool PasteSelection ()
 	{
-		PointI destination = selection is RectangleI area ? new PointI (area.X, area.Y) : new PointI (0, 0);
+		PointI destination = Selection is RectangleI area ? new PointI (area.X, area.Y) : new PointI (0, 0);
 		return PasteSelection (destination);
 	}
 
 	public bool MoveSelection (PointI delta)
 	{
-		if (Surface is null || selection is not RectangleI area || (delta.X == 0 && delta.Y == 0))
+		if (IsActiveLayerLocked || !selection_tool.Move (Surface, delta, BeginStroke, CommitStroke))
 			return false;
-		if (!CopySelection ())
-			return false;
-		PointI destination = new (area.X + delta.X, area.Y + delta.Y);
-		var clipped = new RectangleI (
-			Math.Max (0, destination.X), Math.Max (0, destination.Y),
-			Math.Min (area.Width, Surface.Width - Math.Max (0, destination.X)),
-			Math.Min (area.Height, Surface.Height - Math.Max (0, destination.Y)));
-		if (clipped.Width <= 0 || clipped.Height <= 0)
-			return false;
-		BeginStroke ();
-		Span<ColorBgra> pixels = Surface.GetPixelData ();
-		for (int y = 0; y < area.Height; y++)
-			pixels.Slice ((area.Y + y) * Surface.Width + area.X, area.Width).Fill (ColorBgra.Zero);
-		for (int y = 0; y < clipped.Height; y++)
-			for (int x = 0; x < clipped.Width; x++)
-				pixels[(clipped.Y + y) * Surface.Width + clipped.X + x] = clipboard_pixels![y * area.Width + (clipped.X - destination.X) + x];
-		selection = clipped;
-		CommitStroke ();
 		bitmap = null;
 		InvalidateVisual ();
 		return true;
@@ -232,17 +246,8 @@ public sealed class CanvasHost : Control
 
 	public bool FlipSelectionHorizontal ()
 	{
-		if (Surface is null || selection is not RectangleI area || area.Width < 2)
+		if (IsActiveLayerLocked || !selection_tool.FlipHorizontal (Surface, BeginStroke, CommitStroke))
 			return false;
-		BeginStroke ();
-		Span<ColorBgra> pixels = Surface.GetPixelData ();
-		for (int y = 0; y < area.Height; y++)
-			for (int x = 0; x < area.Width / 2; x++) {
-				int left = (area.Y + y) * Surface.Width + area.X + x;
-				int right = (area.Y + y) * Surface.Width + area.X + area.Width - x - 1;
-				(pixels[left], pixels[right]) = (pixels[right], pixels[left]);
-			}
-		CommitStroke ();
 		bitmap = null;
 		InvalidateVisual ();
 		return true;
@@ -250,17 +255,8 @@ public sealed class CanvasHost : Control
 
 	public bool FlipSelectionVertical ()
 	{
-		if (Surface is null || selection is not RectangleI area || area.Height < 2)
+		if (IsActiveLayerLocked || !selection_tool.FlipVertical (Surface, BeginStroke, CommitStroke))
 			return false;
-		BeginStroke ();
-		Span<ColorBgra> pixels = Surface.GetPixelData ();
-		for (int y = 0; y < area.Height / 2; y++)
-			for (int x = 0; x < area.Width; x++) {
-				int top = (area.Y + y) * Surface.Width + area.X + x;
-				int bottom = (area.Y + area.Height - y - 1) * Surface.Width + area.X + x;
-				(pixels[top], pixels[bottom]) = (pixels[bottom], pixels[top]);
-			}
-		CommitStroke ();
 		bitmap = null;
 		InvalidateVisual ();
 		return true;
@@ -268,19 +264,8 @@ public sealed class CanvasHost : Control
 
 	public bool RotateSelectionClockwise ()
 	{
-		if (Surface is null || selection is not RectangleI area || area.Width != area.Height || area.Width < 2)
+		if (IsActiveLayerLocked || !selection_tool.RotateClockwise (Surface, BeginStroke, CommitStroke))
 			return false;
-		int size = area.Width;
-		ColorBgra[] source = new ColorBgra[size * size];
-		for (int y = 0; y < size; y++)
-			for (int x = 0; x < size; x++)
-				source[y * size + x] = Surface.GetReadOnlyPixelData ()[(area.Y + y) * Surface.Width + area.X + x];
-		BeginStroke ();
-		Span<ColorBgra> pixels = Surface.GetPixelData ();
-		for (int y = 0; y < size; y++)
-			for (int x = 0; x < size; x++)
-				pixels[(area.Y + y) * Surface.Width + area.X + x] = source[(size - 1 - x) * size + y];
-		CommitStroke ();
 		bitmap = null;
 		InvalidateVisual ();
 		return true;
@@ -442,19 +427,20 @@ public sealed class CanvasHost : Control
 	}
 
 	private LayerStackSnapshot CaptureLayerStack ()
-		=> new (Layers.Select (layer => new LayerSnapshot (layer.Name, layer.IsVisible, layer.IsLocked, layer.Opacity, layer.Surface.GetReadOnlyPixelData ().ToArray ())).ToList (), ActiveLayerIndex);
+		=> new (Layers.Select (layer => new LayerSnapshot (layer, layer.Name, layer.IsVisible, layer.IsLocked, layer.Opacity, layer.Surface.GetReadOnlyPixelData ().ToArray ())).ToList (), ActiveLayerIndex);
 
 	private void RestoreLayerStack (LayerStackSnapshot snapshot)
 	{
 		if (snapshot.Layers.Count == 0) return;
-		var first = snapshot.Layers[0];
-		var surface = new MemoryImageSurface (ImageSize.Width, ImageSize.Height);
-		first.Pixels.CopyTo (surface.GetPixelData ());
-		session = new AvaloniaDocumentSession (ImageSize, surface);
-		session.ActiveLayer!.Name = first.Name; session.ActiveLayer.IsVisible = first.IsVisible; session.ActiveLayer.IsLocked = first.IsLocked; session.ActiveLayer.Opacity = first.Opacity;
-		for (int i = 1; i < snapshot.Layers.Count; i++) {
-			LayerSnapshot item = snapshot.Layers[i];
-			AvaloniaLayer layer = session.AddLayer (item.Name); item.Pixels.CopyTo (layer.Surface.GetPixelData ()); layer.IsVisible = item.IsVisible; layer.IsLocked = item.IsLocked; layer.Opacity = item.Opacity;
+		session.Layers.Clear ();
+		foreach (LayerSnapshot item in snapshot.Layers) {
+			AvaloniaLayer layer = item.Layer;
+			item.Pixels.CopyTo (layer.Surface.GetPixelData ());
+			layer.Name = item.Name;
+			layer.IsVisible = item.IsVisible;
+			layer.IsLocked = item.IsLocked;
+			layer.Opacity = item.Opacity;
+			session.Layers.Add (layer);
 		}
 		session.SelectLayer (Math.Min (snapshot.ActiveIndex, Layers.Count - 1));
 		bitmap = null; InvalidateVisual ();
@@ -476,12 +462,9 @@ public sealed class CanvasHost : Control
 	public void ZoomAt (Point viewPoint, double factor)
 	{
 		Point oldOrigin = GetCanvasOrigin ();
-		PointD canvasPoint = session.Viewport.ViewPointToCanvas (new PointD (viewPoint.X - oldOrigin.X, viewPoint.Y - oldOrigin.Y));
-		SetScale (Math.Clamp (Scale * factor, 0.1, 32));
-		Point centered = GetCenteredCanvasOrigin ();
-		viewport_offset = new Vector (
-			viewPoint.X - centered.X - canvasPoint.X * Scale,
-			viewPoint.Y - centered.Y - canvasPoint.Y * Scale);
+		ZoomTool.ZoomResult result = zoom_tool.Calculate (viewPoint, factor, Scale, oldOrigin, GetCenteredCanvasOrigin (), session.Viewport);
+		SetScale (result.Scale);
+		viewport_offset = result.Offset;
 		InvalidateVisual ();
 	}
 
@@ -523,8 +506,7 @@ public sealed class CanvasHost : Control
 			: new MemoryImageSurface (width, height);
 		surface.Fill (ColorBgra.White);
 		session = new AvaloniaDocumentSession (new Pinta.Core.Size (width, height), surface);
-		undo_stack.Clear ();
-		redo_stack.Clear ();
+		ClearHistory ();
 		viewport_offset = Vector.Zero;
 		SetScale (1.0);
 		bitmap = null;
@@ -536,8 +518,7 @@ public sealed class CanvasHost : Control
 		if (width <= 0 || height <= 0)
 			throw new ArgumentOutOfRangeException (nameof (width), "Image dimensions must be positive.");
 		session.Resize (new Pinta.Core.Size (width, height));
-		undo_stack.Clear ();
-		redo_stack.Clear ();
+		ClearHistory ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -546,8 +527,7 @@ public sealed class CanvasHost : Control
 	public void CropImage (int left, int top, int width, int height)
 	{
 		session.Crop (left, top, width, height);
-		undo_stack.Clear ();
-		redo_stack.Clear ();
+		ClearHistory ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -558,8 +538,7 @@ public sealed class CanvasHost : Control
 		using Bitmap image = new (path);
 		MemoryImageSurface surface = DecodeSurface (image);
 		session = new AvaloniaDocumentSession (new Pinta.Core.Size (surface.Width, surface.Height), surface);
-		undo_stack.Clear ();
-		redo_stack.Clear ();
+		ClearHistory ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -651,8 +630,7 @@ public sealed class CanvasHost : Control
 			source.GetReadOnlyPixelData ().CopyTo (layer.Surface.GetPixelData ());
 			ApplyLayerMetadata (layer, node);
 		}
-		undo_stack.Clear ();
-		redo_stack.Clear ();
+		ClearHistory ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -793,29 +771,10 @@ public sealed class CanvasHost : Control
 
 	public void PaintCanvasPoint (PointD canvasPoint, ColorBgra color)
 	{
-		if (Surface is null || IsActiveLayerLocked)
+		BrushTool activeBrush = ActiveTool == CanvasTool.Eraser ? eraser_tool : brush_tool;
+		if (IsActiveLayerLocked || !activeBrush.DrawPoint (Surface, canvasPoint, color, BrushSize, BrushOpacity,
+			BrushHardness, activeBrush.IsEraser))
 			return;
-
-		int radius = Math.Max (BrushSize - 1, 0) / 2;
-		Span<ColorBgra> pixels = Surface.GetPixelData ();
-		int centerX = (int) Math.Round (canvasPoint.X);
-		int centerY = (int) Math.Round (canvasPoint.Y);
-		if (color.A > 0 && BrushOpacity < 1)
-			color = ColorBgra.FromBgra (color.B, color.G, color.R, (byte) Math.Round (color.A * Math.Clamp (BrushOpacity, 0, 1)));
-		for (int y = centerY - radius; y <= centerY + radius; y++)
-			for (int x = centerX - radius; x <= centerX + radius; x++)
-				if ((uint) x < Surface.Width && (uint) y < Surface.Height) {
-					ColorBgra painted = ActiveTool == CanvasTool.Eraser ? ColorBgra.Zero : color;
-					if (color.A > 0 && BrushHardness < 1 && radius > 0) {
-						double edge = Math.Max (Math.Abs (x - centerX), Math.Abs (y - centerY)) / (double) radius;
-						double softness = Math.Clamp ((1 - edge) / Math.Max (1 - BrushHardness, 0.001), 0, 1);
-						painted = softness <= 0 ? ColorBgra.Zero : ColorBgra.FromBgra (color.B, color.G, color.R, (byte) Math.Round (color.A * softness));
-					}
-					pixels[y * Surface.Width + x] = ActiveTool == CanvasTool.Eraser
-						? painted
-						: Blend (pixels[y * Surface.Width + x], painted);
-				}
-
 		bitmap = null;
 		InvalidateVisual ();
 	}
@@ -840,46 +799,45 @@ public sealed class CanvasHost : Control
 
 	public void PaintCanvasLine (PointD from, PointD to, ColorBgra color)
 	{
-		double distance = Math.Sqrt (Math.Pow (to.X - from.X, 2) + Math.Pow (to.Y - from.Y, 2));
-		int steps = (int) Math.Ceiling (distance);
-
-		for (int i = 0; i <= steps; i++) {
-			double progress = i / (double) steps;
-			PaintCanvasPoint (new PointD (
-				from.X + (to.X - from.X) * progress,
-				from.Y + (to.Y - from.Y) * progress), color);
-		}
-	}
-
-	public void PaintPencilLine (PointD from, PointD to, ColorBgra color)
-	{
-		if (color.A > 0 && BrushOpacity < 1)
-			color = ColorBgra.FromBgra (color.B, color.G, color.R, (byte) Math.Round (color.A * Math.Clamp (BrushOpacity, 0, 1)));
-		double distance = Math.Sqrt (Math.Pow (to.X - from.X, 2) + Math.Pow (to.Y - from.Y, 2));
-		int steps = (int) Math.Ceiling (distance);
-		Span<ColorBgra> pixels = Surface!.GetPixelData ();
-		for (int i = 0; i <= steps; i++) {
-			double progress = i / (double) steps;
-			int x = (int) Math.Round (from.X + (to.X - from.X) * progress);
-			int y = (int) Math.Round (from.Y + (to.Y - from.Y) * progress);
-			if ((uint) x < Surface.Width && (uint) y < Surface.Height)
-				pixels[y * Surface.Width + x] = Blend (pixels[y * Surface.Width + x], color);
-		}
+		BrushTool activeBrush = ActiveTool == CanvasTool.Eraser ? eraser_tool : brush_tool;
+		if (IsActiveLayerLocked || !activeBrush.DrawLine (Surface, from, to, color, BrushSize, BrushOpacity,
+			BrushHardness, activeBrush.IsEraser))
+			return;
 		bitmap = null;
 		InvalidateVisual ();
 	}
 
-	public bool CanUndoStroke => undo_stack.Count > 0 && Surface is not null;
-	public bool CanRedoStroke => redo_stack.Count > 0 && Surface is not null;
+	public void PaintPencilLine (PointD from, PointD to, ColorBgra color)
+	{
+		if (IsActiveLayerLocked || !pencil_tool.DrawPencilLine (Surface, from, to, color, BrushOpacity))
+			return;
+		bitmap = null;
+		InvalidateVisual ();
+	}
+
+	public bool CanUndoStroke => undo_stack.Count > 0 && Layers.Contains (undo_stack.Peek ().Layer);
+	public bool CanRedoStroke => redo_stack.Count > 0 && Layers.Contains (redo_stack.Peek ().Layer);
 	public IReadOnlyList<string> History => history_stack.ToArray ();
 	public event EventHandler? HistoryChanged;
+
+	private void ClearHistory ()
+	{
+		undo_stack.Clear ();
+		redo_stack.Clear ();
+		history_stack.Clear ();
+		redo_history_stack.Clear ();
+		layer_undo_stack.Clear ();
+		layer_redo_stack.Clear ();
+		has_current_stroke = false;
+		HistoryChanged?.Invoke (this, EventArgs.Empty);
+	}
 
 	public void BeginStroke ()
 	{
 		if (Surface is null)
 			return;
 
-		undo_stack.Push (Surface.GetReadOnlyPixelData ().ToArray ());
+		undo_stack.Push (new RasterSnapshot (session.ActiveLayer!, Surface.GetReadOnlyPixelData ().ToArray ()));
 		redo_stack.Clear ();
 		redo_history_stack.Clear ();
 		history_stack.Push ("Raster operation");
@@ -889,16 +847,17 @@ public sealed class CanvasHost : Control
 
 	public void CancelCurrentStroke ()
 	{
-		if (!has_current_stroke || undo_stack.Count == 0)
-			return;
-		ColorBgra[] snapshot = undo_stack.Pop ();
-		history_stack.Pop ();
-		if (Surface is not null)
-			snapshot.AsSpan ().CopyTo (Surface.GetPixelData ());
+		tool_set.CancelPointerActions ();
+		pointer_action_tool = null;
 		is_painting = false;
 		last_canvas_point = null;
-		stroke_start_point = null;
-		line_preview_point = null;
+		if (!has_current_stroke || undo_stack.Count == 0) {
+			InvalidateVisual ();
+			return;
+		}
+		RasterSnapshot snapshot = undo_stack.Pop ();
+		history_stack.Pop ();
+		snapshot.Pixels.AsSpan ().CopyTo (snapshot.Layer.Surface.GetPixelData ());
 		has_current_stroke = false;
 		bitmap = null;
 		InvalidateVisual ();
@@ -934,8 +893,10 @@ public sealed class CanvasHost : Control
 		if (!CanUndoStroke)
 			return;
 
-		redo_stack.Push (Surface!.GetReadOnlyPixelData ().ToArray ());
-		undo_stack.Pop ().AsSpan ().CopyTo (Surface.GetPixelData ());
+		RasterSnapshot snapshot = undo_stack.Pop ();
+		AvaloniaLayer layer = snapshot.Layer;
+		redo_stack.Push (new RasterSnapshot (layer, layer.Surface.GetReadOnlyPixelData ().ToArray ()));
+		snapshot.Pixels.AsSpan ().CopyTo (layer.Surface.GetPixelData ());
 		redo_history_stack.Push (history_stack.Pop ());
 		bitmap = null;
 		InvalidateVisual ();
@@ -947,8 +908,10 @@ public sealed class CanvasHost : Control
 		if (!CanRedoStroke)
 			return;
 
-		undo_stack.Push (Surface!.GetReadOnlyPixelData ().ToArray ());
-		redo_stack.Pop ().AsSpan ().CopyTo (Surface.GetPixelData ());
+		RasterSnapshot snapshot = redo_stack.Pop ();
+		AvaloniaLayer layer = snapshot.Layer;
+		undo_stack.Push (new RasterSnapshot (layer, layer.Surface.GetReadOnlyPixelData ().ToArray ()));
+		snapshot.Pixels.AsSpan ().CopyTo (layer.Surface.GetPixelData ());
 		history_stack.Push (redo_history_stack.Pop ());
 		bitmap = null;
 		InvalidateVisual ();
@@ -981,26 +944,32 @@ public sealed class CanvasHost : Control
 		rendered_canvas_rect = new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height));
 		DrawTransparencyGrid (context, rendered_canvas_rect);
 
-		if (Surface is not null)
-			DrawSurface (context, origin, CreateCompositeSurface ());
-		else
+		if (Surface is not null) {
+			MemoryImageSurface? shapePreview = null;
+			try {
+				if (ActiveTool == CanvasTool.Shapes && !IsActiveLayerLocked && shape_tool.IsEditing) {
+					shapePreview = new MemoryImageSurface (ImageSize.Width, ImageSize.Height);
+					shape_tool.DrawPreview (shapePreview);
+				} else if (ActiveTool == CanvasTool.Shapes && !IsActiveLayerLocked && shape_tool.IsCreating) {
+					shapePreview = new MemoryImageSurface (ImageSize.Width, ImageSize.Height);
+					shape_tool.DrawCreationPreview (shapePreview);
+				}
+				using MemoryImageSurface composite = CreateCompositeSurface (shapePreview);
+				DrawSurface (context, origin, composite);
+			} finally {
+				shapePreview?.Dispose ();
+			}
+		} else
 			context.FillRectangle (Brushes.White, new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height)));
 		context.DrawRectangle (new Pen (Brushes.Gray, 1), new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height)));
-		if ((ActiveTool == CanvasTool.Line || ActiveTool == CanvasTool.Rectangle || ActiveTool == CanvasTool.Ellipse || ActiveTool == CanvasTool.Gradient) && is_painting && stroke_start_point is PointD start && line_preview_point is PointD preview) {
-			var preview_pen = new Pen (new SolidColorBrush (ToAvaloniaColor (stroke_color)), Math.Max (1, BrushSize * Scale));
-			Point first = origin + new Vector (start.X * Scale, start.Y * Scale);
-			Point last = origin + new Vector (preview.X * Scale, preview.Y * Scale);
-			if (ActiveTool == CanvasTool.Line || ActiveTool == CanvasTool.Gradient)
-				context.DrawLine (preview_pen, first, last);
-			else if (ActiveTool == CanvasTool.Rectangle)
-				context.DrawRectangle (preview_pen, new Rect (Math.Min (first.X, last.X), Math.Min (first.Y, last.Y), Math.Abs (last.X - first.X), Math.Abs (last.Y - first.Y)));
-			else
-				context.DrawEllipse (null, preview_pen, new Rect (Math.Min (first.X, last.X), Math.Min (first.Y, last.Y), Math.Abs (last.X - first.X), Math.Abs (last.Y - first.Y)));
-		}
-		if (selection is RectangleI selected) {
+		if (ActiveTool == CanvasTool.Gradient && is_painting)
+			gradient_tool.DrawGuide (context, origin, Scale, Math.Max (1, BrushSize * Scale));
+		if (Selection is RectangleI selected) {
 			var selection_pen = new Pen (Brushes.DodgerBlue, 1, new DashStyle (new[] { 4d, 4d }, 0));
 			context.DrawRectangle (selection_pen, new Rect (origin.X + selected.X * Scale, origin.Y + selected.Y * Scale, selected.Width * Scale, selected.Height * Scale));
 		}
+		if (ActiveTool == CanvasTool.Shapes && shape_tool.SelectedShape is ShapeTool.ShapeState selectedShape && !shape_tool.IsEditing)
+			shape_tool.DrawHandles (context, origin, Scale, selectedShape.Kind, selectedShape.From, selectedShape.To, selectedShape.Rotation);
 
 		var text = new FormattedText (
 			$"Canvas {session.ImageSize.Width} × {session.ImageSize.Height}\n{Scale:P0}",
@@ -1033,14 +1002,16 @@ public sealed class CanvasHost : Control
 			}
 	}
 
-	private MemoryImageSurface CreateCompositeSurface ()
+	private MemoryImageSurface CreateCompositeSurface (IImageSurface? activeLayerPreview = null)
 	{
 		var composite = new MemoryImageSurface (ImageSize.Width, ImageSize.Height);
 		Span<ColorBgra> destination = composite.GetPixelData ();
 		foreach (AvaloniaLayer layer in Layers) {
 			if (!layer.IsVisible || layer.Opacity <= 0)
 				continue;
-			ReadOnlySpan<ColorBgra> source = layer.Surface.GetReadOnlyPixelData ();
+			ReadOnlySpan<ColorBgra> source = ReferenceEquals (layer, session.ActiveLayer) && activeLayerPreview is not null
+				? activeLayerPreview.GetReadOnlyPixelData ()
+				: layer.Surface.GetReadOnlyPixelData ();
 			int opacity = (int) Math.Round (Math.Clamp (layer.Opacity, 0, 1) * 255);
 			for (int i = 0; i < destination.Length; i++) {
 				ColorBgra top = source[i];
@@ -1106,87 +1077,37 @@ public sealed class CanvasHost : Control
 		Point position = e.GetPosition (this);
 		Point origin = GetCanvasOrigin ();
 		last_canvas_point = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
+		CanvasToolPointerContext context = new (this, position, last_canvas_point.Value, last_canvas_point.Value,
+			stroke_color, properties.IsRightButtonPressed, false);
+		bool handled = tool_set.Get<ICanvasTool> (ActiveTool).PointerPressed (context);
 		if (ActiveTool == CanvasTool.Zoom) {
-			ZoomAt (position, properties.IsRightButtonPressed ? 1 / 1.25 : 1.25);
-			is_painting = false;
 			e.Pointer.Capture (null);
-			e.Handled = true;
+			e.Handled = handled;
 			return;
 		}
-		if (ActiveTool == CanvasTool.Selection) {
-			is_painting = true;
-			selection_start_point = last_canvas_point;
-			e.Handled = true;
-			return;
+		if (ActiveTool is CanvasTool.Selection or CanvasTool.Shapes or CanvasTool.Gradient
+			or CanvasTool.Brush or CanvasTool.Pencil or CanvasTool.Eraser) {
+			is_painting = handled;
+			pointer_action_tool = handled ? ActiveTool : null;
 		}
-		if (ActiveTool == CanvasTool.ColorPicker) {
-			PickColorAt (last_canvas_point.Value);
-			return;
-		}
-		if (ActiveTool == CanvasTool.Fill) {
-		FillAt (last_canvas_point.Value, stroke_color);
-			return;
-		}
-		is_painting = true;
-		if (ActiveTool != CanvasTool.Gradient)
-			BeginStroke ();
-		stroke_start_point = last_canvas_point;
-		line_preview_point = last_canvas_point;
-		if (ActiveTool != CanvasTool.Line && ActiveTool != CanvasTool.Rectangle && ActiveTool != CanvasTool.Ellipse && ActiveTool != CanvasTool.Gradient)
-			if (ActiveTool == CanvasTool.Pencil)
-				PaintPencilLine (last_canvas_point.Value, last_canvas_point.Value, stroke_color);
-			else
-				PaintCanvasPoint (last_canvas_point.Value, stroke_color);
-		e.Handled = true;
+		if (!handled)
+			e.Pointer.Capture (null);
+		e.Handled = handled;
 	}
 
 	public void PickColorAt (PointD point)
 	{
-		if (Surface is null)
-			return;
-		int x = (int) Math.Round (point.X);
-		int y = (int) Math.Round (point.Y);
-		if ((uint) x < Surface.Width && (uint) y < Surface.Height)
-			BrushColor = Surface.GetReadOnlyPixelData ()[y * Surface.Width + x];
+		if (color_picker_tool.TryPick (Surface, point, out ColorBgra picked))
+			BrushColor = picked;
 	}
 
 	public bool FillAt (PointD point, ColorBgra color)
 	{
-		if (Surface is null || IsActiveLayerLocked)
+		if (IsActiveLayerLocked || !fill_tool.Fill (Surface, point, color, FillTolerance, BeginStroke, CommitStroke))
 			return false;
-		int startX = (int) Math.Round (point.X);
-		int startY = (int) Math.Round (point.Y);
-		if ((uint) startX >= Surface.Width || (uint) startY >= Surface.Height)
-			return false;
-		Span<ColorBgra> pixels = Surface.GetPixelData ();
-		ColorBgra target = pixels[startY * Surface.Width + startX];
-		if (target == color)
-			return false;
-		BeginStroke ();
-		var queue = new Queue<(int X, int Y)> ();
-		queue.Enqueue ((startX, startY));
-		while (queue.Count > 0) {
-			(int x, int y) = queue.Dequeue ();
-			if ((uint) x >= Surface.Width || (uint) y >= Surface.Height || !MatchesFillColor (pixels[y * Surface.Width + x], target))
-				continue;
-			pixels[y * Surface.Width + x] = color;
-			queue.Enqueue ((x + 1, y));
-			queue.Enqueue ((x - 1, y));
-			queue.Enqueue ((x, y + 1));
-			queue.Enqueue ((x, y - 1));
-		}
 		bitmap = null;
 		InvalidateVisual ();
 		return true;
-	}
-
-	private bool MatchesFillColor (ColorBgra actual, ColorBgra target)
-	{
-		int tolerance = Math.Clamp (FillTolerance, 0, 255);
-		return Math.Abs (actual.R - target.R) <= tolerance
-			&& Math.Abs (actual.G - target.G) <= tolerance
-			&& Math.Abs (actual.B - target.B) <= tolerance
-			&& Math.Abs (actual.A - target.A) <= tolerance;
 	}
 
 	private void OnPointerReleased (object? sender, PointerReleasedEventArgs e)
@@ -1197,30 +1118,17 @@ public sealed class CanvasHost : Control
 			e.Handled = true;
 			return;
 		}
-		if (is_painting && (ActiveTool == CanvasTool.Line || ActiveTool == CanvasTool.Rectangle || ActiveTool == CanvasTool.Ellipse || ActiveTool == CanvasTool.Gradient) && stroke_start_point is PointD start) {
+		if (is_painting) {
 			Point position = e.GetPosition (this);
 			Point origin = GetCanvasOrigin ();
-			PointD end = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
-			if (ActiveTool == CanvasTool.Line)
-				PaintCanvasLine (start, end, stroke_color);
-			else if (ActiveTool == CanvasTool.Rectangle)
-				PaintCanvasRectangle (start, end, stroke_color);
-			else if (ActiveTool == CanvasTool.Ellipse)
-				PaintCanvasEllipse (start, end, stroke_color);
-			else
-				PaintGradient (start, end);
-		}
-		if (is_painting && ActiveTool == CanvasTool.Selection && selection_start_point is PointD selectionStart) {
-			Point position = e.GetPosition (this);
-			Point origin = GetCanvasOrigin ();
-			PointD end = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
-			SelectRectangle (new PointI ((int) Math.Round (selectionStart.X), (int) Math.Round (selectionStart.Y)), new PointI ((int) Math.Round (end.X), (int) Math.Round (end.Y)));
+			PointD point = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
+			PointD previous = last_canvas_point ?? point;
+			tool_set.Get<ICanvasTool> (pointer_action_tool ?? ActiveTool).PointerReleased (
+				new CanvasToolPointerContext (this, position, point, previous, stroke_color, false, false));
 		}
 		is_painting = false;
+		pointer_action_tool = null;
 		last_canvas_point = null;
-		stroke_start_point = null;
-		line_preview_point = null;
-		selection_start_point = null;
 		has_current_stroke = false;
 		InvalidateVisual ();
 		e.Pointer.Capture (null);
@@ -1241,28 +1149,37 @@ public sealed class CanvasHost : Control
 		Point position = e.GetPosition (this);
 		Point origin = GetCanvasOrigin ();
 		PointD current = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
-		if (ActiveTool == CanvasTool.Line || ActiveTool == CanvasTool.Rectangle || ActiveTool == CanvasTool.Ellipse || ActiveTool == CanvasTool.Gradient) {
-			line_preview_point = current;
-			InvalidateVisual ();
-			return;
-		}
-		if (last_canvas_point is PointD previous)
-			if (ActiveTool == CanvasTool.Pencil)
-				PaintPencilLine (previous, current, stroke_color);
-			else
-				PaintCanvasLine (previous, current, stroke_color);
-		else
-			PaintCanvasPoint (current, stroke_color);
+		PointD previous = last_canvas_point ?? current;
+		bool handled = tool_set.Get<ICanvasTool> (pointer_action_tool ?? ActiveTool).PointerMoved (
+			new CanvasToolPointerContext (this, position, current, previous, stroke_color, false,
+				(e.KeyModifiers & KeyModifiers.Shift) != 0));
 		last_canvas_point = current;
-		e.Handled = true;
+		e.Handled = handled;
 	}
 
 	private void OnKeyDown (object? sender, KeyEventArgs e)
 	{
 		if (e.Key == Key.Escape) {
-			CancelCurrentStroke ();
+			selection_tool.CancelSelection ();
+			if (shape_tool.IsEditing)
+				shape_tool.CancelEdit (CancelCurrentStroke);
+			else
+				CancelCurrentStroke ();
 			e.Handled = true;
-		} else if (selection is not null && e.Key is Key.Left or Key.Right or Key.Up or Key.Down) {
+		} else if (ActiveTool == CanvasTool.Shapes && shape_tool.SelectedShape is not null && e.Key is Key.Left or Key.Right or Key.Up or Key.Down) {
+			int step = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 10 : 1;
+			PointD delta = e.Key switch {
+				Key.Left => new PointD (-step, 0),
+				Key.Right => new PointD (step, 0),
+				Key.Up => new PointD (0, -step),
+				_ => new PointD (0, step)
+			};
+			if (shape_tool.MoveSelected (delta, Surface as MemoryImageSurface, IsActiveLayerLocked, BeginStroke, CommitStroke)) {
+				bitmap = null;
+				InvalidateVisual ();
+			}
+			e.Handled = true;
+		} else if (Selection is not null && e.Key is Key.Left or Key.Right or Key.Up or Key.Down) {
 			PointI delta = e.Key switch {
 				Key.Left => new PointI (-1, 0),
 				Key.Right => new PointI (1, 0),
@@ -1309,9 +1226,11 @@ public sealed class CanvasHost : Control
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Pencil)) {
 			ActiveTool = CanvasTool.Pencil; e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Line)) {
-			ActiveTool = CanvasTool.Line; e.Handled = true;
+			SelectedShape = ShapeKind.Line; ActiveTool = CanvasTool.Shapes; e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Rectangle)) {
-			ActiveTool = CanvasTool.Rectangle; e.Handled = true;
+			SelectedShape = ShapeKind.Rectangle; ActiveTool = CanvasTool.Shapes; e.Handled = true;
+		} else if (keyboard.Matches (e, PintoraKeyCommands.Shapes)) {
+			ActiveTool = CanvasTool.Shapes; e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Fill)) {
 			ActiveTool = CanvasTool.Fill; e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.ColorPicker)) {
@@ -1330,66 +1249,32 @@ public sealed class CanvasHost : Control
 		return new Rect (GetCanvasOrigin (), new global::Avalonia.Size (viewSize.Width, viewSize.Height));
 	}
 
-	private static global::Avalonia.Media.Color ToAvaloniaColor (ColorBgra color)
-		=> global::Avalonia.Media.Color.FromArgb (color.A, color.R, color.G, color.B);
+	public void PaintCanvasShape (ShapeKind shape, PointD from, PointD to, ColorBgra color)
+		=> PaintCanvasShape (shape, from, to, color, SecondaryBrushColor, FillStyle,
+			ShapeOutlineWidth, DashStyle, ShapeCornerRadius, ShapeAntialias);
+
+	private void PaintCanvasShape (ShapeKind shape, PointD from, PointD to, ColorBgra outline,
+		ColorBgra fill, ShapeFillStyle style, int width, ShapeDashStyle dash, int cornerRadius, bool antialias)
+	{
+		if (Surface is not MemoryImageSurface surface || IsActiveLayerLocked)
+			return;
+		ShapeRasterizer.Draw (surface, shape, from, to, outline, fill, style, width, dash, cornerRadius, antialias);
+		bitmap = null;
+		InvalidateVisual ();
+	}
 
 	public void PaintCanvasRectangle (PointD from, PointD to, ColorBgra color)
-	{
-		PointD topLeft = new (Math.Min (from.X, to.X), Math.Min (from.Y, to.Y));
-		PointD bottomRight = new (Math.Max (from.X, to.X), Math.Max (from.Y, to.Y));
-		if (ShapeFilled && Surface is not null) {
-			for (int y = (int) topLeft.Y; y <= (int) bottomRight.Y; y++)
-				PaintCanvasLine (new PointD (topLeft.X, y), new PointD (bottomRight.X, y), color);
-			return;
-		}
-		PaintCanvasLine (topLeft, new PointD (bottomRight.X, topLeft.Y), color);
-		PaintCanvasLine (new PointD (bottomRight.X, topLeft.Y), bottomRight, color);
-		PaintCanvasLine (bottomRight, new PointD (topLeft.X, bottomRight.Y), color);
-		PaintCanvasLine (new PointD (topLeft.X, bottomRight.Y), topLeft, color);
-	}
+		=> PaintCanvasShape (ShapeKind.Rectangle, from, to, color);
 
 	public void PaintCanvasEllipse (PointD from, PointD to, ColorBgra color)
-	{
-		PointD center = new ((from.X + to.X) / 2, (from.Y + to.Y) / 2);
-		double radiusX = Math.Abs (to.X - from.X) / 2;
-		double radiusY = Math.Abs (to.Y - from.Y) / 2;
-		if (radiusX == 0 || radiusY == 0) {
-			PaintCanvasLine (from, to, color);
-			return;
-		}
-		int steps = Math.Max (64, (int) Math.Ceiling (2 * Math.PI * Math.Max (radiusX, radiusY)));
-		for (int i = 0; i <= steps; i++) {
-			double angle = 2 * Math.PI * i / steps;
-			PointD point = new (center.X + radiusX * Math.Cos (angle), center.Y + radiusY * Math.Sin (angle));
-			if (ShapeFilled) {
-				PaintCanvasLine (center, point, color);
-			} else if (i > 0) {
-				double previousAngle = 2 * Math.PI * (i - 1) / steps;
-				PaintCanvasLine (new PointD (center.X + radiusX * Math.Cos (previousAngle), center.Y + radiusY * Math.Sin (previousAngle)), point, color);
-			}
-		}
-	}
+		=> PaintCanvasShape (ShapeKind.Ellipse, from, to, color);
 
 	public void PaintGradient (PointD from, PointD to)
 	{
 		if (Surface is null)
 			return;
 		BeginStroke ();
-		double dx = to.X - from.X;
-		double dy = to.Y - from.Y;
-		double lengthSquared = Math.Max (dx * dx + dy * dy, 1);
-		Span<ColorBgra> pixels = Surface.GetPixelData ();
-		for (int y = 0; y < Surface.Height; y++)
-			for (int x = 0; x < Surface.Width; x++) {
-				double t = Math.Clamp (((x - from.X) * dx + (y - from.Y) * dy) / lengthSquared, 0, 1);
-				if (GradientReversed)
-					t = 1 - t;
-				pixels[y * Surface.Width + x] = ColorBgra.FromBgra (
-					(byte) Math.Round (BrushColor.B + (SecondaryBrushColor.B - BrushColor.B) * t),
-					(byte) Math.Round (BrushColor.G + (SecondaryBrushColor.G - BrushColor.G) * t),
-					(byte) Math.Round (BrushColor.R + (SecondaryBrushColor.R - BrushColor.R) * t),
-					(byte) Math.Round (BrushColor.A + (SecondaryBrushColor.A - BrushColor.A) * t));
-			}
+		GradientTool.Apply (Surface, from, to, BrushColor, SecondaryBrushColor, GradientReversed);
 		bitmap = null;
 		InvalidateVisual ();
 	}

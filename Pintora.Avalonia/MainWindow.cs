@@ -40,8 +40,24 @@ public sealed class MainWindow : Window
 		canvas.BrushOpacity = settings.GetSetting ("Pintora.Brush.Opacity", 1.0);
 		canvas.FillTolerance = settings.GetSetting ("Pintora.Fill.Tolerance", 0);
 		canvas.ShapeFilled = settings.GetSetting ("Pintora.Shape.Filled", false);
+		if (Enum.TryParse (settings.GetSetting ("Pintora.Shape.FillStyle", canvas.ShapeFilled ? "Fill" : "Outline"), out CanvasHost.ShapeFillStyle saved_fill_style)
+			&& Enum.IsDefined (saved_fill_style))
+			canvas.FillStyle = saved_fill_style;
+		canvas.ShapeOutlineWidth = settings.GetSetting ("Pintora.Shape.OutlineWidth", 2);
+		canvas.ShapeCornerRadius = settings.GetSetting ("Pintora.Shape.CornerRadius", 8);
+		canvas.ShapeAntialias = settings.GetSetting ("Pintora.Shape.Antialias", true);
+		if (Enum.TryParse (settings.GetSetting ("Pintora.Shape.DashStyle", "Solid"), out CanvasHost.ShapeDashStyle saved_dash_style)
+			&& Enum.IsDefined (saved_dash_style))
+			canvas.DashStyle = saved_dash_style;
+		if (Enum.TryParse (settings.GetSetting ("Pintora.Shape.Kind", "Rectangle"), out CanvasHost.ShapeKind saved_shape)
+			&& Enum.IsDefined (saved_shape))
+			canvas.SelectedShape = saved_shape;
 		canvas.GradientReversed = settings.GetSetting ("Pintora.Gradient.Reversed", false);
-		if (Enum.TryParse (settings.GetSetting ("Pintora.Tool", "Brush"), out CanvasHost.CanvasTool saved_tool))
+		string saved_tool_name = settings.GetSetting ("Pintora.Tool", "Brush");
+		if (Enum.TryParse (saved_tool_name, out CanvasHost.ShapeKind legacy_shape)) {
+			canvas.SelectedShape = legacy_shape;
+			canvas.ActiveTool = CanvasHost.CanvasTool.Shapes;
+		} else if (Enum.TryParse (saved_tool_name, out CanvasHost.CanvasTool saved_tool) && Enum.IsDefined (saved_tool))
 			canvas.ActiveTool = saved_tool;
 		Closed += (_, _) => {
 			settings.PutSetting ("Pintora.Brush.Size", canvas.BrushSize);
@@ -49,6 +65,12 @@ public sealed class MainWindow : Window
 			settings.PutSetting ("Pintora.Brush.Opacity", canvas.BrushOpacity);
 			settings.PutSetting ("Pintora.Fill.Tolerance", canvas.FillTolerance);
 			settings.PutSetting ("Pintora.Shape.Filled", canvas.ShapeFilled);
+			settings.PutSetting ("Pintora.Shape.FillStyle", canvas.FillStyle.ToString ());
+			settings.PutSetting ("Pintora.Shape.OutlineWidth", canvas.ShapeOutlineWidth);
+			settings.PutSetting ("Pintora.Shape.CornerRadius", canvas.ShapeCornerRadius);
+			settings.PutSetting ("Pintora.Shape.Antialias", canvas.ShapeAntialias);
+			settings.PutSetting ("Pintora.Shape.DashStyle", canvas.DashStyle.ToString ());
+			settings.PutSetting ("Pintora.Shape.Kind", canvas.SelectedShape.ToString ());
 			settings.PutSetting ("Pintora.Gradient.Reversed", canvas.GradientReversed);
 			settings.PutSetting ("Pintora.Tool", canvas.ActiveTool.ToString ());
 			settings.DoSaveSettingsBeforeQuit ();
@@ -102,10 +124,11 @@ public sealed class MainWindow : Window
 	{
 		var dimensions = new TextBlock { Text = $"{canvas.ImageSize.Width} × {canvas.ImageSize.Height} px" };
 		var details = new TextBlock ();
-		void RefreshDetails () => details.Text = $"{canvas.Scale:P0}  •  {canvas.ActiveTool}  •  Brush {canvas.BrushSize}px";
+		void RefreshDetails () => details.Text = $"{canvas.Scale:P0}  •  {(canvas.ActiveTool == CanvasHost.CanvasTool.Shapes ? canvas.SelectedShape.ToString () : canvas.ActiveTool.ToString ())}  •  Brush {canvas.BrushSize}px";
 		RefreshDetails ();
 		canvas.ScaleChanged += (_, _) => RefreshDetails ();
 		canvas.ActiveToolChanged += (_, _) => RefreshDetails ();
+		canvas.SelectedShapeChanged += (_, _) => RefreshDetails ();
 		canvas.BrushSizeChanged += (_, _) => RefreshDetails ();
 		DockPanel.SetDock (dimensions, Dock.Right);
 		var status = new Border {
@@ -203,6 +226,24 @@ public sealed class MainWindow : Window
 		var input = new NumericUpDown { Minimum = 1, Maximum = 256, Value = canvas.BrushSize, Width = 70 };
 		input.ValueChanged += (_, args) => canvas.BrushSize = (int) (args.NewValue ?? 1);
 		return input;
+	}
+
+	private static Control CreateShapeWidthInput (CanvasHost canvas)
+	{
+		var value = new TextBox { Text = canvas.ShapeOutlineWidth.ToString (), Width = 42, Height = 30 };
+		void ApplyText () {
+			if (int.TryParse (value.Text, out int width)) canvas.ShapeOutlineWidth = width;
+			value.Text = canvas.ShapeOutlineWidth.ToString ();
+		}
+		value.LostFocus += (_, _) => ApplyText ();
+		value.KeyDown += (_, args) => {
+			if (args.Key == Key.Enter) { ApplyText (); args.Handled = true; }
+		};
+		Button decrease = new () { Content = "−", Width = 30, Height = 30 };
+		Button increase = new () { Content = "+", Width = 30, Height = 30 };
+		decrease.Click += (_, _) => { canvas.ShapeOutlineWidth--; value.Text = canvas.ShapeOutlineWidth.ToString (); };
+		increase.Click += (_, _) => { canvas.ShapeOutlineWidth++; value.Text = canvas.ShapeOutlineWidth.ToString (); };
+		return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { value, decrease, increase } };
 	}
 
 	private static Slider CreateBrushSlider (double minimum, double maximum, double value, Action<double> changed, double width)
@@ -344,12 +385,8 @@ public sealed class MainWindow : Window
 			"M7 14c-1.66 0-3 1.34-3 3 0 1.31-1.16 2-2 2 .92 1.22 2.49 2 4 2 2.21 0 4-1.79 4-4 0-1.66-1.34-3-3-3zm13.71-9.37l-1.34-1.34c-.39-.39-1.02-.39-1.41 0L9 12.25 11.75 15l8.96-8.96c.39-.39.39-1.02 0-1.41z");
 		Button pencil = CreateToolButton (canvas, "Pencil", CanvasHost.CanvasTool.Pencil,
 			"M4 17.25V21h3.75L18.81 9.94l-3.75-3.75L4 17.25zM20.71 8.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z");
-		Button line = CreateToolButton (canvas, "Line", CanvasHost.CanvasTool.Line,
-			"M4 19.5l16-15L21.5 6l-16 15L4 19.5z");
-		Button rectangle = CreateToolButton (canvas, "Rectangle", CanvasHost.CanvasTool.Rectangle,
+		Button shapes = CreateToolButton (canvas, "Shapes", CanvasHost.CanvasTool.Shapes,
 			"M4 4h16v16H4V4zm2 2v12h12V6H6z");
-		Button ellipse = CreateToolButton (canvas, "Ellipse", CanvasHost.CanvasTool.Ellipse,
-			"M12 4a8 8 0 1 0 0 16 8 8 0 1 0 0-16z");
 		Button gradient = CreateToolButton (canvas, "Gradient", CanvasHost.CanvasTool.Gradient,
 			"M4 4h16v16H4V4zm2 2v12h12V6H6z");
 		Button fill = CreateToolButton (canvas, "Fill", CanvasHost.CanvasTool.Fill,
@@ -364,9 +401,7 @@ public sealed class MainWindow : Window
 		buttons.Add ((selection, CanvasHost.CanvasTool.Selection));
 		buttons.Add ((brush, CanvasHost.CanvasTool.Brush));
 		buttons.Add ((pencil, CanvasHost.CanvasTool.Pencil));
-		buttons.Add ((line, CanvasHost.CanvasTool.Line));
-		buttons.Add ((rectangle, CanvasHost.CanvasTool.Rectangle));
-		buttons.Add ((ellipse, CanvasHost.CanvasTool.Ellipse));
+		buttons.Add ((shapes, CanvasHost.CanvasTool.Shapes));
 		buttons.Add ((gradient, CanvasHost.CanvasTool.Gradient));
 		buttons.Add ((fill, CanvasHost.CanvasTool.Fill));
 		buttons.Add ((picker, CanvasHost.CanvasTool.ColorPicker));
@@ -383,6 +418,10 @@ public sealed class MainWindow : Window
 		canvas.ActiveToolChanged += (_, _) => {
 			UpdateToolButtons (buttons, canvas.ActiveTool);
 			RefreshToolOptions (canvas);
+		};
+		canvas.SelectedShapeChanged += (_, _) => {
+			if (canvas.ActiveTool == CanvasHost.CanvasTool.Shapes)
+				RefreshToolOptions (canvas);
 		};
 		var panel = new Border {
 			Padding = new global::Avalonia.Thickness (16),
@@ -487,17 +526,55 @@ public sealed class MainWindow : Window
 				break;
 			case CanvasHost.CanvasTool.Pencil:
 				break;
-			case CanvasHost.CanvasTool.Line:
-				tool_options.Children.Add (new TextBlock { Text = "Width", VerticalAlignment = VerticalAlignment.Center });
-				tool_options.Children.Add (CreateBrushSizeInput (canvas));
-				break;
-			case CanvasHost.CanvasTool.Rectangle:
-			case CanvasHost.CanvasTool.Ellipse:
-				tool_options.Children.Add (new TextBlock { Text = "Width", VerticalAlignment = VerticalAlignment.Center });
-				tool_options.Children.Add (CreateBrushSizeInput (canvas));
-				var fill = new CheckBox { Content = "Fill", IsChecked = canvas.ShapeFilled };
-				fill.IsCheckedChanged += (_, _) => canvas.ShapeFilled = fill.IsChecked == true;
+			case CanvasHost.CanvasTool.Shapes:
+				tool_options.Children.Add (new TextBlock { Text = "Shape Type:", VerticalAlignment = VerticalAlignment.Center });
+				var shape = new ComboBox {
+					ItemsSource = new[] { "Line", "Rectangle", "Ellipse", "Rounded rectangle" },
+					SelectedIndex = (int) canvas.SelectedShape,
+					MinWidth = 135
+				};
+				tool_options.Children.Add (shape);
+				tool_options.Children.Add (new TextBlock { Text = "Fill Style:", VerticalAlignment = VerticalAlignment.Center });
+				var fill = new ComboBox {
+					ItemsSource = new[] { "Outline", "Fill", "Fill + outline" },
+					SelectedIndex = (int) canvas.FillStyle,
+					MinWidth = 130,
+					IsEnabled = canvas.SelectedShape != CanvasHost.ShapeKind.Line
+				};
+				fill.SelectionChanged += (_, _) => {
+					if (fill.SelectedIndex >= 0) canvas.FillStyle = (CanvasHost.ShapeFillStyle) fill.SelectedIndex;
+				};
 				tool_options.Children.Add (fill);
+				tool_options.Children.Add (new TextBlock { Text = "Outline width:", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateShapeWidthInput (canvas));
+				tool_options.Children.Add (new TextBlock { Text = "Dash:", VerticalAlignment = VerticalAlignment.Center });
+				var dash = new ComboBox {
+					ItemsSource = new[] { "Solid  ━━━", "Dash  ━ ━", "Dot  · · ·", "Dash-dot  ━ ·" },
+					SelectedIndex = (int) canvas.DashStyle,
+					MinWidth = 135
+				};
+				dash.SelectionChanged += (_, _) => {
+					if (dash.SelectedIndex >= 0) canvas.DashStyle = (CanvasHost.ShapeDashStyle) dash.SelectedIndex;
+				};
+				tool_options.Children.Add (dash);
+				var smoothing = new ComboBox {
+					ItemsSource = new[] { "Smooth", "Pixelated" },
+					SelectedIndex = canvas.ShapeAntialias ? 0 : 1,
+					MinWidth = 105
+				};
+				smoothing.SelectionChanged += (_, _) => canvas.ShapeAntialias = smoothing.SelectedIndex == 0;
+				tool_options.Children.Add (smoothing);
+				var corner = new NumericUpDown { Minimum = 1, Maximum = 256, Value = canvas.ShapeCornerRadius, Width = 70, IsVisible = canvas.SelectedShape == CanvasHost.ShapeKind.RoundedRectangle };
+				corner.ValueChanged += (_, args) => canvas.ShapeCornerRadius = (int) (args.NewValue ?? 8);
+				tool_options.Children.Add (corner);
+				shape.SelectionChanged += (_, _) => {
+					if (shape.SelectedIndex >= 0) {
+						CanvasHost.ShapeKind selected = (CanvasHost.ShapeKind) shape.SelectedIndex;
+						canvas.SelectedShape = selected;
+						fill.IsEnabled = selected != CanvasHost.ShapeKind.Line;
+						corner.IsVisible = selected == CanvasHost.ShapeKind.RoundedRectangle;
+					}
+				};
 				break;
 			case CanvasHost.CanvasTool.Fill:
 				tool_options.Children.Add (new TextBlock { Text = "Tolerance", VerticalAlignment = VerticalAlignment.Center });

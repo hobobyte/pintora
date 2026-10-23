@@ -16,6 +16,7 @@ public static class PintoraKeyCommands
 	public static readonly PintoraKeyCommand ToggleEraser = new ("tool.toggle-eraser", "E");
 	public static readonly PintoraKeyCommand Brush = new ("tool.brush", "B");
 	public static readonly PintoraKeyCommand Pencil = new ("tool.pencil", "P");
+	public static readonly PintoraKeyCommand Shapes = new ("tool.shapes", "O");
 	public static readonly PintoraKeyCommand Line = new ("tool.line", "L");
 	public static readonly PintoraKeyCommand Rectangle = new ("tool.rectangle", "R");
 	public static readonly PintoraKeyCommand Fill = new ("tool.fill", "F");
@@ -28,7 +29,7 @@ public static class PintoraKeyCommands
 	public static readonly PintoraKeyCommand Copy = new ("edit.copy", "Ctrl+C");
 	public static readonly PintoraKeyCommand Paste = new ("edit.paste", "Ctrl+V");
 
-	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, Paste];
+	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, Paste];
 }
 
 public sealed class PintoraKeyboardSettings
