@@ -44,4 +44,28 @@ internal sealed class AvaloniaDocumentSessionTests
 
 		Assert.That (layer.Opacity, Is.EqualTo (0.35));
 	}
+
+	[Test]
+	public void ActiveLayerCanMoveUpAndDown ()
+	{
+		var session = new AvaloniaDocumentSession (new Pinta.Core.Size (2, 2), new Pintora.Avalonia.Imaging.MemoryImageSurface (2, 2));
+		session.AddLayer ("Top");
+		session.SelectLayer (0);
+
+		Assert.That (session.MoveActiveLayer (1), Is.True);
+		Assert.That (session.ActiveLayer?.Name, Is.EqualTo ("Background"));
+		Assert.That (session.MoveActiveLayer (-1), Is.True);
+		Assert.That (session.ActiveLayer?.Name, Is.EqualTo ("Background"));
+		Assert.That (session.Layers[1].Name, Is.EqualTo ("Top"));
+	}
+
+	[Test]
+	public void ActiveLayerCanBeRenamed ()
+	{
+		var session = new AvaloniaDocumentSession (new Pinta.Core.Size (2, 2), new Pintora.Avalonia.Imaging.MemoryImageSurface (2, 2));
+
+		session.RenameActiveLayer ("Sketch");
+
+		Assert.That (session.ActiveLayer?.Name, Is.EqualTo ("Sketch"));
+	}
 }

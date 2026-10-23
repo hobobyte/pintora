@@ -53,4 +53,21 @@ public sealed class AvaloniaDocumentSession
 		ActiveLayerIndex = Math.Min (ActiveLayerIndex, Layers.Count - 1);
 		return true;
 	}
+
+	public bool MoveActiveLayer (int direction)
+	{
+		int target = ActiveLayerIndex + Math.Sign (direction);
+		if ((uint) target >= Layers.Count)
+			return false;
+		(Layers[ActiveLayerIndex], Layers[target]) = (Layers[target], Layers[ActiveLayerIndex]);
+		ActiveLayerIndex = target;
+		return true;
+	}
+
+	public void RenameActiveLayer (string name)
+	{
+		if (string.IsNullOrWhiteSpace (name))
+			throw new ArgumentException ("Layer name cannot be empty.", nameof (name));
+		ActiveLayer!.Name = name.Trim ();
+	}
 }
