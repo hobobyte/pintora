@@ -1,15 +1,25 @@
-using NUnit.Framework;
 using System;
 using System.IO;
+using System.Reflection;
+using NUnit.Framework;
+using Pinta.Core;
 using Pintora.Avalonia.Canvas;
 using Pintora.Avalonia.Imaging;
-using Pinta.Core;
 
 namespace Pintora.Avalonia.Tests;
 
 [TestFixture]
 internal sealed class CanvasPaintingTests
 {
+	[Test]
+	public void AvaloniaApplicationHasAlphaReleaseVersion ()
+	{
+		string? version = typeof (CanvasHost).Assembly
+			.GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?.InformationalVersion;
+
+		Assert.That (version, Does.StartWith ("0.0.1-alpha"));
+	}
+
 	[Test]
 	public void PaintCanvasPointWritesToSurface ()
 	{
@@ -216,6 +226,36 @@ internal sealed class CanvasPaintingTests
 		Assert.That (surface.GetReadOnlyPixelData ()[5 * 11 + 5], Is.EqualTo (ColorBgra.Blue));
 		canvas.UndoLastStroke ();
 		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void ChangingShapeOptionsUpdatesTheSelectedShape ()
+	{
+		using MemoryImageSurface surface = new (10, 10);
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10), surface) {
+			ActiveTool = CanvasHost.CanvasTool.Shapes,
+			ShapeOutlineWidth = 1,
+			ShapeAntialias = false
+		};
+		canvas.PaintCanvasShape (CanvasHost.ShapeKind.Rectangle,
+			new PointD (1, 1), new PointD (8, 8), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[5 * 10 + 5], Is.EqualTo (ColorBgra.Zero));
+		canvas.FillStyle = CanvasHost.ShapeFillStyle.Fill;
+		Assert.That (surface.GetReadOnlyPixelData ()[5 * 10 + 5], Is.EqualTo (ColorBgra.Red));
+		canvas.UndoLastStroke ();
+		Assert.That (surface.GetReadOnlyPixelData ()[5 * 10 + 5], Is.EqualTo (ColorBgra.Zero));
+		canvas.RedoLastStroke ();
+		Assert.That (surface.GetReadOnlyPixelData ()[5 * 10 + 5], Is.EqualTo (ColorBgra.Red));
+
+		canvas.FillStyle = CanvasHost.ShapeFillStyle.Outline;
+		canvas.ShapeOutlineWidth = 3;
+		Assert.That (surface.GetReadOnlyPixelData ()[2 * 10 + 4], Is.EqualTo (ColorBgra.Red));
+
+		canvas.ShapeOutlineWidth = 1;
+		canvas.SelectedShape = CanvasHost.ShapeKind.Ellipse;
+		Assert.That (surface.GetReadOnlyPixelData ()[1 * 10 + 1], Is.EqualTo (ColorBgra.Zero));
+		Assert.That (surface.GetReadOnlyPixelData ()[1 * 10 + 4], Is.EqualTo (ColorBgra.Red));
 	}
 
 	[Test]

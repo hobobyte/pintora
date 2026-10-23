@@ -25,7 +25,8 @@ public sealed class ColorDialogWindow : Window
 		var red = new NumericUpDown { Minimum = 0, Maximum = 255, Value = initial.R, Width = 58 };
 		var green = new NumericUpDown { Minimum = 0, Maximum = 255, Value = initial.G, Width = 58 };
 		var blue = new NumericUpDown { Minimum = 0, Maximum = 255, Value = initial.B, Width = 58 };
-		void RefreshFromRgb () {
+		void RefreshFromRgb ()
+		{
 			syncing = true;
 			var color = Color.FromArgb (initial.A, (byte) (red.Value ?? 0), (byte) (green.Value ?? 0), (byte) (blue.Value ?? 0));
 			value.Text = color.ToString ();
@@ -35,7 +36,8 @@ public sealed class ColorDialogWindow : Window
 			hue.Value = (decimal) hsv.H; saturation.Value = (decimal) (hsv.S * 100); brightness.Value = (decimal) (hsv.V * 100);
 			syncing = false;
 		}
-		void RefreshFromHsv () {
+		void RefreshFromHsv ()
+		{
 			if (syncing) return;
 			var color = ColorSpace.FromHsv ((double) (hue.Value ?? 0), (double) (saturation.Value ?? 0) / 100, (double) (brightness.Value ?? 0) / 100, initial.A);
 			red.Value = color.R; green.Value = color.G; blue.Value = color.B;

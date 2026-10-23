@@ -16,9 +16,13 @@ public sealed class HistoryWindow : Window
 		var refresh = new Button { Content = "Refresh", HorizontalAlignment = HorizontalAlignment.Left };
 		refresh.Click += (_, _) => Refresh (canvas);
 		canvas.HistoryChanged += (_, _) => Refresh (canvas);
-		Content = new StackPanel { Spacing = 8, Margin = new global::Avalonia.Thickness (12), Children = {
+		Content = new StackPanel {
+			Spacing = 8,
+			Margin = new global::Avalonia.Thickness (12),
+			Children = {
 			new TextBlock { Text = "Actions", FontSize = 17 }, entries, refresh
-		} };
+		}
+		};
 		Refresh (canvas);
 	}
 

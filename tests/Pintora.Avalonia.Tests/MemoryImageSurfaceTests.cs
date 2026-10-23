@@ -1,6 +1,6 @@
 using NUnit.Framework;
-using Pintora.Avalonia.Imaging;
 using Pinta.Core;
+using Pintora.Avalonia.Imaging;
 
 namespace Pintora.Avalonia.Tests;
 
