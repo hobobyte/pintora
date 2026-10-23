@@ -60,6 +60,18 @@ internal sealed class AvaloniaDocumentSessionTests
 	}
 
 	[Test]
+	public void LayerCanMoveToArbitraryPosition ()
+	{
+		var session = new AvaloniaDocumentSession (new Pinta.Core.Size (4, 4), new Pintora.Avalonia.Imaging.MemoryImageSurface (4, 4));
+		session.AddLayer ("Middle");
+		session.AddLayer ("Top");
+
+		Assert.That (session.MoveLayerTo (2, 0), Is.True);
+		Assert.That (session.Layers[0].Name, Is.EqualTo ("Top"));
+		Assert.That (session.ActiveLayerIndex, Is.EqualTo (0));
+	}
+
+	[Test]
 	public void ActiveLayerCanBeRenamed ()
 	{
 		var session = new AvaloniaDocumentSession (new Pinta.Core.Size (2, 2), new Pintora.Avalonia.Imaging.MemoryImageSurface (2, 2));

@@ -14,8 +14,21 @@ public static class PintoraKeyCommands
 	public static readonly PintoraKeyCommand DecreaseBrush = new ("brush.decrease", "[");
 	public static readonly PintoraKeyCommand IncreaseBrush = new ("brush.increase", "]");
 	public static readonly PintoraKeyCommand ToggleEraser = new ("tool.toggle-eraser", "E");
+	public static readonly PintoraKeyCommand Brush = new ("tool.brush", "B");
+	public static readonly PintoraKeyCommand Pencil = new ("tool.pencil", "P");
+	public static readonly PintoraKeyCommand Line = new ("tool.line", "L");
+	public static readonly PintoraKeyCommand Rectangle = new ("tool.rectangle", "R");
+	public static readonly PintoraKeyCommand Fill = new ("tool.fill", "F");
+	public static readonly PintoraKeyCommand ColorPicker = new ("tool.color-picker", "I");
+	public static readonly PintoraKeyCommand Zoom = new ("tool.zoom", "Z");
+	public static readonly PintoraKeyCommand FitCanvas = new ("view.fit-canvas", "Home");
+	public static readonly PintoraKeyCommand ActualSize = new ("view.actual-size", "1");
+	public static readonly PintoraKeyCommand ClearLayer = new ("edit.clear-layer", "Delete");
+	public static readonly PintoraKeyCommand SwapColors = new ("colors.swap", "X");
+	public static readonly PintoraKeyCommand Copy = new ("edit.copy", "Ctrl+C");
+	public static readonly PintoraKeyCommand Paste = new ("edit.paste", "Ctrl+V");
 
-	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser];
+	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, Paste];
 }
 
 public sealed class PintoraKeyboardSettings
@@ -67,6 +80,7 @@ public sealed class PintoraKeyboardSettings
 		}
 		if (keyText == "[") keyText = nameof (Key.OemOpenBrackets);
 		if (keyText == "]") keyText = nameof (Key.OemCloseBrackets);
+		if (keyText.Length == 1 && char.IsDigit (keyText[0])) keyText = $"D{keyText}";
 		if (!Enum.TryParse (keyText, true, out Key key)) return null;
 		return new KeyGesture (key, modifiers);
 	}
@@ -81,6 +95,7 @@ public sealed class PintoraKeyboardSettings
 		string key = gesture.Key switch {
 			Key.OemOpenBrackets => "[",
 			Key.OemCloseBrackets => "]",
+			>= Key.D0 and <= Key.D9 => ((int) gesture.Key - (int) Key.D0).ToString (),
 			_ => gesture.Key.ToString ()
 		};
 		return modifiers + key;

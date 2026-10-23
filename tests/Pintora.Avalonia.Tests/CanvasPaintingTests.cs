@@ -22,6 +22,116 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void ColorPickerReadsPixelIntoPrimaryColor ()
+	{
+		using MemoryImageSurface surface = new (2, 1);
+		surface.GetPixelData ()[1] = ColorBgra.Red;
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface);
+
+		canvas.PickColorAt (new PointD (1, 0));
+
+		Assert.That (canvas.BrushColor, Is.EqualTo (ColorBgra.Red));
+	}
+
+	[Test]
+	public void FillReplacesConnectedRegionOnly ()
+	{
+		using MemoryImageSurface surface = new (3, 2);
+		surface.Fill (ColorBgra.White);
+		surface.GetPixelData ()[1] = ColorBgra.Black;
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 2), surface);
+
+		canvas.FillAt (new PointD (0, 0), ColorBgra.Blue);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Blue));
+		Assert.That (surface.GetReadOnlyPixelData ()[1], Is.EqualTo (ColorBgra.Black));
+		Assert.That (surface.GetReadOnlyPixelData ()[3], Is.EqualTo (ColorBgra.Blue));
+	}
+
+	[Test]
+	public void FillCanBeUndoneAsOneOperation ()
+	{
+		using MemoryImageSurface surface = new (2, 2);
+		surface.Fill (ColorBgra.White);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 2), surface);
+
+		Assert.That (canvas.FillAt (new PointD (0, 0), ColorBgra.Blue), Is.True);
+		canvas.UndoLastStroke ();
+
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.White));
+	}
+
+	[Test]
+	public void RectangleCanBeUndoneAsOneOperation ()
+	{
+		using MemoryImageSurface surface = new (8, 8);
+		CanvasHost canvas = new (new Pinta.Core.Size (8, 8), surface);
+
+		canvas.BeginStroke ();
+		canvas.PaintCanvasRectangle (new PointD (1, 1), new PointD (6, 6), ColorBgra.Red);
+		canvas.UndoLastStroke ();
+
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void EllipseCanBeUndoneAsOneOperation ()
+	{
+		using MemoryImageSurface surface = new (12, 12);
+		CanvasHost canvas = new (new Pinta.Core.Size (12, 12), surface);
+
+		canvas.BeginStroke ();
+		canvas.PaintCanvasEllipse (new PointD (2, 2), new PointD (9, 9), ColorBgra.Blue);
+		canvas.UndoLastStroke ();
+
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void GradientUsesPrimaryAndSecondaryColors ()
+	{
+		using MemoryImageSurface surface = new (3, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 1), surface) {
+			BrushColor = ColorBgra.Black,
+			SecondaryBrushColor = ColorBgra.White
+		};
+
+		canvas.PaintGradient (new PointD (0, 0), new PointD (2, 0));
+
+		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Black));
+		Assert.That (surface.GetReadOnlyPixelData ()[2], Is.EqualTo (ColorBgra.White));
+	}
+
+	[Test]
+	public void GradientCanReverseDirection ()
+	{
+		using MemoryImageSurface surface = new (2, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface) {
+			BrushColor = ColorBgra.Black,
+			SecondaryBrushColor = ColorBgra.White,
+			GradientReversed = true
+		};
+
+		canvas.PaintGradient (new PointD (0, 0), new PointD (1, 0));
+
+		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.White));
+	}
+
+	[Test]
+	public void ZoomAtKeepsCanvasPointUnderCursor ()
+	{
+		using MemoryImageSurface surface = new (100, 100);
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100), surface) { Width = 200, Height = 200 };
+		global::Avalonia.Point viewPoint = new (100, 100);
+
+		canvas.ZoomAt (viewPoint, 2);
+
+		PointD canvasPoint = new (50, 50);
+		Assert.That (canvas.ViewSize.Width, Is.EqualTo (200));
+		Assert.That (canvasPoint.X * canvas.Scale, Is.EqualTo (viewPoint.X));
+	}
+
+	[Test]
 	public void PaintCanvasPointIgnoresOutsidePixels ()
 	{
 		using MemoryImageSurface surface = new (4, 4);
@@ -68,6 +178,44 @@ internal sealed class CanvasPaintingTests
 		Assert.That (surface.GetReadOnlyPixelData ()[1 * 5 + 1], Is.EqualTo (ColorBgra.Red));
 		Assert.That (surface.GetReadOnlyPixelData ()[3 * 5 + 3], Is.EqualTo (ColorBgra.Red));
 		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void BrushHardnessSoftensOuterPixels ()
+	{
+		using MemoryImageSurface surface = new (5, 5);
+		CanvasHost canvas = new (new Pinta.Core.Size (5, 5), surface) { BrushSize = 5, BrushHardness = 0.5 };
+
+		canvas.PaintCanvasPoint (new PointD (2, 2), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[2 * 5 + 2], Is.EqualTo (ColorBgra.Red));
+		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void BrushOpacityBlendsWithExistingPixel ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		surface.GetPixelData ()[0] = ColorBgra.Blue;
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface) { BrushOpacity = 0.5 };
+
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+
+		ColorBgra result = surface.GetReadOnlyPixelData ()[0];
+		Assert.That (result.A, Is.EqualTo (255));
+		Assert.That (result.R, Is.EqualTo (128).Within (1));
+		Assert.That (result.B, Is.EqualTo (127).Within (1));
+	}
+
+	[Test]
+	public void PencilUsesOpacityWhileRemainingOnePixelWide ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface) { ActiveTool = CanvasHost.CanvasTool.Pencil, BrushOpacity = 0.5 };
+
+		canvas.PaintPencilLine (new PointD (0, 0), new PointD (0, 0), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[0].A, Is.EqualTo (128).Within (1));
 	}
 
 	[Test]
@@ -149,6 +297,152 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void FitToWindowResetsViewportOffsetAfterZoom ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (800, 600)) {
+			Width = 1000,
+			Height = 800
+		};
+		global::Avalonia.Point center = new (500, 400);
+
+		canvas.ZoomAt (center, 2.0);
+		Assert.That (canvas.CanvasOrigin, Is.Not.EqualTo (new global::Avalonia.Point (100, 100)));
+
+		canvas.FitToWindow ();
+
+		Assert.That (canvas.CanvasOrigin.X, Is.EqualTo (0).Within (0.001));
+		Assert.That (canvas.CanvasOrigin.Y, Is.EqualTo (25).Within (0.001));
+	}
+
+	[Test]
+	public void PanByMovesCanvasOriginWithoutChangingScale ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 80)) {
+			Width = 300,
+			Height = 240
+		};
+		global::Avalonia.Point initialOrigin = canvas.CanvasOrigin;
+		double initialScale = canvas.Scale;
+
+		canvas.PanBy (new global::Avalonia.Vector (18, -7));
+
+		Assert.That (canvas.Scale, Is.EqualTo (initialScale));
+		Assert.That (canvas.CanvasOrigin.X, Is.EqualTo (initialOrigin.X + 18).Within (0.001));
+		Assert.That (canvas.CanvasOrigin.Y, Is.EqualTo (initialOrigin.Y - 7).Within (0.001));
+	}
+
+	[Test]
+	public void FitToWindowRestoresCenteredScaleAfterPan ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (800, 600)) {
+			Width = 400,
+			Height = 300
+		};
+		canvas.SetScale (2.0);
+		canvas.PanBy (new global::Avalonia.Vector (70, -25));
+
+		canvas.FitToWindow ();
+
+		Assert.That (canvas.Scale, Is.EqualTo (0.5).Within (0.001));
+		Assert.That (canvas.CanvasOrigin.X, Is.EqualTo (0).Within (0.001));
+		Assert.That (canvas.CanvasOrigin.Y, Is.EqualTo (0).Within (0.001));
+	}
+
+	[Test]
+	public void SetActualSizeResetsScaleAndPan ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 80)) {
+			Width = 300,
+			Height = 240
+		};
+		canvas.SetScale (2.0);
+		canvas.PanBy (new global::Avalonia.Vector (30, 12));
+
+		canvas.SetActualSize ();
+
+		Assert.That (canvas.Scale, Is.EqualTo (1.0));
+		Assert.That (canvas.CanvasOrigin.X, Is.EqualTo (100).Within (0.001));
+		Assert.That (canvas.CanvasOrigin.Y, Is.EqualTo (80).Within (0.001));
+	}
+
+	[Test]
+	public void SetScaleRaisesScaleChanged ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10));
+		int notifications = 0;
+		canvas.ScaleChanged += (_, _) => notifications++;
+
+		canvas.SetScale (2.0);
+
+		Assert.That (notifications, Is.EqualTo (1));
+		Assert.That (canvas.Scale, Is.EqualTo (2.0));
+	}
+
+	[Test]
+	public void BrushSizeRaisesChangeNotificationAndClamps ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10));
+		int notifications = 0;
+		canvas.BrushSizeChanged += (_, _) => notifications++;
+
+		canvas.BrushSize = 12;
+		canvas.BrushSize = 999;
+
+		Assert.That (canvas.BrushSize, Is.EqualTo (256));
+		Assert.That (notifications, Is.EqualTo (2));
+	}
+
+	[Test]
+	public void ToolNumericOptionsAreClamped ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10)) {
+			BrushOpacity = 4,
+			BrushHardness = -1,
+			FillTolerance = 999
+		};
+
+		Assert.That (canvas.BrushOpacity, Is.EqualTo (1));
+		Assert.That (canvas.BrushHardness, Is.EqualTo (0));
+		Assert.That (canvas.FillTolerance, Is.EqualTo (255));
+	}
+
+	[Test]
+	public void ActiveLayerOpacityIsClampedThroughCanvasHost ()
+	{
+		using MemoryImageSurface surface = new (10, 10);
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10), surface);
+
+		canvas.SetActiveLayerOpacity (2);
+
+		Assert.That (canvas.Layers[canvas.ActiveLayerIndex].Opacity, Is.EqualTo (1));
+	}
+
+	[Test]
+	public void ActiveLayerVisibilityIsChangedThroughCanvasHost ()
+	{
+		using MemoryImageSurface surface = new (10, 10);
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10), surface);
+
+		canvas.SetActiveLayerVisibility (false);
+
+		Assert.That (canvas.Layers[canvas.ActiveLayerIndex].IsVisible, Is.False);
+	}
+
+	[Test]
+	public void LayerVisibilityDoesNotChangeActiveLayer ()
+	{
+		using MemoryImageSurface surface = new (10, 10);
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10), surface);
+		canvas.AddLayer ();
+		int active = canvas.ActiveLayerIndex;
+
+		canvas.SetLayerVisibility (0, false);
+
+		Assert.That (canvas.ActiveLayerIndex, Is.EqualTo (active));
+		Assert.That (canvas.Layers[0].IsVisible, Is.False);
+	}
+
+	[Test]
 	public void EraserToolUsesTransparentPixelsForLeftButtonStrokes ()
 	{
 		using MemoryImageSurface surface = new (3, 1);
@@ -161,6 +455,18 @@ internal sealed class CanvasPaintingTests
 
 		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Red));
 		Assert.That (surface.GetReadOnlyPixelData ()[1], Is.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void EraserAlwaysClearsEvenWhenGivenBrushColor ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface) { ActiveTool = CanvasHost.CanvasTool.Eraser };
+
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Blue);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Zero));
 	}
 
 	[Test]
@@ -178,17 +484,346 @@ internal sealed class CanvasPaintingTests
 	public void NewDocument_ClearsPixelsHistoryAndResetsScale ()
 	{
 		using MemoryImageSurface surface = new (10, 10);
-		CanvasHost canvas = new (new Pinta.Core.Size (10, 10), surface);
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10), surface) {
+			Width = 100,
+			Height = 100
+		};
 		canvas.SetScale (2.0);
+		canvas.ZoomAt (new global::Avalonia.Point (80, 20), 2.0);
 		canvas.BeginStroke ();
 		canvas.PaintCanvasPoint (new PointD (4, 4), ColorBgra.Red);
 
 		canvas.NewDocument ();
 
 		Assert.That (canvas.Scale, Is.EqualTo (1.0));
+		Assert.That (canvas.CanvasOrigin.X, Is.EqualTo (45).Within (0.001));
+		Assert.That (canvas.CanvasOrigin.Y, Is.EqualTo (45).Within (0.001));
 		Assert.That (canvas.CanUndoStroke, Is.False);
 		Assert.That (canvas.CanRedoStroke, Is.False);
 		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.White));
+	}
+
+	[Test]
+	public void NewDocumentResetsLayerStack ()
+	{
+		using MemoryImageSurface surface = new (10, 10);
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 10), surface);
+		canvas.AddLayer ();
+		canvas.AddLayer ();
+
+		canvas.NewDocument ();
+
+		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
+		Assert.That (canvas.Layers[0].Name, Is.EqualTo ("Background"));
+		Assert.That (canvas.ActiveLayerIndex, Is.EqualTo (0));
+	}
+
+	[Test]
+	public void NewDocumentWithSizeCreatesWhiteBackground ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 2));
+
+		canvas.NewDocument (4, 3);
+
+		Assert.That (canvas.ImageSize, Is.EqualTo (new Pinta.Core.Size (4, 3)));
+		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
+		Assert.That (canvas.Surface!.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.White));
+	}
+
+	[Test]
+	public void ResizeImagePreservesLayersAndClipsPixels ()
+	{
+		using MemoryImageSurface surface = new (3, 2);
+		surface.Fill (ColorBgra.Red);
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 2), surface);
+		canvas.AddLayer ();
+		canvas.Surface!.GetPixelData ()[0] = ColorBgra.Blue;
+
+		canvas.ResizeImage (2, 1);
+
+		Assert.That (canvas.ImageSize, Is.EqualTo (new Pinta.Core.Size (2, 1)));
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
+		Assert.That (canvas.Surface!.GetReadOnlyPixelData ().ToArray (), Is.EqualTo (new[] { ColorBgra.Blue, ColorBgra.Zero }));
+	}
+
+	[Test]
+	public void CropImageCopiesRequestedRegionForAllLayers ()
+	{
+		using MemoryImageSurface surface = new (3, 2);
+		Span<ColorBgra> pixels = surface.GetPixelData ();
+		pixels[0] = ColorBgra.Red;
+		pixels[1] = ColorBgra.Green;
+		pixels[3] = ColorBgra.Blue;
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 2), surface);
+
+		canvas.CropImage (1, 0, 2, 1);
+
+		Assert.That (canvas.ImageSize, Is.EqualTo (new Pinta.Core.Size (2, 1)));
+		Assert.That (canvas.Surface!.GetReadOnlyPixelData ().ToArray (), Is.EqualTo (new[] { ColorBgra.Green, ColorBgra.Zero }));
+	}
+
+	[Test]
+	public void SelectRectangleNormalizesAndClipsToCanvas ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (10, 8));
+
+		Assert.That (canvas.SelectRectangle (new PointI (8, 6), new PointI (-2, -1)), Is.True);
+		Assert.That (canvas.Selection, Is.EqualTo (new RectangleI (0, 0, 8, 6)));
+
+		canvas.ClearSelection ();
+		Assert.That (canvas.Selection, Is.Null);
+	}
+
+	[Test]
+	public void CopyAndPasteSelectionCreatesNewLayer ()
+	{
+		using MemoryImageSurface surface = new (4, 2);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 2), surface);
+		canvas.SelectRectangle (new PointI (0, 0), new PointI (1, 1));
+
+		Assert.That (canvas.CopySelection (), Is.True);
+		Assert.That (canvas.PasteSelection (new PointI (2, 1)), Is.True);
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
+		Assert.That (canvas.Surface!.GetReadOnlyPixelData ()[1 * 4 + 2], Is.EqualTo (ColorBgra.Red));
+	}
+
+	[Test]
+	public void MoveSelectionMovesPixelsAndClearsSource ()
+	{
+		using MemoryImageSurface surface = new (4, 1);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 1), surface);
+		canvas.SelectRectangle (new PointI (0, 0), new PointI (1, 1));
+
+		Assert.That (canvas.MoveSelection (new PointI (2, 0)), Is.True);
+
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.EqualTo (new[] { ColorBgra.Zero, ColorBgra.Zero, ColorBgra.Red, ColorBgra.Zero }));
+		Assert.That (canvas.Selection, Is.EqualTo (new RectangleI (2, 0, 1, 1)));
+	}
+
+	[Test]
+	public void FlipSelectionHorizontalMirrorsPixels ()
+	{
+		using MemoryImageSurface surface = new (3, 1);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		surface.GetPixelData ()[2] = ColorBgra.Blue;
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 1), surface);
+		canvas.SelectRectangle (new PointI (0, 0), new PointI (3, 1));
+
+		Assert.That (canvas.FlipSelectionHorizontal (), Is.True);
+
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.EqualTo (new[] { ColorBgra.Blue, ColorBgra.Zero, ColorBgra.Red }));
+	}
+
+	[Test]
+	public void FlipSelectionVerticalMirrorsPixels ()
+	{
+		using MemoryImageSurface surface = new (1, 2);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		surface.GetPixelData ()[1] = ColorBgra.Blue;
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 2), surface);
+		canvas.SelectRectangle (new PointI (0, 0), new PointI (1, 2));
+
+		Assert.That (canvas.FlipSelectionVertical (), Is.True);
+
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.EqualTo (new[] { ColorBgra.Blue, ColorBgra.Red }));
+	}
+
+	[Test]
+	public void RotateSelectionClockwiseRotatesSquarePixels ()
+	{
+		using MemoryImageSurface surface = new (2, 2);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		surface.GetPixelData ()[1] = ColorBgra.Green;
+		surface.GetPixelData ()[2] = ColorBgra.Blue;
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 2), surface);
+		canvas.SelectRectangle (new PointI (0, 0), new PointI (2, 2));
+
+		Assert.That (canvas.RotateSelectionClockwise (), Is.True);
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.EqualTo (new[] { ColorBgra.Blue, ColorBgra.Red, ColorBgra.Zero, ColorBgra.Green }));
+	}
+
+	[Test]
+	public void FillToleranceComparesEachChannelIndependently ()
+	{
+		using MemoryImageSurface surface = new (3, 1);
+		surface.GetPixelData ()[0] = ColorBgra.FromBgra (0, 0, 0, 255);
+		surface.GetPixelData ()[1] = ColorBgra.FromBgra (100, 0, 0, 255);
+		surface.GetPixelData ()[2] = ColorBgra.FromBgra (0, 0, 0, 255);
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 1), surface) { FillTolerance = 10 };
+
+		canvas.FillAt (new PointD (0, 0), ColorBgra.Red);
+
+		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Red));
+		Assert.That (surface.GetReadOnlyPixelData ()[1].R, Is.EqualTo (0));
+		Assert.That (surface.GetReadOnlyPixelData ()[2], Is.EqualTo (ColorBgra.FromBgra (0, 0, 0, 255)));
+	}
+
+	[Test]
+	public void ColorSpaceRoundTripsPrimaryColors ()
+	{
+		var hsv = ColorSpace.ToHsv (global::Avalonia.Media.Colors.Red);
+		global::Avalonia.Media.Color result = ColorSpace.FromHsv (hsv.H, hsv.S, hsv.V);
+
+		Assert.That (result.R, Is.EqualTo (255));
+		Assert.That (result.G, Is.EqualTo (0));
+		Assert.That (result.B, Is.EqualTo (0));
+	}
+
+	[Test]
+	public void HistoryTracksUndoAndRedo ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+		canvas.CommitStroke ();
+
+		Assert.That (canvas.History, Has.Count.EqualTo (1));
+		canvas.UndoLastStroke ();
+		Assert.That (canvas.History, Is.Empty);
+		canvas.RedoLastStroke ();
+		Assert.That (canvas.History, Has.Count.EqualTo (1));
+	}
+
+	[Test]
+	public void LockedLayerRejectsPaintingAndClear ()
+	{
+		using MemoryImageSurface surface = new (2, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface);
+		canvas.Layers[0].IsLocked = true;
+
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+
+		Assert.That (canvas.ClearActiveLayer (), Is.False);
+		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Zero));
+	}
+
+	[Test]
+	public void MergeActiveLayerDownCompositesAndRemovesLayer ()
+	{
+		using MemoryImageSurface background = new (1, 1);
+		background.GetPixelData ()[0] = ColorBgra.Blue;
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), background);
+		canvas.AddLayer ();
+		canvas.Surface!.GetPixelData ()[0] = ColorBgra.FromBgra (0, 0, 255, 128);
+
+		Assert.That (canvas.MergeActiveLayerDown (), Is.True);
+		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
+		Assert.That (canvas.Surface!.GetReadOnlyPixelData ()[0].A, Is.EqualTo (255));
+	}
+
+	[Test]
+	public void MergeLayerCanBeUndoneAndRedone ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.AddLayer ();
+		canvas.MergeActiveLayerDown ();
+
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
+		canvas.RedoLayerOperation ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
+	}
+
+	[Test]
+	public void LayerMetadataChangesCanBeUndone ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.SetActiveLayerOpacity (0.4);
+		canvas.SetLayerVisibility (0, false);
+		canvas.SetLayerLocked (0, true);
+
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers[0].IsLocked, Is.False);
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers[0].IsVisible, Is.True);
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers[0].Opacity, Is.EqualTo (1));
+	}
+
+
+	[Test]
+	public void CancelCurrentStrokeRestoresSnapshot ()
+	{
+		using MemoryImageSurface surface = new (3, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (3, 1), surface);
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (1, 0), ColorBgra.Red);
+
+		canvas.CancelCurrentStroke ();
+
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+		Assert.That (canvas.CanUndoStroke, Is.False);
+	}
+
+	[Test]
+	public void CancelWithoutActiveStrokeDoesNotUndoCompletedWork ()
+	{
+		using MemoryImageSurface surface = new (2, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface);
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+		canvas.CommitStroke ();
+
+		canvas.CancelCurrentStroke ();
+
+		Assert.That (surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Red));
+		Assert.That (canvas.CanUndoStroke, Is.True);
+	}
+
+	[Test]
+	public void ClearActiveLayerIsOneUndoableOperation ()
+	{
+		using MemoryImageSurface surface = new (2, 1);
+		surface.Fill (ColorBgra.Red);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface);
+
+		Assert.That (canvas.ClearActiveLayer (), Is.True);
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Zero));
+
+		canvas.UndoLastStroke ();
+
+		Assert.That (surface.GetReadOnlyPixelData ().ToArray (), Is.All.EqualTo (ColorBgra.Red));
+	}
+
+	[Test]
+	public void ClearEmptyLayerDoesNotCreateUndoStep ()
+	{
+		using MemoryImageSurface surface = new (2, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface);
+
+		Assert.That (canvas.ClearActiveLayer (), Is.False);
+		Assert.That (canvas.CanUndoStroke, Is.False);
+	}
+
+	[Test]
+	public void SwapColorsExchangesPrimaryAndSecondary ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1)) {
+			BrushColor = ColorBgra.Red,
+			SecondaryBrushColor = ColorBgra.Blue
+		};
+
+		canvas.SwapColors ();
+
+		Assert.That (canvas.BrushColor, Is.EqualTo (ColorBgra.Blue));
+		Assert.That (canvas.SecondaryBrushColor, Is.EqualTo (ColorBgra.Red));
+	}
+
+	[Test]
+	public void SwapColorsRaisesColorsChanged ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1));
+		int notifications = 0;
+		canvas.ColorsChanged += (_, _) => notifications++;
+
+		canvas.SwapColors ();
+
+		Assert.That (notifications, Is.EqualTo (1));
 	}
 
 	[Test]
@@ -198,5 +833,47 @@ internal sealed class CanvasPaintingTests
 
 		Assert.That (() => canvas.SavePng (Path.Combine (Path.GetTempPath (), "pintora-test.png")),
 			Throws.InvalidOperationException);
+	}
+
+	[Test]
+	public void SaveWebp_WritesWebpSignature ()
+	{
+		using var surface = new MemoryImageSurface (2, 2);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 2), surface);
+		string path = Path.Combine (Path.GetTempPath (), $"pintora-{Guid.NewGuid ():N}.webp");
+		try {
+			canvas.SaveWebp (path);
+			byte[] header = File.ReadAllBytes (path);
+			Assert.That (header.Length, Is.GreaterThan (12));
+			Assert.That (header[0..4], Is.EqualTo (new byte[] { (byte) 'R', (byte) 'I', (byte) 'F', (byte) 'F' }));
+			Assert.That (header[8..12], Is.EqualTo (new byte[] { (byte) 'W', (byte) 'E', (byte) 'B', (byte) 'P' }));
+		} finally { File.Delete (path); }
+	}
+
+	[Test]
+	public void SaveTiff_WritesLittleEndianHeader ()
+	{
+		using var surface = new MemoryImageSurface (2, 2);
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 2), surface);
+		string path = Path.Combine (Path.GetTempPath (), $"pintora-{Guid.NewGuid ():N}.tiff");
+		try {
+			canvas.SaveTiff (path);
+			byte[] header = File.ReadAllBytes (path);
+			Assert.That (header[0..4], Is.EqualTo (new byte[] { (byte) 'I', (byte) 'I', 42, 0 }));
+		} finally { File.Delete (path); }
+	}
+
+	[Test]
+	public void ImportSvgAsLayer_RasterizesRect ()
+	{
+		using var surface = new MemoryImageSurface (4, 4);
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 4), surface);
+		string path = Path.Combine (Path.GetTempPath (), $"pintora-{Guid.NewGuid ():N}.svg");
+		try {
+			File.WriteAllText (path, "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"4\" height=\"4\"><rect x=\"1\" y=\"1\" width=\"2\" height=\"2\" fill=\"#ff0000\" /></svg>");
+			canvas.ImportSvgAsLayer (path);
+			Assert.That (canvas.Layers.Count, Is.EqualTo (2));
+			Assert.That (canvas.Layers[1].Surface.GetReadOnlyPixelData ()[5], Is.EqualTo (ColorBgra.Red));
+		} finally { File.Delete (path); }
 	}
 }

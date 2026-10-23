@@ -12,6 +12,11 @@ public sealed class AvaloniaLayer
 
 	public string Name { get; set; }
 	public bool IsVisible { get; set; } = true;
-	public double Opacity { get; set; } = 1.0;
+	public bool IsLocked { get; set; }
+	private double opacity = 1.0;
+	public double Opacity {
+		get => opacity;
+		set => opacity = System.Math.Clamp (value, 0, 1);
+	}
 	public MemoryImageSurface Surface { get; }
 }
