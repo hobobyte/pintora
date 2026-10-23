@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
@@ -31,8 +32,27 @@ public sealed class MainWindow : Window
 		settings = new SettingsManager ();
 		App.InitializeTheme (settings);
 		keyboard = new PintoraKeyboardSettings (settings);
-		Closed += (_, _) => settings.DoSaveSettingsBeforeQuit ();
 		CanvasHost canvas = CreateCanvasHost (keyboard);
+		canvas.BrushColor = LoadColor ("Pintora.Palette.Primary", ColorBgra.Black);
+		canvas.SecondaryBrushColor = LoadColor ("Pintora.Palette.Secondary", ColorBgra.White);
+		canvas.BrushSize = settings.GetSetting ("Pintora.Brush.Size", 1);
+		canvas.BrushHardness = settings.GetSetting ("Pintora.Brush.Hardness", 1.0);
+		canvas.BrushOpacity = settings.GetSetting ("Pintora.Brush.Opacity", 1.0);
+		canvas.FillTolerance = settings.GetSetting ("Pintora.Fill.Tolerance", 0);
+		canvas.ShapeFilled = settings.GetSetting ("Pintora.Shape.Filled", false);
+		canvas.GradientReversed = settings.GetSetting ("Pintora.Gradient.Reversed", false);
+		if (Enum.TryParse (settings.GetSetting ("Pintora.Tool", "Brush"), out CanvasHost.CanvasTool saved_tool))
+			canvas.ActiveTool = saved_tool;
+		Closed += (_, _) => {
+			settings.PutSetting ("Pintora.Brush.Size", canvas.BrushSize);
+			settings.PutSetting ("Pintora.Brush.Hardness", canvas.BrushHardness);
+			settings.PutSetting ("Pintora.Brush.Opacity", canvas.BrushOpacity);
+			settings.PutSetting ("Pintora.Fill.Tolerance", canvas.FillTolerance);
+			settings.PutSetting ("Pintora.Shape.Filled", canvas.ShapeFilled);
+			settings.PutSetting ("Pintora.Gradient.Reversed", canvas.GradientReversed);
+			settings.PutSetting ("Pintora.Tool", canvas.ActiveTool.ToString ());
+			settings.DoSaveSettingsBeforeQuit ();
+		};
 		Content = new Grid {
 			RowDefinitions = new RowDefinitions ("Auto,Auto,*,Auto"),
 			Children = {
@@ -81,6 +101,12 @@ public sealed class MainWindow : Window
 	private static Control CreateStatusBar (CanvasHost canvas)
 	{
 		var dimensions = new TextBlock { Text = $"{canvas.ImageSize.Width} × {canvas.ImageSize.Height} px" };
+		var details = new TextBlock ();
+		void RefreshDetails () => details.Text = $"{canvas.Scale:P0}  •  {canvas.ActiveTool}  •  Brush {canvas.BrushSize}px";
+		RefreshDetails ();
+		canvas.ScaleChanged += (_, _) => RefreshDetails ();
+		canvas.ActiveToolChanged += (_, _) => RefreshDetails ();
+		canvas.BrushSizeChanged += (_, _) => RefreshDetails ();
 		DockPanel.SetDock (dimensions, Dock.Right);
 		var status = new Border {
 			BorderBrush = new SolidColorBrush (Color.Parse ("#D8DEE8")),
@@ -89,7 +115,7 @@ public sealed class MainWindow : Window
 			Child = new DockPanel {
 				Children = {
 					dimensions,
-					new TextBlock { Text = $"{canvas.Scale:P0}  •  {canvas.ActiveTool}  •  Brush {canvas.BrushSize}px" }
+					details
 				}
 			}
 		};
@@ -101,42 +127,49 @@ public sealed class MainWindow : Window
 	private Menu CreateMainMenu (CanvasHost canvas)
 	{
 		var preferences = new MenuItem { Header = "Preferences" };
-		preferences.Click += (_, _) => new KeyboardSettingsWindow (keyboard).Show (this);
+		preferences.Click += (_, _) => new SettingsWindow (canvas, settings, keyboard).Show (this);
 		var menu = new Menu {
 			Items = {
 				new MenuItem { Header = "_File", Items = {
-					CreateMenuItem ("_New", canvas.NewDocument),
+					CreateMenuItem ("_New", () => new NewDocumentWindow (canvas).Show (this)),
 					CreateMenuItem ("Open _PNG", () => _ = OpenPngAsync (canvas)),
+					CreateMenuItem ("Import image as layer", () => _ = ImportImageLayerAsync (canvas)),
 					new Separator (),
 					CreateMenuItem ("Save _PNG", () => _ = SavePngAsync (canvas)),
 					CreateMenuItem ("Save _JPEG", () => _ = SaveJpegAsync (canvas)),
+					CreateMenuItem ("Save _WebP", () => _ = SaveWebpAsync (canvas)),
+					CreateMenuItem ("Save _TIFF", () => _ = SaveTiffAsync (canvas)),
 					CreateMenuItem ("Save _ORA", () => _ = SaveOraAsync (canvas))
 				} },
 				new MenuItem { Header = "_Edit", Items = {
 					CreateMenuItem ("_Undo", canvas.UndoLastStroke),
 					CreateMenuItem ("_Redo", canvas.RedoLastStroke),
+					CreateMenuItem ("Undo layer", () => { canvas.UndoLayerOperation (); refresh_layers?.Invoke (); }),
+					CreateMenuItem ("Redo layer", () => { canvas.RedoLayerOperation (); refresh_layers?.Invoke (); }),
+					CreateMenuItem ("Clear layer", () => canvas.ClearActiveLayer ()),
+					new Separator (),
+					CreateMenuItem ("Copy selection", () => canvas.CopySelection ()),
+					CreateMenuItem ("Paste selection", () => canvas.PasteSelection ()),
+					CreateMenuItem ("Flip selection horizontally", () => canvas.FlipSelectionHorizontal ()),
+					CreateMenuItem ("Flip selection vertically", () => canvas.FlipSelectionVertical ()),
+					CreateMenuItem ("Rotate selection 90° clockwise", () => canvas.RotateSelectionClockwise ()),
 					new Separator (),
 					preferences
 				} },
 				new MenuItem { Header = "_View", Items = {
 					CreateMenuItem ("Fit canvas", canvas.FitToWindow),
-					CreateMenuItem ("100%", () => canvas.SetScale (1)),
+					CreateMenuItem ("100%", canvas.SetActualSize),
 					new Separator (),
 					CreateMenuItem ("Light theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Light)),
 					CreateMenuItem ("Dark theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Dark)),
-					CreateMenuItem ("System theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Default)),
-					new MenuItem { Header = "Show layers" }
+					CreateMenuItem ("System theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Default))
 				} },
 				new MenuItem { Header = "_Image", Items = {
 					CreateMenuItem ("Add layer", () => { canvas.AddLayer (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Delete layer", () => { canvas.RemoveLayer (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Rename layer", () => new LayerRenameWindow (canvas, canvas.Layers[canvas.ActiveLayerIndex].Name, () => refresh_layers?.Invoke ()).Show (this)),
-					new MenuItem { Header = "Resize image" }
-				} },
-				new MenuItem { Header = "_Adjustments", Items = {
-					new MenuItem { Header = "Brightness / Contrast" },
-					new MenuItem { Header = "Hue / Saturation" },
-					new MenuItem { Header = "Levels" }
+					CreateMenuItem ("Resize image", () => new ResizeImageWindow (canvas).Show (this)),
+					CreateMenuItem ("Crop image", () => new CropImageWindow (canvas).Show (this))
 				} },
 				new MenuItem { Header = "Effe_cts", Items = {
 					new MenuItem { Header = "Blur" },
@@ -145,7 +178,8 @@ public sealed class MainWindow : Window
 				new MenuItem { Header = "A_dd-ins" },
 				new MenuItem { Header = "_Window", Items = {
 					new MenuItem { Header = "Layers" },
-					new MenuItem { Header = "Tools" }
+					new MenuItem { Header = "Tools" },
+					CreateMenuItem ("History", () => new HistoryWindow (canvas).Show (this))
 				} },
 				new MenuItem { Header = "_Help", Items = {
 					CreateMenuItem ("Keyboard shortcuts", () => new KeyboardSettingsWindow (keyboard).Show (this)),
@@ -166,7 +200,7 @@ public sealed class MainWindow : Window
 
 	private static NumericUpDown CreateBrushSizeInput (CanvasHost canvas)
 	{
-		var input = new NumericUpDown { Minimum = 1, Maximum = 1000, Value = canvas.BrushSize, Width = 70 };
+		var input = new NumericUpDown { Minimum = 1, Maximum = 256, Value = canvas.BrushSize, Width = 70 };
 		input.ValueChanged += (_, args) => canvas.BrushSize = (int) (args.NewValue ?? 1);
 		return input;
 	}
@@ -218,6 +252,18 @@ public sealed class MainWindow : Window
 			canvas.OpenPng (file[0].Path.LocalPath);
 	}
 
+	private async Task ImportImageLayerAsync (CanvasHost canvas)
+	{
+		if (StorageProvider is null)
+			return;
+		var file = await StorageProvider.OpenFilePickerAsync (new FilePickerOpenOptions {
+			AllowMultiple = false,
+			FileTypeFilter = new[] { new FilePickerFileType ("Image") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.svg" } } }
+		});
+		if (file.Count > 0)
+			canvas.ImportImageAsLayer (file[0].Path.LocalPath);
+	}
+
 	private async Task SaveOraAsync (CanvasHost canvas)
 	{
 		if (StorageProvider is null)
@@ -242,6 +288,26 @@ public sealed class MainWindow : Window
 		});
 		if (file is not null)
 			canvas.SaveJpeg (file.Path.LocalPath);
+	}
+
+	private async Task SaveWebpAsync (CanvasHost canvas)
+	{
+		if (StorageProvider is null) return;
+		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
+			SuggestedFileName = "pintora.webp", DefaultExtension = "webp",
+			FileTypeChoices = new[] { new FilePickerFileType ("WebP image") { Patterns = new[] { "*.webp" } } }
+		});
+		if (file is not null) canvas.SaveWebp (file.Path.LocalPath);
+	}
+
+	private async Task SaveTiffAsync (CanvasHost canvas)
+	{
+		if (StorageProvider is null) return;
+		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
+			SuggestedFileName = "pintora.tiff", DefaultExtension = "tiff",
+			FileTypeChoices = new[] { new FilePickerFileType ("TIFF image") { Patterns = new[] { "*.tif", "*.tiff" } } }
+		});
+		if (file is not null) canvas.SaveTiff (file.Path.LocalPath);
 	}
 
 	private async Task OpenOraAsync (CanvasHost canvas)
@@ -284,6 +350,8 @@ public sealed class MainWindow : Window
 			"M4 4h16v16H4V4zm2 2v12h12V6H6z");
 		Button ellipse = CreateToolButton (canvas, "Ellipse", CanvasHost.CanvasTool.Ellipse,
 			"M12 4a8 8 0 1 0 0 16 8 8 0 1 0 0-16z");
+		Button gradient = CreateToolButton (canvas, "Gradient", CanvasHost.CanvasTool.Gradient,
+			"M4 4h16v16H4V4zm2 2v12h12V6H6z");
 		Button fill = CreateToolButton (canvas, "Fill", CanvasHost.CanvasTool.Fill,
 			"M5 3h10v2H5V3zm0 4h10v2H5V7zm0 4h10v2H5v-2zm12-8h2v18h-2V3z");
 		Button picker = CreateToolButton (canvas, "Color Picker", CanvasHost.CanvasTool.ColorPicker,
@@ -292,11 +360,14 @@ public sealed class MainWindow : Window
 			"M9.5 3a6.5 6.5 0 1 0 4.06 11.58L19 20l1-1-5.44-5.42A6.5 6.5 0 0 0 9.5 3zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9z");
 		Button eraser = CreateToolButton (canvas, "Eraser", CanvasHost.CanvasTool.Eraser,
 			"M15.8698 2.66878L20.8384 7.6373C21.717 8.51598 21.717 9.9406 20.8384 10.8193L12.1566 19.4998L18.2544 19.5C18.6341 19.5 18.9479 19.7821 18.9976 20.1482L19.0044 20.25C19.0044 20.6297 18.7223 20.9435 18.3562 20.9931L18.2544 21L9.84443 21.0012C9.22822 21.0348 8.60082 20.8163 8.1301 20.3456L3.16157 15.377C2.28289 14.4984 2.28289 13.0737 3.16157 12.1951L12.6879 2.66878C13.5665 1.7901 14.9912 1.7901 15.8698 2.66878Z");
+		Button selection = CreateToolButton (canvas, "Select", CanvasHost.CanvasTool.Selection, "M2 2h16v16H2z");
+		buttons.Add ((selection, CanvasHost.CanvasTool.Selection));
 		buttons.Add ((brush, CanvasHost.CanvasTool.Brush));
 		buttons.Add ((pencil, CanvasHost.CanvasTool.Pencil));
 		buttons.Add ((line, CanvasHost.CanvasTool.Line));
 		buttons.Add ((rectangle, CanvasHost.CanvasTool.Rectangle));
 		buttons.Add ((ellipse, CanvasHost.CanvasTool.Ellipse));
+		buttons.Add ((gradient, CanvasHost.CanvasTool.Gradient));
 		buttons.Add ((fill, CanvasHost.CanvasTool.Fill));
 		buttons.Add ((picker, CanvasHost.CanvasTool.ColorPicker));
 		buttons.Add ((zoom, CanvasHost.CanvasTool.Zoom));
@@ -309,6 +380,10 @@ public sealed class MainWindow : Window
 			};
 			tools.Children.Add (button);
 		}
+		canvas.ActiveToolChanged += (_, _) => {
+			UpdateToolButtons (buttons, canvas.ActiveTool);
+			RefreshToolOptions (canvas);
+		};
 		var panel = new Border {
 			Padding = new global::Avalonia.Thickness (16),
 			Child = new StackPanel { Spacing = 8, Children = {
@@ -323,14 +398,25 @@ public sealed class MainWindow : Window
 		return panel;
 	}
 
-	private static Control CreatePalette (CanvasHost canvas)
+	private Control CreatePalette (CanvasHost canvas)
 	{
 		var primary = new Button { Content = "FG", Width = 42, Height = 32, Background = new SolidColorBrush (Colors.Black) };
 		var secondary = new Button { Content = "BG", Width = 42, Height = 32, Background = new SolidColorBrush (Colors.White) };
-		primary.Click += (_, _) => canvas.BrushColor = canvas.BrushColor;
-		secondary.Click += (_, _) => canvas.BrushColor = canvas.SecondaryBrushColor;
+		void RefreshColors () {
+			primary.Background = new SolidColorBrush (ToAvaloniaColor (canvas.BrushColor));
+			secondary.Background = new SolidColorBrush (ToAvaloniaColor (canvas.SecondaryBrushColor));
+		}
+		canvas.ColorsChanged += (_, _) => RefreshColors ();
+		void SaveColors () {
+			settings.PutSetting ("Pintora.Palette.Primary", ToAvaloniaColor (canvas.BrushColor).ToString ());
+			settings.PutSetting ("Pintora.Palette.Secondary", ToAvaloniaColor (canvas.SecondaryBrushColor).ToString ());
+			RefreshColors ();
+		}
+		primary.Click += (_, _) => { canvas.BrushColor = canvas.BrushColor; RefreshColors (); };
+		secondary.Click += (_, _) => { canvas.BrushColor = canvas.SecondaryBrushColor; RefreshColors (); };
 		var swap = CreateBrushButton ("⇄", () => {
-			(canvas.BrushColor, canvas.SecondaryBrushColor) = (canvas.SecondaryBrushColor, canvas.BrushColor);
+			canvas.SwapColors ();
+			SaveColors ();
 		});
 		var colors = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
 		foreach ((string Hex, ColorBgra Color) color in new[] {
@@ -341,19 +427,49 @@ public sealed class MainWindow : Window
 			("#72C991", ColorBgra.FromBgra (145, 201, 114, 255)),
 			("#F0B75E", ColorBgra.FromBgra (94, 183, 240, 255))
 		})
-			colors.Children.Add (CreateColorSwatch (color.Hex, () => canvas.BrushColor = color.Color));
+			colors.Children.Add (CreateColorSwatch (color.Hex, () => { canvas.BrushColor = color.Color; SaveColors (); }));
 		var picker = new Button { Content = "Color Picker" };
 		picker.Click += (_, _) => canvas.ActiveTool = CanvasHost.CanvasTool.ColorPicker;
+		var custom = new Button { Content = "Custom color" };
+		custom.Click += (_, _) => new ColorDialogWindow (ToAvaloniaColor (canvas.BrushColor), color => {
+			canvas.BrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
+			SavePaletteColor (canvas);
+			RefreshColors ();
+		}).Show (this);
+		var customSecondary = new Button { Content = "Custom BG" };
+		customSecondary.Click += (_, _) => new ColorDialogWindow (ToAvaloniaColor (canvas.SecondaryBrushColor), color => {
+			canvas.SecondaryBrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
+			SavePaletteColor (canvas);
+			RefreshColors ();
+		}).Show (this);
 		return new StackPanel {
 			Spacing = 5,
 			Children = {
 				new TextBlock { Text = "Colors", FontSize = 15 },
 				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Children = { primary, secondary, swap } },
 				colors,
-				picker
+				picker,
+				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Children = { custom, customSecondary } }
 			}
 		};
 	}
+
+	private void SavePaletteColor (CanvasHost canvas)
+	{
+		settings.PutSetting ("Pintora.Palette.Primary", ToAvaloniaColor (canvas.BrushColor).ToString ());
+		settings.PutSetting ("Pintora.Palette.Secondary", ToAvaloniaColor (canvas.SecondaryBrushColor).ToString ());
+	}
+
+	private ColorBgra LoadColor (string key, ColorBgra fallback)
+	{
+		string value = settings.GetSetting (key, string.Empty);
+		return global::Avalonia.Media.Color.TryParse (value, out global::Avalonia.Media.Color color)
+			? ColorBgra.FromBgra (color.B, color.G, color.R, color.A)
+			: fallback;
+	}
+
+	private static global::Avalonia.Media.Color ToAvaloniaColor (ColorBgra color)
+		=> global::Avalonia.Media.Color.FromArgb (color.A, color.R, color.G, color.B);
 
 	private void RefreshToolOptions (CanvasHost canvas)
 	{
@@ -386,6 +502,11 @@ public sealed class MainWindow : Window
 			case CanvasHost.CanvasTool.Fill:
 				tool_options.Children.Add (new TextBlock { Text = "Tolerance", VerticalAlignment = VerticalAlignment.Center });
 				tool_options.Children.Add (CreateBrushSlider (0, 255, canvas.FillTolerance, value => canvas.FillTolerance = (int) value, 90));
+				break;
+			case CanvasHost.CanvasTool.Gradient:
+				var reverse = new CheckBox { Content = "Reverse", IsChecked = canvas.GradientReversed };
+				reverse.IsCheckedChanged += (_, _) => canvas.GradientReversed = reverse.IsChecked == true;
+				tool_options.Children.Add (reverse);
 				break;
 			case CanvasHost.CanvasTool.Eraser:
 				tool_options.Children.Add (new TextBlock { Text = "Size", VerticalAlignment = VerticalAlignment.Center });
@@ -446,19 +567,31 @@ public sealed class MainWindow : Window
 		var layers = new StackPanel { Spacing = 6 };
 		void RebuildLayers ()
 		{
+			int? drag_source = null;
 			layers.Children.Clear ();
 			for (int i = canvas.Layers.Count - 1; i >= 0; i--) {
 				int index = i;
 				var visibility = new CheckBox { IsChecked = canvas.Layers[index].IsVisible, Content = canvas.Layers[index].Name };
+				var locked = new CheckBox { IsChecked = canvas.Layers[index].IsLocked, Content = "🔒" };
 				visibility.IsCheckedChanged += (_, _) => {
-					canvas.Layers[index].IsVisible = visibility.IsChecked == true;
-					canvas.InvalidateVisual ();
+					canvas.SetLayerVisibility (index, visibility.IsChecked == true);
 				};
+				locked.IsCheckedChanged += (_, _) => canvas.SetLayerLocked (index, locked.IsChecked == true);
 				var button = new Button {
 					Content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = {
-						new TextBlock { Text = index == canvas.ActiveLayerIndex ? "●" : "○" }, visibility
+						new TextBlock { Text = index == canvas.ActiveLayerIndex ? "●" : "○" }, visibility, locked
 					} },
 					HorizontalContentAlignment = HorizontalAlignment.Left
+				};
+				button.PointerPressed += (_, args) => {
+					if (args.GetCurrentPoint (button).Properties.IsLeftButtonPressed)
+						drag_source = index;
+				};
+				button.PointerReleased += (_, args) => {
+					if (drag_source is int source && source != index)
+						canvas.MoveLayerTo (source, index);
+					drag_source = null;
+					RebuildLayers ();
 				};
 				button.Click += (_, _) => { canvas.SelectLayer (index); RebuildLayers (); };
 				layers.Children.Add (button);
@@ -472,6 +605,9 @@ public sealed class MainWindow : Window
 			new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = {
 				CreateBrushButton ("↑", () => { canvas.MoveLayer (1); RebuildLayers (); }),
 				CreateBrushButton ("↓", () => { canvas.MoveLayer (-1); RebuildLayers (); }),
+					CreateBrushButton ("Merge", () => { canvas.MergeActiveLayerDown (); RebuildLayers (); }),
+				CreateBrushButton ("Undo", () => { canvas.UndoLayerOperation (); RebuildLayers (); }),
+				CreateBrushButton ("Redo", () => { canvas.RedoLayerOperation (); RebuildLayers (); }),
 				CreateBrushButton ("Rename", () => new LayerRenameWindow (canvas, canvas.Layers[canvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
 				CreateBrushButton ("+", () => { canvas.AddLayer (); RebuildLayers (); }),
 				CreateBrushButton ("−", () => { canvas.RemoveLayer (); RebuildLayers (); })
@@ -494,8 +630,7 @@ public sealed class MainWindow : Window
 		slider.ValueChanged += (_, args) => {
 			if (canvas.Layers.Count == 0)
 				return;
-			canvas.Layers[canvas.ActiveLayerIndex].Opacity = args.NewValue;
-			canvas.InvalidateVisual ();
+			canvas.SetActiveLayerOpacity (args.NewValue);
 		};
 		return slider;
 	}

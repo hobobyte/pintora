@@ -25,7 +25,7 @@ public sealed class App : Application
 	{
 		if (Current is not null)
 			Current.RequestedThemeVariant = variant;
-		themeSettings?.PutSetting (ThemeSettingKey, variant == ThemeVariant.Dark ? "Dark" : "Light");
+		themeSettings?.PutSetting (ThemeSettingKey, variant == ThemeVariant.Dark ? "Dark" : variant == ThemeVariant.Light ? "Light" : "System");
 	}
 
 	public static void ToggleTheme ()

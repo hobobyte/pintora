@@ -10,7 +10,7 @@ public sealed class KeyboardSettingsWindow : Window
 	{
 		Title = "Keyboard shortcuts";
 		Width = 420;
-		Height = 300;
+		Height = 520;
 		CanResize = false;
 
 		var rows = new StackPanel { Spacing = 8 };
@@ -19,6 +19,13 @@ public sealed class KeyboardSettingsWindow : Window
 		rows.Children.Add (CreateRow ("Decrease brush", PintoraKeyCommands.DecreaseBrush, settings));
 		rows.Children.Add (CreateRow ("Increase brush", PintoraKeyCommands.IncreaseBrush, settings));
 		rows.Children.Add (CreateRow ("Toggle eraser", PintoraKeyCommands.ToggleEraser, settings));
+		rows.Children.Add (CreateRow ("Brush", PintoraKeyCommands.Brush, settings));
+		rows.Children.Add (CreateRow ("Pencil", PintoraKeyCommands.Pencil, settings));
+		rows.Children.Add (CreateRow ("Line", PintoraKeyCommands.Line, settings));
+		rows.Children.Add (CreateRow ("Rectangle", PintoraKeyCommands.Rectangle, settings));
+		rows.Children.Add (CreateRow ("Fill", PintoraKeyCommands.Fill, settings));
+		rows.Children.Add (CreateRow ("Color picker", PintoraKeyCommands.ColorPicker, settings));
+		rows.Children.Add (CreateRow ("Zoom", PintoraKeyCommands.Zoom, settings));
 		Content = new Border {
 			Padding = new global::Avalonia.Thickness (20),
 			Child = rows
