@@ -10,69 +10,40 @@ public sealed class ColorDialogWindow : Window
 {
 	public ColorDialogWindow (Color initial, Action<Color> apply)
 	{
-		Title = "Choose color";
-		Width = 320;
-		Height = 230;
+		Title = "Choose Colors";
+		Width = 510;
+		Height = 430;
 		CanResize = false;
-
-		var value = new TextBox { Text = initial.ToString (), Width = 150 };
-		var preview = new Border { Width = 32, Height = 32, Background = new SolidColorBrush (initial) };
-		var hsvLabel = new TextBlock ();
-		var hue = new NumericUpDown { Minimum = 0, Maximum = 360, Value = (decimal) ColorSpace.ToHsv (initial).H, Width = 64 };
-		var saturation = new NumericUpDown { Minimum = 0, Maximum = 100, Value = (decimal) (ColorSpace.ToHsv (initial).S * 100), Width = 64 };
-		var brightness = new NumericUpDown { Minimum = 0, Maximum = 100, Value = (decimal) (ColorSpace.ToHsv (initial).V * 100), Width = 64 };
+		Color current = initial;
 		bool syncing = false;
-		var red = new NumericUpDown { Minimum = 0, Maximum = 255, Value = initial.R, Width = 58 };
-		var green = new NumericUpDown { Minimum = 0, Maximum = 255, Value = initial.G, Width = 58 };
-		var blue = new NumericUpDown { Minimum = 0, Maximum = 255, Value = initial.B, Width = 58 };
-		void RefreshFromRgb ()
+		var hex = new TextBox { Width = 112, PlaceholderText = "RRGGBBAA" };
+		var preview = new Border { Width = 42, Height = 42, CornerRadius = new CornerRadius (4), BorderThickness = new Thickness (2) };
+		var previous = new Border { Width = 42, Height = 42, CornerRadius = new CornerRadius (4), BorderThickness = new Thickness (2) };
+		var hue = Number (0, 360, 68); var saturation = Number (0, 100, 68); var value = Number (0, 100, 68);
+		var red = Number (0, 255, 68); var green = Number (0, 255, 68); var blue = Number (0, 255, 68); var alpha = Number (0, 255, 68);
+		void PaintPreview () { preview.Background = new SolidColorBrush (current); previous.Background = new SolidColorBrush (initial); hex.Text = current.ToString ().TrimStart ('#'); }
+		void SetRgb (Color color)
 		{
-			syncing = true;
-			var color = Color.FromArgb (initial.A, (byte) (red.Value ?? 0), (byte) (green.Value ?? 0), (byte) (blue.Value ?? 0));
-			value.Text = color.ToString ();
-			preview.Background = new SolidColorBrush (color);
-			var hsv = ColorSpace.ToHsv (color);
-			hsvLabel.Text = $"HSV: {hsv.H:0}°, {hsv.S:P0}, {hsv.V:P0}";
-			hue.Value = (decimal) hsv.H; saturation.Value = (decimal) (hsv.S * 100); brightness.Value = (decimal) (hsv.V * 100);
-			syncing = false;
+			syncing = true; current = color; var hsv = ColorSpace.ToHsv (color);
+			red.Value = color.R; green.Value = color.G; blue.Value = color.B; alpha.Value = color.A;
+			hue.Value = (decimal) hsv.H; saturation.Value = (decimal) (hsv.S * 100); value.Value = (decimal) (hsv.V * 100); PaintPreview (); syncing = false;
 		}
-		void RefreshFromHsv ()
-		{
-			if (syncing) return;
-			var color = ColorSpace.FromHsv ((double) (hue.Value ?? 0), (double) (saturation.Value ?? 0) / 100, (double) (brightness.Value ?? 0) / 100, initial.A);
-			red.Value = color.R; green.Value = color.G; blue.Value = color.B;
-		}
-		red.ValueChanged += (_, _) => RefreshFromRgb ();
-		green.ValueChanged += (_, _) => RefreshFromRgb ();
-		blue.ValueChanged += (_, _) => RefreshFromRgb ();
-		hue.ValueChanged += (_, _) => RefreshFromHsv ();
-		saturation.ValueChanged += (_, _) => RefreshFromHsv ();
-		brightness.ValueChanged += (_, _) => RefreshFromHsv ();
-		RefreshFromRgb ();
-		value.TextChanged += (_, _) => {
-			if (Color.TryParse (value.Text, out Color color))
-				preview.Background = new SolidColorBrush (color);
-		};
-		var applyButton = new Button { Content = "Apply" };
-		applyButton.Click += (_, _) => {
-			if (Color.TryParse (value.Text, out Color color)) {
-				apply (color);
-				Close ();
-			}
-		};
-		var cancelButton = new Button { Content = "Cancel" };
-		cancelButton.Click += (_, _) => Close ();
-		Content = new StackPanel {
-			Margin = new Thickness (16),
-			Spacing = 10,
-			Children = {
-				new TextBlock { Text = "Hex color (#AARRGGBB or #RRGGBB)" },
-				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { value, preview } },
-				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { new TextBlock { Text = "R" }, red, new TextBlock { Text = "G" }, green, new TextBlock { Text = "B" }, blue } },
-				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { new TextBlock { Text = "H" }, hue, new TextBlock { Text = "S%" }, saturation, new TextBlock { Text = "V%" }, brightness } },
-				hsvLabel,
-				new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancelButton, applyButton } }
-			}
-		};
+		void SetHsv () { if (syncing) return; current = ColorSpace.FromHsv ((double) (hue.Value ?? 0), (double) (saturation.Value ?? 0) / 100, (double) (value.Value ?? 0) / 100, (byte) (alpha.Value ?? 255)); SetRgb (current); }
+		void SetRgbFromFields () { if (syncing) return; SetRgb (Color.FromArgb ((byte) (alpha.Value ?? 255), (byte) (red.Value ?? 0), (byte) (green.Value ?? 0), (byte) (blue.Value ?? 0))); }
+		foreach (NumericUpDown input in new[] { red, green, blue, alpha }) input.ValueChanged += (_, _) => SetRgbFromFields ();
+		foreach (NumericUpDown input in new[] { hue, saturation, value }) input.ValueChanged += (_, _) => SetHsv ();
+		hex.TextChanged += (_, _) => { if (syncing) return; string text = hex.Text?.Trim () ?? string.Empty; if (text.Length is 6 or 8 && Color.TryParse ($"#{text}", out Color parsed)) SetRgb (parsed); };
+		SetRgb (initial);
+		var reset = new Button { Content = "Reset", MinWidth = 72 }; reset.Click += (_, _) => SetRgb (initial);
+		var cancel = new Button { Content = "Cancel", MinWidth = 72 }; cancel.Click += (_, _) => Close ();
+		var ok = new Button { Content = "OK", MinWidth = 72, Background = new SolidColorBrush (Color.Parse ("#3B8CFF")) }; ok.Click += (_, _) => { apply (current); Close (); };
+		Content = new StackPanel { Margin = new Thickness (14), Spacing = 10, Children = {
+			new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { reset, new TextBlock { Text = "Choose Colors", FontSize = 16, FontWeight = FontWeight.Bold, VerticalAlignment = VerticalAlignment.Center }, new Border { Width = 1 }, cancel, ok } },
+			new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Children = {
+				new StackPanel { Width = 220, Spacing = 7, Children = { new Border { Width = 148, Height = 148, CornerRadius = new CornerRadius (74), Background = new LinearGradientBrush { StartPoint = new RelativePoint (0, 0, RelativeUnit.Relative), EndPoint = new RelativePoint (1, 1, RelativeUnit.Relative), GradientStops = { new GradientStop (Colors.Red, 0), new GradientStop (Colors.Blue, 0.5), new GradientStop (Colors.Red, 1) } } }, new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { previous, preview } }, new CheckBox { Content = "Show value" } } },
+				new StackPanel { Spacing = 6, Children = { Row ("Hex", hex), new TextBlock { Text = "Hue / Saturation / Value", FontWeight = FontWeight.Bold }, Row ("Hue", hue), Row ("Sat", saturation), Row ("Value", value), new TextBlock { Text = "Red / Green / Blue", FontWeight = FontWeight.Bold }, Row ("Red", red), Row ("Green", green), Row ("Blue", blue), Row ("Alpha", alpha) } }
+			} } } };
 	}
+	private static NumericUpDown Number (decimal min, decimal max, double width) => new () { Minimum = min, Maximum = max, Width = width };
+	private static Control Row (string label, Control control) => new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new TextBlock { Text = label, Width = 58, VerticalAlignment = VerticalAlignment.Center }, control } };
 }
