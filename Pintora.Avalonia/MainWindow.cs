@@ -214,7 +214,7 @@ public sealed class MainWindow : Window
 				} },
 				new MenuItem { Header = "_Help", Items = {
 					CreateMenuItem ("Keyboard shortcuts", () => new KeyboardSettingsWindow (keyboard).Show (this)),
-					new MenuItem { Header = "About Pintora" }
+					CreateMenuItem ("About Pintora", () => new AboutWindow ().ShowDialog (this))
 				} }
 			}
 		};
