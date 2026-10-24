@@ -648,8 +648,7 @@ public sealed class CanvasHost : Control
 			throw new InvalidDataException ("Imported layer dimensions must match the document.");
 		AvaloniaLayer layer = session.AddLayer (Path.GetFileNameWithoutExtension (path));
 		source.GetReadOnlyPixelData ().CopyTo (layer.Surface.GetPixelData ());
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	public void ImportSvgAsLayer (string path)
@@ -683,8 +682,7 @@ public sealed class CanvasHost : Control
 		var bytes = new byte[ImageSize.Width * ImageSize.Height * ColorBgra.SizeOf];
 		Marshal.Copy (image.GetPixels (), bytes, 0, bytes.Length);
 		MemoryMarshal.Cast<byte, ColorBgra> (bytes).CopyTo (layer.Surface.GetPixelData ());
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	private static bool TrySvgFloat (XElement element, string name, out float value)
