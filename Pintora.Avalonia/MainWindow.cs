@@ -312,26 +312,7 @@ public sealed class MainWindow : Window
 		if (file is null)
 			return;
 
-		string path = file.Path.LocalPath;
-		switch (Path.GetExtension (path).ToLowerInvariant ()) {
-			case ".jpg":
-			case ".jpeg":
-				canvas.SaveJpeg (path);
-				break;
-			case ".webp":
-				canvas.SaveWebp (path);
-				break;
-			case ".tif":
-			case ".tiff":
-				canvas.SaveTiff (path);
-				break;
-			case ".ora":
-				canvas.SaveOra (path);
-				break;
-			default:
-				canvas.SavePng (path);
-				break;
-		}
+		canvas.SaveImage (file.Path.LocalPath);
 	}
 
 	private async Task OpenImageAsync (CanvasHost canvas)
