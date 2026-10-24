@@ -22,3 +22,6 @@ after CI and all platform packages pass. Release downloads include self-containe
 for each supported platform, a Windows MSI, Linux AppImage and Debian package, and macOS DMGs for
 Intel and Apple silicon. Packages are not code-signed; macOS DMGs are not notarized and may show a
 security warning.
+
+The editor can open PNG, JPEG, WebP, TIFF, BMP, GIF, and OpenRaster (`.ora`) documents. It can
+export PNG, JPEG, WebP, TIFF, and OpenRaster files.

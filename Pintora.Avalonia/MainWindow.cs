@@ -329,7 +329,7 @@ public sealed class MainWindow : Window
 		var file = await StorageProvider.OpenFilePickerAsync (new FilePickerOpenOptions {
 			AllowMultiple = false,
 			FileTypeFilter = new[] {
-				new FilePickerFileType ("Pintora images") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.tif", "*.tiff", "*.ora" } },
+				new FilePickerFileType ("Pintora images") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.tif", "*.tiff", "*.bmp", "*.gif", "*.ora" } },
 				new FilePickerFileType ("All files") { Patterns = new[] { "*.*" } }
 			}
 		});
@@ -344,7 +344,7 @@ public sealed class MainWindow : Window
 			return;
 		var file = await StorageProvider.OpenFilePickerAsync (new FilePickerOpenOptions {
 			AllowMultiple = false,
-			FileTypeFilter = new[] { new FilePickerFileType ("Image") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.gif", "*.svg" } } }
+			FileTypeFilter = new[] { new FilePickerFileType ("Image") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.tif", "*.tiff", "*.bmp", "*.gif", "*.svg" } } }
 		});
 		if (file.Count > 0)
 			canvas.ImportImageAsLayer (file[0].Path.LocalPath);
