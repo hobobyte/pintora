@@ -19,7 +19,9 @@ public sealed record EffectToolOptions : IToolOptions
 
 public sealed class TextToolOptions : IToolOptions
 {
-	public string Text { get; set; } = "Text";
+	// Start with an empty annotation value; placeholder/sample text must not
+	// appear when the user switches between document tabs.
+	public string Text { get; set; } = string.Empty;
 	public string FontFamily { get; set; } = "Inter";
 	public double FontSize { get; set; } = 16;
 	public bool Bold { get; set; }

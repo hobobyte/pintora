@@ -31,8 +31,9 @@ namespace Pintora.Avalonia.Canvas;
 /// Avalonia viewport for a document. Rendering is intentionally minimal until the shared
 /// image renderer is separated from the GTK canvas.
 /// </summary>
-public sealed class CanvasHost : Control
+public sealed class CanvasHost : Control, IDisposable
 {
+	private bool disposed;
 	public enum CanvasTool
 	{
 		Selection, Text,
@@ -52,6 +53,7 @@ public sealed class CanvasHost : Control
 	public enum ShapeDashStyle { Solid, Dash, Dot, DashDot }
 
 	private AvaloniaDocumentSession session;
+	private DocumentSession document_session;
 	private readonly HashSet<AvaloniaLayer> subscribed_layers = new ();
 	private readonly NotifyCollectionChangedEventHandler session_layers_changed;
 	private readonly Dictionary<string, IImageSurface> annotation_sources = new (StringComparer.Ordinal);
@@ -65,7 +67,7 @@ public sealed class CanvasHost : Control
 	private readonly CanvasToolSet tool_set = CanvasToolFactory.CreateTools ();
 	private ShapeTool shape_tool => tool_set.Get<ShapeTool> (CanvasTool.Shapes);
 	private TextTool text_tool => tool_set.Get<TextTool> (CanvasTool.Text);
-	public string TextToolText { get => text_tool.Text; set { text_tool.Text = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
+	public string TextToolText { get => text_tool.Text; set { text_tool.Text = value; } }
 	public string TextToolFontFamily { get => text_tool.FontFamily; set { text_tool.FontFamily = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
 	public double TextToolFontSize { get => text_tool.FontSize; set { text_tool.FontSize = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
 	public bool TextToolBold { get => text_tool.Bold; set { text_tool.Bold = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
@@ -143,6 +145,8 @@ public sealed class CanvasHost : Control
 	{
 		session_layers_changed = OnSessionLayersChanged;
 		session = new AvaloniaDocumentSession (imageSize, surface);
+		document_session = new DocumentSession (session);
+		document_session.StateChanged += OnDocumentSessionStateChanged;
 		AttachSession (session);
 		this.keyboard = keyboard ?? new PintoraKeyboardSettings ();
 		ClipToBounds = true;
@@ -202,10 +206,16 @@ public sealed class CanvasHost : Control
 	private void InitializeSession (AvaloniaDocumentSession nextSession)
 	{
 		DetachSession ();
+		document_session.StateChanged -= OnDocumentSessionStateChanged;
 		session = nextSession;
+		document_session = new DocumentSession (session);
+		document_session.StateChanged += OnDocumentSessionStateChanged;
 		AttachSession (session);
 		shape_tool.ClearSelectedShape ();
 	}
+
+	private void OnDocumentSessionStateChanged (object? sender, EventArgs e)
+		=> DocumentStateChanged?.Invoke (this, EventArgs.Empty);
 
 	private void OnLayerChanged (object? sender, EventArgs e)
 	{
@@ -278,6 +288,21 @@ public sealed class CanvasHost : Control
 				disposable.Dispose ();
 		owned_annotation_sources.Clear ();
 		annotation_sources.Clear ();
+	}
+
+	public void Dispose ()
+	{
+		if (disposed)
+			return;
+		disposed = true;
+		DetachSession ();
+		document_session.StateChanged -= OnDocumentSessionStateChanged;
+		ClearAnnotationSources ();
+		ClearHistory ();
+		bitmap = null;
+		selected_annotation = null;
+		dragged_annotation = null;
+		drag_undo_snapshot = null;
 	}
 
 	public ImageAnnotation AddImageAnnotation (string sourceId, IImageSurface source, Rect bounds, double opacity = 1, bool preserveAspectRatio = true)
@@ -596,7 +621,10 @@ public sealed class CanvasHost : Control
 		return false;
 	}
 
-	public bool IsDirty { get; private set; }
+	/// <summary>The per-document aggregate owning dirty state, file path and title.</summary>
+	public DocumentSession DocumentSession => document_session;
+
+	public bool IsDirty => document_session.IsDirty;
 	public event EventHandler? DocumentStateChanged;
 	internal void InvalidateToolVisual () => InvalidateVisual ();
 	internal void MarkCanvasChanged ()
@@ -610,10 +638,9 @@ public sealed class CanvasHost : Control
 	/// </summary>
 	internal void MarkCanvasChanged (bool raiseLayerContentChanged)
 	{
-		if (!IsDirty) {
-			IsDirty = true;
-			DocumentStateChanged?.Invoke (this, EventArgs.Empty);
-		}
+		if (disposed)
+			return;
+		document_session.MarkDirty ();
 		bitmap = null;
 		InvalidateVisual ();
 		if (raiseLayerContentChanged && session.ActiveLayer is { } layer)
@@ -785,6 +812,7 @@ public sealed class CanvasHost : Control
 				shape_tool.ClearSelectedShape ();
 			active_tool = value;
 			ActiveToolChanged?.Invoke (this, EventArgs.Empty);
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
 		}
 	}
@@ -1237,8 +1265,8 @@ public sealed class CanvasHost : Control
 		ClearAnnotationSelection ();
 		ClearAnnotationSources ();
 		InitializeSession (new AvaloniaDocumentSession (new Pinta.Core.Size (surface.Width, surface.Height), surface));
+		document_session.MarkSaved (path);
 		ClearHistory ();
-		SetClean ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -1371,8 +1399,8 @@ public sealed class CanvasHost : Control
 			ApplyLayerMetadata (layer, node);
 		}
 		LoadRasterAnnotations (archive);
+		document_session.MarkSaved (path);
 		ClearHistory ();
-		SetClean ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -1524,6 +1552,7 @@ public sealed class CanvasHost : Control
 	public void SavePng (string path)
 	{
 		SaveBitmap (path, PngBitmapEncoderOptions.Default);
+		document_session.MarkSaved (path);
 	}
 
 	public void SaveImage (string path)
@@ -1548,20 +1577,16 @@ public sealed class CanvasHost : Control
 				SavePng (path);
 				break;
 		}
-		SetClean ();
+		document_session.MarkSaved (path);
 	}
 
 	private void SetClean ()
-	{
-		if (!IsDirty)
-			return;
-		IsDirty = false;
-		DocumentStateChanged?.Invoke (this, EventArgs.Empty);
-	}
+		=> document_session.MarkClean ();
 
 	public void SaveJpeg (string path, int quality = 95)
 	{
 		SaveBitmap (path, new JpegBitmapEncoderOptions { Quality = Math.Clamp (quality, 1, 100) });
+		document_session.MarkSaved (path);
 	}
 
 	public void SaveWebp (string path, int quality = 95)
@@ -1579,8 +1604,9 @@ public sealed class CanvasHost : Control
 		using SKData encoded = image.Encode (SKEncodedImageFormat.Webp, Math.Clamp (quality, 1, 100));
 		if (encoded is null)
 			throw new InvalidOperationException ("WebP encoding is not available.");
-		using FileStream stream = File.Create (path);
-		encoded.SaveTo (stream);
+		using (FileStream stream = File.Create (path))
+			encoded.SaveTo (stream);
+		document_session.MarkSaved (path);
 	}
 
 	public void SaveTiff (string path)
@@ -1608,6 +1634,7 @@ public sealed class CanvasHost : Control
 		foreach (ColorBgra pixel in composite.GetReadOnlyPixelData ()) {
 			writer.Write (pixel.R); writer.Write (pixel.G); writer.Write (pixel.B); writer.Write (pixel.A);
 		}
+		document_session.MarkSaved (path);
 	}
 
 	private static void WriteTiffEntry (BinaryWriter writer, ushort tag, ushort type, uint count, uint value)
@@ -1645,6 +1672,7 @@ public sealed class CanvasHost : Control
 		xml.Append ("</stack></image>");
 		WriteTextEntry (archive, "stack.xml", xml.ToString ());
 		SaveRasterAnnotations (archive);
+		document_session.MarkSaved (path);
 	}
 
 	private void SaveRasterAnnotations (ZipArchive archive)

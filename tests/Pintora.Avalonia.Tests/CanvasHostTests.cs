@@ -29,6 +29,23 @@ internal sealed class CanvasHostTests
 		Assert.That (view, Is.EqualTo (new Point (95, 80)));
 	}
 	[Test]
+	public void CanvasHostExposesDocumentSessionAndDelegatesDirtyState ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		int changes = 0;
+		canvas.DocumentStateChanged += (_, _) => changes++;
+
+		Assert.That (canvas.DocumentSession, Is.Not.Null);
+		Assert.That (canvas.IsDirty, Is.False);
+
+		canvas.AddLayer ();
+
+		Assert.That (canvas.IsDirty, Is.True);
+		Assert.That (canvas.DocumentSession.IsDirty, Is.True);
+		Assert.That (changes, Is.EqualTo (1));
+	}
+
+	[Test]
 	public void StartsAtImageSize ()
 	{
 		CanvasHost canvas = new (new Pinta.Core.Size (800, 600));
