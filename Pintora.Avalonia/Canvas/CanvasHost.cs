@@ -86,6 +86,7 @@ public sealed class CanvasHost : Control
 		layer_redo_stack.Clear ();
 		history_kinds.Push (HistoryKind.Layer);
 		redo_history_kinds.Clear ();
+		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
 
 	public CanvasHost () : this (new Pinta.Core.Size (800, 600))
@@ -479,6 +480,7 @@ public sealed class CanvasHost : Control
 			history_kinds.Pop ();
 		if (fromUnifiedHistory)
 			redo_history_kinds.Push (HistoryKind.Layer);
+		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
 
 	public void RedoLayerOperation ()
@@ -493,6 +495,7 @@ public sealed class CanvasHost : Control
 			redo_history_kinds.Pop ();
 		if (fromUnifiedHistory)
 			history_kinds.Push (HistoryKind.Layer);
+		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
 
 	private LayerStackSnapshot CaptureLayerStack ()
@@ -920,7 +923,7 @@ public sealed class CanvasHost : Control
 
 	public bool CanUndoStroke => (undo_stack.Count > 0 && Layers.Contains (undo_stack.Peek ().Layer)) || CanUndoLayerOperation;
 	public bool CanRedoStroke => (redo_stack.Count > 0 && Layers.Contains (redo_stack.Peek ().Layer)) || CanRedoLayerOperation;
-	public IReadOnlyList<string> History => history_stack.ToArray ();
+	public IReadOnlyList<string> History => history_kinds.Select (kind => kind == HistoryKind.Layer ? "Layer operation" : "Raster operation").ToArray ();
 	public event EventHandler? HistoryChanged;
 
 	private void ClearHistory ()
@@ -964,6 +967,8 @@ public sealed class CanvasHost : Control
 		}
 		RasterSnapshot snapshot = undo_stack.Pop ();
 		history_stack.Pop ();
+		if (history_kinds.Count > 0 && history_kinds.Peek () == HistoryKind.Raster)
+			history_kinds.Pop ();
 		snapshot.Pixels.AsSpan ().CopyTo (snapshot.Layer.Surface.GetPixelData ());
 		shape_tool.RestoreState (snapshot.Shape);
 		has_current_stroke = false;
