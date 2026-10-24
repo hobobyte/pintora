@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Input;
 using Pinta.Core;
 
@@ -66,6 +67,15 @@ public sealed class PintoraKeyboardSettings
 		if (settings is not null)
 			settings.PutSetting (SettingKey (command), value);
 		bindings[command.Id] = value;
+	}
+
+	public bool TrySetGesture (PintoraKeyCommand command, string? gesture)
+	{
+		string value = Normalize (gesture) ?? string.Empty;
+		if (!string.IsNullOrEmpty (value) && bindings.Any (pair => pair.Key != command.Id && pair.Value == value))
+			return false;
+		SetGesture (command, value);
+		return true;
 	}
 
 	public void ResetAll ()

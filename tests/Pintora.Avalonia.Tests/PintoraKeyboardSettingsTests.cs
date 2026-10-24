@@ -23,6 +23,8 @@ internal sealed class PintoraKeyboardSettingsTests
 		settings.SetGesture (PintoraKeyCommands.Undo, "Ctrl+U");
 		settings.ResetAll ();
 		Assert.That (settings.GestureTextFor (PintoraKeyCommands.Undo), Is.EqualTo ("Ctrl+Z"));
+		Assert.That (settings.TrySetGesture (PintoraKeyCommands.Redo, "Ctrl+Z"), Is.False);
+		Assert.That (settings.GestureTextFor (PintoraKeyCommands.Redo), Is.EqualTo ("Ctrl+Y"));
 	}
 
 	[Test]
