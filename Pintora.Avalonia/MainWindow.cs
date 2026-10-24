@@ -739,6 +739,7 @@ public sealed class MainWindow : Window
 				CreateBrushButton ("Redo", () => { canvas.RedoLayerOperation (); RebuildLayers (); }),
 				CreateBrushButton ("Rename", () => new LayerRenameWindow (canvas, canvas.Layers[canvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
 				CreateBrushButton ("+", () => { canvas.AddLayer (); RebuildLayers (); }),
+				CreateBrushButton ("Copy", () => { canvas.DuplicateActiveLayer (); RebuildLayers (); }),
 				CreateBrushButton ("−", () => { canvas.RemoveLayer (); RebuildLayers (); })
 			} }
 		}
