@@ -281,8 +281,7 @@ public sealed class CanvasHost : Control
 	{
 		if (!selection_tool.Paste (destination, name => session.AddLayer ($"{name} {Layers.Count}")))
 			return false;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 		return true;
 	}
 
@@ -296,8 +295,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !selection_tool.Move (Surface, delta, BeginStroke, CommitStroke))
 			return false;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 		return true;
 	}
 
@@ -305,8 +303,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !selection_tool.FlipHorizontal (Surface, BeginStroke, CommitStroke))
 			return false;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 		return true;
 	}
 
@@ -314,8 +311,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !selection_tool.FlipVertical (Surface, BeginStroke, CommitStroke))
 			return false;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 		return true;
 	}
 
@@ -323,8 +319,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !selection_tool.RotateClockwise (Surface, BeginStroke, CommitStroke))
 			return false;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 		return true;
 	}
 
@@ -898,8 +893,7 @@ public sealed class CanvasHost : Control
 		if (IsActiveLayerLocked || !activeBrush.DrawPoint (Surface, canvasPoint, color, BrushSize, BrushOpacity,
 			BrushHardness, activeBrush.IsEraser))
 			return;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	private static ColorBgra Blend (ColorBgra destination, ColorBgra source)
@@ -926,16 +920,14 @@ public sealed class CanvasHost : Control
 		if (IsActiveLayerLocked || !activeBrush.DrawLine (Surface, from, to, color, BrushSize, BrushOpacity,
 			BrushHardness, activeBrush.IsEraser))
 			return;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	public void PaintPencilLine (PointD from, PointD to, ColorBgra color)
 	{
 		if (IsActiveLayerLocked || !pencil_tool.DrawPencilLine (Surface, from, to, color, BrushOpacity))
 			return;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	public bool CanUndoStroke => (undo_stack.Count > 0 && Layers.Contains (undo_stack.Peek ().Layer)) || CanUndoLayerOperation;

@@ -104,6 +104,18 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void NewCanvasStartsCleanAndPaintingMarksItDirty ()
+	{
+		using MemoryImageSurface surface = new (4, 4);
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 4), surface);
+
+		Assert.That (canvas.IsDirty, Is.False);
+		canvas.PaintCanvasPoint (new PointD (1, 1), ColorBgra.Black);
+
+		Assert.That (canvas.IsDirty, Is.True);
+	}
+
+	[Test]
 	public void NewDocumentClearsLayerUndoAndHistory ()
 	{
 		using MemoryImageSurface surface = new (2, 1);
