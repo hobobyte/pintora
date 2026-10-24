@@ -108,11 +108,15 @@ internal sealed class CanvasPaintingTests
 	{
 		using MemoryImageSurface surface = new (4, 4);
 		CanvasHost canvas = new (new Pinta.Core.Size (4, 4), surface);
+		int stateChanges = 0;
+		canvas.DocumentStateChanged += (_, _) => stateChanges++;
 
 		Assert.That (canvas.IsDirty, Is.False);
 		canvas.PaintCanvasPoint (new PointD (1, 1), ColorBgra.Black);
+		canvas.PaintCanvasPoint (new PointD (2, 1), ColorBgra.Black);
 
 		Assert.That (canvas.IsDirty, Is.True);
+		Assert.That (stateChanges, Is.EqualTo (1));
 	}
 
 	[Test]
