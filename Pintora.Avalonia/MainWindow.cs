@@ -519,8 +519,16 @@ public sealed class MainWindow : Window
 			settings.PutSetting ("Pintora.Palette.Secondary", ToAvaloniaColor (canvas.SecondaryBrushColor).ToString ());
 			RefreshColors ();
 		}
-		primary.Click += (_, _) => { canvas.BrushColor = canvas.BrushColor; RefreshColors (); };
-		secondary.Click += (_, _) => { canvas.BrushColor = canvas.SecondaryBrushColor; RefreshColors (); };
+		primary.Click += (_, _) => new ColorDialogWindow (ToAvaloniaColor (canvas.BrushColor), color => {
+			canvas.BrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
+			SavePaletteColor (canvas);
+			RefreshColors ();
+		}).Show (this);
+		secondary.Click += (_, _) => new ColorDialogWindow (ToAvaloniaColor (canvas.SecondaryBrushColor), color => {
+			canvas.SecondaryBrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
+			SavePaletteColor (canvas);
+			RefreshColors ();
+		}).Show (this);
 		var swap = CreateBrushButton ("⇄", () => {
 			canvas.SwapColors ();
 			SaveColors ();
