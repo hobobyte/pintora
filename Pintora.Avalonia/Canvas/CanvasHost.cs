@@ -1278,6 +1278,9 @@ public sealed class CanvasHost : Control
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Deselect)) {
 			ClearSelection ();
 			e.Handled = true;
+		} else if (keyboard.Matches (e, PintoraKeyCommands.DuplicateLayer)) {
+			DuplicateActiveLayer ();
+			e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.SwapColors)) {
 			SwapColors ();
 			e.Handled = true;
