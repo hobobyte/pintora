@@ -994,6 +994,20 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void HistoryIncludesLayerOperations ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+
+		canvas.AddLayer ();
+		Assert.That (canvas.History, Has.Count.EqualTo (1));
+		Assert.That (canvas.History[0], Is.EqualTo ("Layer operation"));
+
+		canvas.UndoLastStroke ();
+		Assert.That (canvas.History, Is.Empty);
+	}
+
+	[Test]
 	public void SelectAllAndDeselectUseDocumentBounds ()
 	{
 		using MemoryImageSurface surface = new (4, 3);
