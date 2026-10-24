@@ -244,6 +244,9 @@ public sealed class CanvasHost : Control
 		return selected;
 	}
 
+	public bool SelectAll ()
+		=> SelectRectangle (new PointI (0, 0), new PointI (ImageSize.Width, ImageSize.Height));
+
 	public void ClearSelection ()
 	{
 		selection_tool.Clear ();
@@ -1249,6 +1252,12 @@ public sealed class CanvasHost : Control
 			e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Paste)) {
 			PasteSelection ();
+			e.Handled = true;
+		} else if (keyboard.Matches (e, PintoraKeyCommands.SelectAll)) {
+			SelectAll ();
+			e.Handled = true;
+		} else if (keyboard.Matches (e, PintoraKeyCommands.Deselect)) {
+			ClearSelection ();
 			e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.SwapColors)) {
 			SwapColors ();
