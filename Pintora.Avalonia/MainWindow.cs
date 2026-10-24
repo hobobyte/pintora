@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -164,6 +165,7 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("_Open", () => _ = OpenImageAsync (canvas)),
 					CreateMenuItem ("Import image as layer", () => _ = ImportImageLayerAsync (canvas)),
 					new Separator (),
+					CreateMenuItem ("Save _As", () => _ = SaveAsAsync (canvas)),
 					CreateMenuItem ("Save _PNG", () => _ = SavePngAsync (canvas)),
 					CreateMenuItem ("Save _JPEG", () => _ = SaveJpegAsync (canvas)),
 					CreateMenuItem ("Save _WebP", () => _ = SaveWebpAsync (canvas)),
@@ -275,6 +277,48 @@ public sealed class MainWindow : Window
 
 		if (file is not null)
 			canvas.SavePng (file.Path.LocalPath);
+	}
+
+	private async Task SaveAsAsync (CanvasHost canvas)
+	{
+		if (StorageProvider is null)
+			return;
+
+		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
+			SuggestedFileName = "pintora.png",
+			DefaultExtension = "png",
+			FileTypeChoices = new[] {
+				new FilePickerFileType ("PNG image") { Patterns = new[] { "*.png" } },
+				new FilePickerFileType ("JPEG image") { Patterns = new[] { "*.jpg", "*.jpeg" } },
+				new FilePickerFileType ("WebP image") { Patterns = new[] { "*.webp" } },
+				new FilePickerFileType ("TIFF image") { Patterns = new[] { "*.tif", "*.tiff" } },
+				new FilePickerFileType ("OpenRaster image") { Patterns = new[] { "*.ora" } }
+			}
+		});
+
+		if (file is null)
+			return;
+
+		string path = file.Path.LocalPath;
+		switch (Path.GetExtension (path).ToLowerInvariant ()) {
+			case ".jpg":
+			case ".jpeg":
+				canvas.SaveJpeg (path);
+				break;
+			case ".webp":
+				canvas.SaveWebp (path);
+				break;
+			case ".tif":
+			case ".tiff":
+				canvas.SaveTiff (path);
+				break;
+			case ".ora":
+				canvas.SaveOra (path);
+				break;
+			default:
+				canvas.SavePng (path);
+				break;
+		}
 	}
 
 	private async Task OpenImageAsync (CanvasHost canvas)
