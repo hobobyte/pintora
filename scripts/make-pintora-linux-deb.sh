@@ -18,8 +18,10 @@ ln -s /usr/lib/pintora/Pintora "$STAGING/usr/bin/pintora"
 cp installer/avalonia/pintora.desktop "$STAGING/usr/share/applications/"
 cp Pinta.Resources/icons/hicolor/96x96/apps/com.github.PintaProject.Pinta.png \
     "$STAGING/usr/share/icons/hicolor/96x96/apps/pintora.png"
-cp license-mit.txt license-pdn.txt CHANGELOG.md \
+cp LICENSE.md CHANGELOG.md \
     "$STAGING/usr/share/doc/pintora/"
+cp third-party/pinta/LICENSE.md "$STAGING/usr/share/doc/pintora/LICENSE-PINTA.md"
+cp third-party/paint.net/LICENSE.md "$STAGING/usr/share/doc/pintora/LICENSE-PAINT.NET.md"
 sed "s/__VERSION__/$VERSION/" installer/avalonia/pintora.control > "$STAGING/DEBIAN/control"
 echo "Installed-Size: $(du -sk "$STAGING/usr" | cut -f1)" >> "$STAGING/DEBIAN/control"
 

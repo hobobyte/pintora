@@ -53,6 +53,8 @@ your operating system, steps to reproduce it, and a sample file only if it is sa
 
 ## License and credits
 
-Pintora includes code from Pinta and Paint.NET. See [`license-mit.txt`](license-mit.txt) and
-[`license-pdn.txt`](license-pdn.txt) for license terms. Icon sources and attributions are listed in
+Pintora-specific contributions are licensed under MIT; see [`LICENSE.md`](LICENSE.md). Upstream
+Pinta and Paint.NET code retain their original notices in
+[`third-party/pinta/LICENSE.md`](third-party/pinta/LICENSE.md) and
+[`third-party/paint.net/LICENSE.md`](third-party/paint.net/LICENSE.md). Icon sources and attributions are listed in
 [`Pinta.Resources/icons/pinta-icons.md`](Pinta.Resources/icons/pinta-icons.md).

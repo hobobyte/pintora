@@ -95,7 +95,9 @@ jobs:
       - name: Include licenses and release documentation
         shell: bash
         run: |
-          cp license-mit.txt license-pdn.txt Pintora.Avalonia/README.md CHANGELOG.md publish/${{ matrix.rid }}/
+          cp LICENSE.md Pintora.Avalonia/README.md CHANGELOG.md publish/${{ matrix.rid }}/
+          cp third-party/pinta/LICENSE.md publish/${{ matrix.rid }}/LICENSE-PINTA.md
+          cp third-party/paint.net/LICENSE.md publish/${{ matrix.rid }}/LICENSE-PAINT.NET.md
           cp Pinta.Resources/icons/pinta-icons.md publish/${{ matrix.rid }}/THIRD-PARTY-NOTICES-icons.md
 
       - name: Archive portable app

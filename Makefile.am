@@ -114,8 +114,8 @@ releasezip:
 	$(DOTNET_CMD) publish Pinta/Pinta.csproj $(PINTA_BUILD_OPTS) -r linux-x64 --self-contained true -p:PublishDir=$(abs_srcdir)/release
 	cd $(abs_srcdir)/release && zip -r ../$(RELEASE_FILE).zip * -x "*.pdb"
 
-EXTRA_DIST = Pinta Pinta.Core Pinta.Docking Pinta.Effects Pinta.Gui.Addins Pinta.Gui.Widgets Pinta.Resources Pinta.Tools po xdg tests license-mit.txt \
-           license-pdn.txt Pinta.sln pinta.pc.in readme.md intltool-extract.in \
+EXTRA_DIST = Pinta Pinta.Core Pinta.Docking Pinta.Effects Pinta.Gui.Addins Pinta.Gui.Widgets Pinta.Resources Pinta.Tools po xdg tests LICENSE.md third-party/pinta/LICENSE.md third-party/paint.net/LICENSE.md \
+           Pinta.sln pinta.pc.in readme.md intltool-extract.in \
            intltool-merge.in intltool-update.in installer/addins installer/linux/install.proj properties Directory.Build.props Directory.Packages.props
 
 CLEANFILES = intltool-extract \

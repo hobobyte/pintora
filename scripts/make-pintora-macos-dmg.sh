@@ -10,8 +10,10 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir "$STAGE/Pintora"
 ditto "$APP" "$STAGE/Pintora/Pintora.app"
 ln -s /Applications "$STAGE/Pintora/Applications"
-cp license-mit.txt license-pdn.txt CHANGELOG.md \
+cp LICENSE.md CHANGELOG.md \
     Pinta.Resources/icons/pinta-icons.md "$STAGE/Pintora/"
+cp third-party/pinta/LICENSE.md "$STAGE/Pintora/LICENSE-PINTA.md"
+cp third-party/paint.net/LICENSE.md "$STAGE/Pintora/LICENSE-PAINT.NET.md"
 hdiutil create -quiet -volname "Pintora" -srcfolder "$STAGE/Pintora" -fs HFS+ -format UDZO "$OUTPUT"
 hdiutil verify -quiet "$OUTPUT"
 echo "Built $OUTPUT (unsigned and not notarized)"
