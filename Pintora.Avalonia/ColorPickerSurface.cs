@@ -44,11 +44,11 @@ internal sealed class ColorPickerSurface : Control
 					if (distance > radius) { pixels[(y * size + x) * 4 + 3] = 0; continue; }
 					double hue = (Math.Atan2 (dy, -dx) + Math.PI) / (2 * Math.PI) * 360;
 					double saturation = Math.Min (distance / radius, 1);
-					pixel = ColorSpace.FromHsv (hue, saturation, ShowValue ? hsv.V : 1, 1);
+					pixel = ColorSpace.FromHsv (hue, saturation, ShowValue ? hsv.V : 1, 255);
 				} else {
 					double saturation = 1 - Math.Clamp ((double) y / Math.Max (1, size - 1), 0, 1);
 					double value = Math.Clamp ((double) x / Math.Max (1, size - 1), 0, 1);
-					pixel = ColorSpace.FromHsv (hsv.H, saturation, value, 1);
+					pixel = ColorSpace.FromHsv (hsv.H, saturation, value, 255);
 				}
 				int offset = (y * size + x) * 4;
 				pixels[offset] = pixel.B; pixels[offset + 1] = pixel.G; pixels[offset + 2] = pixel.R; pixels[offset + 3] = pixel.A;
