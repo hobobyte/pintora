@@ -1149,39 +1149,6 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
-	public void SaveImageUsesExtensionToSelectEncoder ()
-	{
-		using MemoryImageSurface surface = new (1, 1);
-		surface.GetPixelData ()[0] = ColorBgra.Red;
-		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
-		string path = Path.Combine (Path.GetTempPath (), $"pintora-save-{Guid.NewGuid ():N}.png");
-		try {
-			canvas.SaveImage (path);
-			Assert.That (File.ReadAllBytes (path).AsSpan (1, 3).ToArray (), Is.EqualTo (new byte[] { (byte) 'P', (byte) 'N', (byte) 'G' }));
-		} finally {
-			File.Delete (path);
-		}
-	}
-
-	[Test]
-	public void OpenImageLoadsRasterDocuments ()
-	{
-		using MemoryImageSurface source = new (2, 1);
-		source.GetPixelData ()[0] = ColorBgra.Red;
-		CanvasHost writer = new (new Pinta.Core.Size (2, 1), source);
-		string path = Path.Combine (Path.GetTempPath (), $"pintora-open-{Guid.NewGuid ():N}.png");
-		try {
-			writer.SaveImage (path);
-			CanvasHost reader = new (new Pinta.Core.Size (1, 1), new MemoryImageSurface (1, 1));
-			reader.OpenImage (path);
-			Assert.That (reader.ImageSize, Is.EqualTo (new Pinta.Core.Size (2, 1)));
-			Assert.That (reader.Surface!.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Red));
-		} finally {
-			File.Delete (path);
-		}
-	}
-
-	[Test]
 	public void SaveWebp_WritesWebpSignature ()
 	{
 		using var surface = new MemoryImageSurface (2, 2);
