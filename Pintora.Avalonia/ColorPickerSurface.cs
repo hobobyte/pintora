@@ -1,8 +1,11 @@
 using System;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 
 namespace Pintora.Avalonia;
 
@@ -31,13 +34,14 @@ internal sealed class ColorPickerSurface : Control
 		int size = Math.Max (1, (int) Math.Min (Bounds.Width, Bounds.Height));
 		int radius = size / 2;
 		var hsv = ColorSpace.ToHsv (color);
+		var pixels = new byte[size * size * 4];
 		for (int y = 0; y < size; y++) {
 			for (int x = 0; x < size; x++) {
 				double dx = x - radius + 0.5, dy = y - radius + 0.5;
 				Color pixel;
 				if (Mode == SurfaceMode.HueAndSaturation) {
 					double distance = Math.Sqrt (dx * dx + dy * dy);
-					if (distance > radius) continue;
+					if (distance > radius) { pixels[(y * size + x) * 4 + 3] = 0; continue; }
 					double hue = (Math.Atan2 (dy, -dx) + Math.PI) / (2 * Math.PI) * 360;
 					double saturation = Math.Min (distance / radius, 1);
 					pixel = ColorSpace.FromHsv (hue, saturation, ShowValue ? hsv.V : 1, 1);
@@ -46,9 +50,15 @@ internal sealed class ColorPickerSurface : Control
 					double value = Math.Clamp ((double) x / Math.Max (1, size - 1), 0, 1);
 					pixel = ColorSpace.FromHsv (hsv.H, saturation, value, 1);
 				}
-				context.FillRectangle (new SolidColorBrush (pixel), new Rect (x, y, 1, 1));
+				int offset = (y * size + x) * 4;
+				pixels[offset] = pixel.B; pixels[offset + 1] = pixel.G; pixels[offset + 2] = pixel.R; pixels[offset + 3] = pixel.A;
 			}
 		}
+		using var bitmap = new WriteableBitmap (new PixelSize (size, size), new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+		using (ILockedFramebuffer locked = bitmap.Lock ())
+			for (int y = 0; y < size; y++)
+				Marshal.Copy (pixels, y * size * 4, locked.Address + y * locked.RowBytes, size * 4);
+		context.DrawImage (bitmap, new Rect (0, 0, size, size), new Rect (0, 0, size, size));
 		Point cursor = GetCursor (hsv, radius);
 		context.DrawEllipse (null, new Pen (Brushes.Black, 2), cursor, 6, 6);
 		context.DrawEllipse (null, new Pen (Brushes.White, 1), cursor, 5, 5);
