@@ -505,8 +505,8 @@ public sealed class MainWindow : Window
 
 	private Control CreatePalette (CanvasHost canvas)
 	{
-		var primary = new Button { Content = "FG", Width = 42, Height = 32, Background = new SolidColorBrush (Colors.Black) };
-		var secondary = new Button { Content = "BG", Width = 42, Height = 32, Background = new SolidColorBrush (Colors.White) };
+		var primary = new Button { Content = "", Width = 42, Height = 42, Background = new SolidColorBrush (Colors.Black) };
+		var secondary = new Button { Content = "", Width = 42, Height = 42, Background = new SolidColorBrush (Colors.White) };
 		void RefreshColors ()
 		{
 			primary.Background = new SolidColorBrush (ToAvaloniaColor (canvas.BrushColor));
@@ -525,16 +525,17 @@ public sealed class MainWindow : Window
 			canvas.SwapColors ();
 			SaveColors ();
 		});
-		var colors = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-		foreach ((string Hex, ColorBgra Color) color in new[] {
-			("#000000", ColorBgra.Black),
-			("#FFFFFF", ColorBgra.White),
-			("#E95B64", ColorBgra.FromBgra (100, 91, 233, 255)),
-			("#3B8CFF", ColorBgra.FromBgra (255, 140, 59, 255)),
-			("#72C991", ColorBgra.FromBgra (145, 201, 114, 255)),
-			("#F0B75E", ColorBgra.FromBgra (94, 183, 240, 255))
-		})
-			colors.Children.Add (CreateColorSwatch (color.Hex, () => { canvas.BrushColor = color.Color; SaveColors (); }));
+		var colors = new WrapPanel { Width = 225, ItemWidth = 28, ItemHeight = 28 };
+		string[] palette = {
+			"#000000", "#404040", "#808080", "#BFBFBF", "#FFFFFF",
+			"#7F0000", "#FF0000", "#FF7F00", "#FFFF00", "#7FFF00", "#00FF00", "#00FF7F",
+			"#00FFFF", "#007FFF", "#0000FF", "#7F00FF", "#FF00FF", "#FF007F",
+			"#800000", "#C00000", "#E95B64", "#F0B75E", "#72C991", "#3B8CFF"
+		};
+		foreach (string hex in palette) {
+			ColorBgra color = ToColorBgra (Color.Parse (hex));
+			colors.Children.Add (CreateColorSwatch (hex, () => { canvas.BrushColor = color; SaveColors (); }));
+		}
 		var picker = new Button { Content = "Color Picker" };
 		picker.Click += (_, _) => canvas.ActiveTool = CanvasHost.CanvasTool.ColorPicker;
 		var custom = new Button { Content = "Custom color" };
@@ -577,6 +578,9 @@ public sealed class MainWindow : Window
 
 	private static global::Avalonia.Media.Color ToAvaloniaColor (ColorBgra color)
 		=> global::Avalonia.Media.Color.FromArgb (color.A, color.R, color.G, color.B);
+
+	private static ColorBgra ToColorBgra (global::Avalonia.Media.Color color)
+		=> ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
 
 	private void RefreshToolOptions (CanvasHost canvas)
 	{
