@@ -79,7 +79,8 @@ jobs:
           app_version="$(sed -n 's/^[[:space:]]*<Version>\(.*\)<\/Version>[[:space:]]*$/\1/p' Pintora.Avalonia/Pintora.Avalonia.csproj | head -n 1)"
           echo "app-version=$app_version" >> "$GITHUB_OUTPUT"
           echo "msi-version=${app_version%%-*}" >> "$GITHUB_OUTPUT"
-          echo "deb-version=${app_version/-/~}" >> "$GITHUB_OUTPUT"
+          deb_version="$(printf '%s' "$app_version" | sed 's/-/~/')"
+          echo "deb-version=$deb_version" >> "$GITHUB_OUTPUT"
 
       - name: Publish self-contained app
         run: dotnet publish Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release --runtime ${{ matrix.rid }} --self-contained true --output publish/${{ matrix.rid }}
