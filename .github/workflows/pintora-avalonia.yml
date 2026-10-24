@@ -52,7 +52,7 @@ jobs:
         run: dotnet build Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release --no-restore -warnaserror
 
       - name: Test
-        run: dotnet test tests/Pintora.Avalonia.Tests/Pintora.Avalonia.Tests.csproj --configuration Release --no-build --no-restore -p:BuildInParallel=false -m:1
+        run: dotnet test tests/Pintora.Avalonia.Tests/Pintora.Avalonia.Tests.csproj --configuration Release --no-restore -p:BuildInParallel=false -m:1
 
   package:
     name: Package (${{ matrix.rid }})
