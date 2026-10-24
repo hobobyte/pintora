@@ -40,7 +40,7 @@ internal sealed class GradientTool : ICanvasTool
 		if (!IsActive)
 			return false;
 		Complete (context.Host.Surface, context.Host.BeginStroke, context.Host.CommitStroke);
-		context.Host.MarkCanvasChanged ();
+		context.Host.MarkCanvasChanged (true);
 		return true;
 	}
 

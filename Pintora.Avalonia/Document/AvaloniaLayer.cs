@@ -10,12 +10,12 @@ public sealed class AvaloniaLayer
 	private bool is_visible = true;
 	private bool is_locked;
 	private double opacity = 1.0;
-	public string Name { get => name; set { if (name == value) return; name = value; NotifyMetadataChanged (); } }
-	public bool IsVisible { get => is_visible; set { if (is_visible == value) return; is_visible = value; NotifyMetadataChanged (); } }
-	public bool IsLocked { get => is_locked; set { if (is_locked == value) return; is_locked = value; NotifyMetadataChanged (); } }
+	public string Name { get => name; set { if (name == value) return; name = value; NotifyMetadataChanged (affectsRenderedAppearance: false); } }
+	public bool IsVisible { get => is_visible; set { if (is_visible == value) return; is_visible = value; NotifyMetadataChanged (affectsRenderedAppearance: true); } }
+	public bool IsLocked { get => is_locked; set { if (is_locked == value) return; is_locked = value; NotifyMetadataChanged (affectsRenderedAppearance: false); } }
 	public double Opacity {
 		get => opacity;
-		set { double next = System.Math.Clamp (value, 0, 1); if (System.Math.Abs (opacity - next) < double.Epsilon) return; opacity = next; NotifyMetadataChanged (); }
+		set { double next = System.Math.Clamp (value, 0, 1); if (System.Math.Abs (opacity - next) < double.Epsilon) return; opacity = next; NotifyMetadataChanged (affectsRenderedAppearance: true); }
 	}
 	public MemoryImageSurface Surface { get; }
 	public AnnotationCollection Annotations { get; } = new ();
@@ -27,10 +27,9 @@ public sealed class AvaloniaLayer
 		Changed?.Invoke (this, e);
 	}
 
-	private void NotifyMetadataChanged ()
+	private void NotifyMetadataChanged (bool affectsRenderedAppearance)
 	{
-		MetadataChanged?.Invoke (this, EventArgs.Empty);
-		Changed?.Invoke (this, EventArgs.Empty);
+		MetadataChanged?.Invoke (this, new LayerMetadataChangedEventArgs (affectsRenderedAppearance));
 	}
 
 	public AvaloniaLayer (string name, MemoryImageSurface surface)

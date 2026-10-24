@@ -20,7 +20,7 @@ internal sealed class BrushTool : ICanvasTool
 			return false;
 		pointer_active = true;
 		previous_point = context.Point;
-		host.MarkCanvasChanged ();
+		host.MarkCanvasChanged (true);
 		return true;
 	}
 
@@ -33,7 +33,7 @@ internal sealed class BrushTool : ICanvasTool
 			host.BrushSize, host.BrushOpacity, host.BrushHardness, host.IsActiveLayerLocked);
 		previous_point = context.Point;
 		if (changed)
-			host.MarkCanvasChanged ();
+			host.MarkCanvasChanged (true);
 		return true;
 	}
 

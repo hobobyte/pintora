@@ -141,7 +141,7 @@ public sealed class CanvasHost : Control
 
 	public CanvasHost (Pinta.Core.Size imageSize, IImageSurface? surface, PintoraKeyboardSettings? keyboard = null)
 	{
-		session_layers_changed = (_, _) => LayersChanged?.Invoke (this, EventArgs.Empty);
+		session_layers_changed = OnSessionLayersChanged;
 		session = new AvaloniaDocumentSession (imageSize, surface);
 		AttachSession (session);
 		this.keyboard = keyboard ?? new PintoraKeyboardSettings ();
@@ -162,21 +162,41 @@ public sealed class CanvasHost : Control
 		layer.MetadataChanged += OnLayerMetadataChanged;
 	}
 
+	private void UnsubscribeFromLayer (AvaloniaLayer layer)
+	{
+		if (!subscribed_layers.Remove (layer))
+			return;
+		layer.Changed -= OnLayerChanged;
+		layer.MetadataChanged -= OnLayerMetadataChanged;
+	}
+
+	private void SyncLayerSubscriptions ()
+	{
+		foreach (AvaloniaLayer layer in subscribed_layers.ToArray ()) {
+			if (!session.Layers.Contains (layer))
+				UnsubscribeFromLayer (layer);
+		}
+		foreach (AvaloniaLayer layer in session.Layers)
+			SubscribeToLayer (layer);
+	}
+
+	private void OnSessionLayersChanged (object? sender, NotifyCollectionChangedEventArgs e)
+	{
+		SyncLayerSubscriptions ();
+		LayersChanged?.Invoke (this, EventArgs.Empty);
+	}
+
 	private void AttachSession (AvaloniaDocumentSession nextSession)
 	{
 		nextSession.Layers.CollectionChanged += session_layers_changed;
-		foreach (AvaloniaLayer layer in nextSession.Layers)
-			SubscribeToLayer (layer);
+		SyncLayerSubscriptions ();
 	}
 
 	private void DetachSession ()
 	{
 		session.Layers.CollectionChanged -= session_layers_changed;
-		foreach (AvaloniaLayer layer in subscribed_layers) {
-			layer.Changed -= OnLayerChanged;
-			layer.MetadataChanged -= OnLayerMetadataChanged;
-		}
-		subscribed_layers.Clear ();
+		foreach (AvaloniaLayer layer in subscribed_layers.ToArray ())
+			UnsubscribeFromLayer (layer);
 	}
 
 	private void InitializeSession (AvaloniaDocumentSession nextSession)
@@ -189,10 +209,33 @@ public sealed class CanvasHost : Control
 
 	private void OnLayerChanged (object? sender, EventArgs e)
 	{
+		// AvaloniaLayer.Changed already implies a rendered content change, so
+		// raise LayerContentChanged here and use the non-raising overload to
+		// avoid a duplicate notification.
 		MarkCanvasChanged ();
+		if (sender is AvaloniaLayer layer)
+			RaiseLayerContentChanged (layer);
 	}
 
-	private void OnLayerMetadataChanged (object? sender, EventArgs e) => LayersChanged?.Invoke (this, e);
+	/// <summary>
+	/// Raised when the rendered content of a layer changes, either from a raster
+	/// edit or from a layer-stack operation (add/remove/reorder/undo/redo).
+	/// Name and lock changes are metadata only and do not raise this event.
+	/// </summary>
+	public event EventHandler<LayerContentChangedEventArgs>? LayerContentChanged;
+
+	private void RaiseLayerContentChanged (AvaloniaLayer layer)
+		=> LayerContentChanged?.Invoke (this, new LayerContentChangedEventArgs (layer));
+
+	private void OnLayerMetadataChanged (object? sender, EventArgs e)
+	{
+		// Name and lock changes are metadata only: they refresh the layer list
+		// but must not raise LayerContentChanged or invalidate the composite.
+		// Visibility and opacity change the rendered result, so they redraw.
+		LayersChanged?.Invoke (this, e);
+		if (e is LayerMetadataChangedEventArgs { AffectsRenderedAppearance: true })
+			MarkCanvasChanged ();
+	}
 
 	public double Scale => session.Scale;
 
@@ -557,6 +600,15 @@ public sealed class CanvasHost : Control
 	public event EventHandler? DocumentStateChanged;
 	internal void InvalidateToolVisual () => InvalidateVisual ();
 	internal void MarkCanvasChanged ()
+		=> MarkCanvasChanged (false);
+
+	/// <summary>
+	/// Marks the canvas dirty and optionally raises <see cref="LayerContentChanged"/>
+	/// for the active layer. Callers that mutate a layer surface directly (rather
+	/// than through <see cref="AvaloniaLayer.Changed"/>) must pass
+	/// <paramref name="raiseLayerContentChanged"/> so observers see the edit.
+	/// </summary>
+	internal void MarkCanvasChanged (bool raiseLayerContentChanged)
 	{
 		if (!IsDirty) {
 			IsDirty = true;
@@ -564,6 +616,8 @@ public sealed class CanvasHost : Control
 		}
 		bitmap = null;
 		InvalidateVisual ();
+		if (raiseLayerContentChanged && session.ActiveLayer is { } layer)
+			RaiseLayerContentChanged (layer);
 	}
 	public event EventHandler? ScaleChanged;
 	private readonly BrushToolOptions brush_options = new ();
@@ -807,7 +861,7 @@ public sealed class CanvasHost : Control
 	{
 		if (!selection_tool.Paste (destination, name => session.AddLayer ($"{name} {Layers.Count}")))
 			return false;
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 		return true;
 	}
 
@@ -821,7 +875,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !selection_tool.Move (Surface, delta, BeginStroke, CommitStroke))
 			return false;
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 		return true;
 	}
 
@@ -829,7 +883,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !selection_tool.FlipHorizontal (Surface, BeginStroke, CommitStroke))
 			return false;
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 		return true;
 	}
 
@@ -837,7 +891,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !selection_tool.FlipVertical (Surface, BeginStroke, CommitStroke))
 			return false;
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 		return true;
 	}
 
@@ -845,7 +899,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !selection_tool.RotateClockwise (Surface, BeginStroke, CommitStroke))
 			return false;
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 		return true;
 	}
 
@@ -938,6 +992,9 @@ public sealed class CanvasHost : Control
 		AvaloniaLayer removed = session.ActiveLayer!;
 		RecordLayerUndo ();
 		if (session.RemoveActiveLayer ()) {
+			// Unsubscribe immediately so a detached layer can no longer push
+			// Changed/MetadataChanged notifications into this canvas.
+			UnsubscribeFromLayer (removed);
 			if (selected_annotation is not null && removed.Annotations.Items.Contains (selected_annotation))
 				ClearAnnotationSelection ();
 			MarkCanvasChanged ();
@@ -1006,6 +1063,9 @@ public sealed class CanvasHost : Control
 		lower.Name = $"{lower.Name} + {upper.Name}";
 		int lowerIndex = ActiveLayerIndex - 1;
 		session.RemoveLayerAt (ActiveLayerIndex);
+		// The upper layer is gone from the stack; stop listening to it right
+		// away instead of waiting for the collection-changed handler.
+		UnsubscribeFromLayer (upper);
 		ClearAnnotationSelection ();
 		shape_tool.ClearSelectedShape ();
 		SelectLayer (lowerIndex);
@@ -1071,6 +1131,8 @@ public sealed class CanvasHost : Control
 		AttachSession (session);
 		session.SelectLayer (Math.Min (snapshot.ActiveIndex, Layers.Count - 1));
 		bitmap = null; InvalidateVisual ();
+		foreach (AvaloniaLayer layer in Layers)
+			RaiseLayerContentChanged (layer);
 	}
 
 	public void RenameLayer (string name)
@@ -1152,7 +1214,7 @@ public sealed class CanvasHost : Control
 			throw new ArgumentOutOfRangeException (nameof (width), "Image dimensions must be positive.");
 		session.Resize (new Pinta.Core.Size (width, height));
 		ClearHistory ();
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -1162,7 +1224,7 @@ public sealed class CanvasHost : Control
 	{
 		session.Crop (left, top, width, height);
 		ClearHistory ();
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -1207,7 +1269,7 @@ public sealed class CanvasHost : Control
 		AvaloniaLayer layer = session.AddLayer (Path.GetFileNameWithoutExtension (path));
 		SubscribeToLayer (layer);
 		source.GetReadOnlyPixelData ().CopyTo (layer.Surface.GetPixelData ());
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 	}
 
 	public bool PasteImageAsLayer (Bitmap image, string name = "Clipboard")
@@ -1222,7 +1284,7 @@ public sealed class CanvasHost : Control
 		AvaloniaLayer layer = session.AddLayer (string.IsNullOrWhiteSpace (name) ? "Clipboard" : name.Trim ());
 		SubscribeToLayer (layer);
 		RasterBlitter.CopyCentered (source, layer.Surface);
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 		return true;
 	}
 
@@ -1269,7 +1331,7 @@ public sealed class CanvasHost : Control
 		var bytes = new byte[ImageSize.Width * ImageSize.Height * ColorBgra.SizeOf];
 		Marshal.Copy (image.GetPixels (), bytes, 0, bytes.Length);
 		MemoryMarshal.Cast<byte, ColorBgra> (bytes).CopyTo (layer.Surface.GetPixelData ());
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 	}
 
 	private static bool TrySvgFloat (XElement element, string name, out float value)
@@ -1649,7 +1711,7 @@ public sealed class CanvasHost : Control
 		if (IsActiveLayerLocked || !activeBrush.DrawPoint (Surface, canvasPoint, color, BrushSize, BrushOpacity,
 			BrushHardness, activeBrush.IsEraser))
 			return;
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 	}
 
 	private static ColorBgra Blend (ColorBgra destination, ColorBgra source)
@@ -1676,14 +1738,14 @@ public sealed class CanvasHost : Control
 		if (IsActiveLayerLocked || !activeBrush.DrawLine (Surface, from, to, color, BrushSize, BrushOpacity,
 			BrushHardness, activeBrush.IsEraser))
 			return;
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 	}
 
 	public void PaintPencilLine (PointD from, PointD to, ColorBgra color)
 	{
 		if (IsActiveLayerLocked || !pencil_tool.DrawPencilLine (Surface, from, to, color, BrushOpacity))
 			return;
-		MarkCanvasChanged ();
+		MarkCanvasChanged (true);
 	}
 
 	public bool CanUndoStroke => (undo_stack.Count > 0 && Layers.Contains (undo_stack.Peek ().Layer)) || CanUndoLayerOperation;
@@ -1772,8 +1834,7 @@ public sealed class CanvasHost : Control
 	has_pixels:
 		BeginStroke ();
 		Surface.GetPixelData ().Fill (ColorBgra.Zero);
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged (true);
 		CommitStroke ();
 		return true;
 	}
@@ -1804,6 +1865,7 @@ public sealed class CanvasHost : Control
 		redo_history_kinds.Push (HistoryKind.Raster);
 		bitmap = null;
 		InvalidateVisual ();
+		RaiseLayerContentChanged (layer);
 		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
 
@@ -1833,6 +1895,7 @@ public sealed class CanvasHost : Control
 		history_kinds.Push (HistoryKind.Raster);
 		bitmap = null;
 		InvalidateVisual ();
+		RaiseLayerContentChanged (layer);
 		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
 
@@ -2032,7 +2095,10 @@ public sealed class CanvasHost : Control
 	private void DrawSurface (DrawingContext context, Point origin, IImageSurface displaySurface)
 	{
 		IImageSurface surface = displaySurface;
-		bitmap = CreateBitmap (surface);
+		if (bitmap is null || bitmap.PixelSize.Width != surface.Width || bitmap.PixelSize.Height != surface.Height)
+			bitmap = CreateBitmap (surface);
+		else
+			UpdateBitmap (bitmap, surface);
 
 		context.DrawImage (bitmap, new Rect (0, 0, surface.Width, surface.Height), new Rect (origin, new global::Avalonia.Size (ViewSize.Width, ViewSize.Height)));
 	}
@@ -2043,13 +2109,18 @@ public sealed class CanvasHost : Control
 		// premultiplied makes translucent pixels appear too bright/dark when
 		// Avalonia composites the canvas over the checkerboard.
 		var image = new WriteableBitmap (new PixelSize (surface.Width, surface.Height), new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+		UpdateBitmap (image, surface);
+		return image;
+	}
+
+	private static void UpdateBitmap (WriteableBitmap image, IImageSurface surface)
+	{
 		using ILockedFramebuffer locked = image.Lock ();
 		ReadOnlySpan<byte> source = MemoryMarshal.AsBytes (surface.GetReadOnlyPixelData ());
-		for (int y = 0; y < surface.Height; y++) {
-			ReadOnlySpan<byte> sourceRow = source.Slice (y * surface.Width * ColorBgra.SizeOf, surface.Width * ColorBgra.SizeOf);
-			Marshal.Copy (sourceRow.ToArray (), 0, locked.Address + y * locked.RowBytes, sourceRow.Length);
-		}
-		return image;
+		byte[] sourceBytes = source.ToArray ();
+		int rowBytes = surface.Width * ColorBgra.SizeOf;
+		for (int y = 0; y < surface.Height; y++)
+			Marshal.Copy (sourceBytes, y * rowBytes, locked.Address + y * locked.RowBytes, rowBytes);
 	}
 
 	private void OnPointerWheelChanged (object? sender, PointerWheelEventArgs e)
@@ -2123,8 +2194,7 @@ public sealed class CanvasHost : Control
 	{
 		if (IsActiveLayerLocked || !fill_tool.Fill (Surface, point, color, FillTolerance, BeginStroke, CommitStroke))
 			return false;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged (true);
 		return true;
 	}
 
@@ -2332,8 +2402,7 @@ public sealed class CanvasHost : Control
 		ShapeRasterizer.Draw (surface, shape, from, to, outline, fill, style, width, dash, cornerRadius, antialias);
 		shape_tool.RegisterPaintedShape (ActiveLayer, basePixels, shape, from, to, outline, fill,
 			style, width, dash, cornerRadius, antialias);
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged (true);
 	}
 
 	public void PaintCanvasRectangle (PointD from, PointD to, ColorBgra color)
@@ -2348,8 +2417,7 @@ public sealed class CanvasHost : Control
 			return;
 		BeginStroke ();
 		GradientTool.Apply (Surface, from, to, BrushColor, SecondaryBrushColor, GradientReversed);
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged (true);
 	}
 
 	private Point GetCanvasOrigin ()
