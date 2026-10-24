@@ -145,6 +145,7 @@ internal sealed class CanvasPaintingTests
 		CanvasHost canvas = new (new Pinta.Core.Size (3, 2), surface);
 		canvas.AddLayer ();
 		canvas.ResizeImage (2, 2);
+		Assert.That (canvas.IsDirty, Is.True);
 		Assert.That (canvas.CanUndoLayerOperation, Is.False);
 
 		canvas.AddLayer ();
