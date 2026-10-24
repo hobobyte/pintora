@@ -125,6 +125,7 @@ internal sealed class CanvasPaintingTests
 		using MemoryImageSurface surface = new (2, 1);
 		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface);
 		canvas.AddLayer ();
+		Assert.That (canvas.IsDirty, Is.True);
 		canvas.BeginStroke ();
 		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
 		canvas.CommitStroke ();
