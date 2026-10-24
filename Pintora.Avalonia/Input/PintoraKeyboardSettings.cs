@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Input;
 using Pinta.Core;
 
@@ -16,6 +17,7 @@ public static class PintoraKeyCommands
 	public static readonly PintoraKeyCommand ToggleEraser = new ("tool.toggle-eraser", "E");
 	public static readonly PintoraKeyCommand Brush = new ("tool.brush", "B");
 	public static readonly PintoraKeyCommand Pencil = new ("tool.pencil", "P");
+	public static readonly PintoraKeyCommand Text = new ("tool.text", "T");
 	public static readonly PintoraKeyCommand Shapes = new ("tool.shapes", "O");
 	public static readonly PintoraKeyCommand Line = new ("tool.line", "L");
 	public static readonly PintoraKeyCommand Rectangle = new ("tool.rectangle", "R");
@@ -27,9 +29,18 @@ public static class PintoraKeyCommands
 	public static readonly PintoraKeyCommand ClearLayer = new ("edit.clear-layer", "Delete");
 	public static readonly PintoraKeyCommand SwapColors = new ("colors.swap", "X");
 	public static readonly PintoraKeyCommand Copy = new ("edit.copy", "Ctrl+C");
+	public static readonly PintoraKeyCommand CopyImage = new ("edit.copy-image", "Ctrl+Alt+C");
+	public static readonly PintoraKeyCommand CopySelectionImage = new ("edit.copy-selection-image", "Ctrl+Shift+C");
 	public static readonly PintoraKeyCommand Paste = new ("edit.paste", "Ctrl+V");
+	public static readonly PintoraKeyCommand PasteImageAsLayer = new ("edit.paste-image-layer", "Ctrl+Shift+V");
+	public static readonly PintoraKeyCommand PasteImageAnnotation = new ("edit.paste-image-annotation", "Ctrl+Alt+V");
+	public static readonly PintoraKeyCommand SelectAll = new ("edit.select-all", "Ctrl+A");
+	public static readonly PintoraKeyCommand Deselect = new ("edit.deselect", "Ctrl+Shift+A");
+	public static readonly PintoraKeyCommand DuplicateLayer = new ("layer.duplicate", "Ctrl+Shift+D");
+	public static readonly PintoraKeyCommand DuplicateAnnotation = new ("annotation.duplicate", "Ctrl+D");
+	public static readonly PintoraKeyCommand ClearHistory = new ("edit.clear-history", "Ctrl+Shift+Delete");
 
-	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, Paste];
+	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Text, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, CopyImage, CopySelectionImage, Paste, PasteImageAsLayer, PasteImageAnnotation, SelectAll, Deselect, DuplicateLayer, DuplicateAnnotation, ClearHistory];
 }
 
 public sealed class PintoraKeyboardSettings
@@ -62,6 +73,21 @@ public sealed class PintoraKeyboardSettings
 		if (settings is not null)
 			settings.PutSetting (SettingKey (command), value);
 		bindings[command.Id] = value;
+	}
+
+	public bool TrySetGesture (PintoraKeyCommand command, string? gesture)
+	{
+		string value = Normalize (gesture) ?? string.Empty;
+		if (!string.IsNullOrEmpty (value) && bindings.Any (pair => pair.Key != command.Id && pair.Value == value))
+			return false;
+		SetGesture (command, value);
+		return true;
+	}
+
+	public void ResetAll ()
+	{
+		foreach (PintoraKeyCommand command in PintoraKeyCommands.All)
+			SetGesture (command, command.DefaultGesture);
 	}
 
 	private static string SettingKey (PintoraKeyCommand command) => $"Pintora.Keyboard.{command.Id}";

@@ -17,8 +17,11 @@ Run the editor test suite with:
 dotnet test tests/Pintora.Avalonia.Tests/Pintora.Avalonia.Tests.csproj
 ```
 
-The first alpha release is `0.0.1-alpha`. Release downloads include self-contained portable builds
+The first alpha release is `0.0.1-alpha`. A successful push to `master` publishes a prerelease
+after CI and all platform packages pass. Release downloads include self-contained portable builds
 for each supported platform, a Windows MSI, Linux AppImage and Debian package, and macOS DMGs for
-Intel and Apple silicon. The matching `v0.0.1-alpha` tag creates a draft prerelease after CI and all
-platform packages pass. Packages are not code-signed; macOS DMGs are not notarized and may show a
+Intel and Apple silicon. Packages are not code-signed; macOS DMGs are not notarized and may show a
 security warning.
+
+The editor can open PNG, JPEG, WebP, TIFF, BMP, GIF, and OpenRaster (`.ora`) documents. It can
+export PNG, JPEG, WebP, TIFF, and OpenRaster files.
