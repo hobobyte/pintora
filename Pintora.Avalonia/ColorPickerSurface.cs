@@ -92,7 +92,7 @@ internal sealed class ColorPickerSurface : Control
 	{
 		if (Mode == SurfaceMode.HueAndSaturation) {
 			double angle = hsv.H * Math.PI / 180;
-			return new Point (radius - Math.Cos (angle) * hsv.S * radius, radius + Math.Sin (angle) * hsv.S * radius);
+			return new Point (radius - Math.Cos (angle) * hsv.S * radius, radius - Math.Sin (angle) * hsv.S * radius);
 		}
 		return new Point (hsv.V * (radius * 2 - 1), (1 - hsv.S) * (radius * 2 - 1));
 	}
