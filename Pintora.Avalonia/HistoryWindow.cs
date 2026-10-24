@@ -17,7 +17,11 @@ public sealed class HistoryWindow : Window
 		refresh.Click += (_, _) => Refresh (canvas);
 		var clear = new Button { Content = "Clear history", HorizontalAlignment = HorizontalAlignment.Left };
 		clear.Click += (_, _) => canvas.ClearHistory ();
-		canvas.HistoryChanged += (_, _) => Refresh (canvas);
+		void RefreshHistory () {
+			Refresh (canvas);
+			clear.IsEnabled = canvas.History.Count > 0;
+		}
+		canvas.HistoryChanged += (_, _) => RefreshHistory ();
 		Content = new StackPanel {
 			Spacing = 8,
 			Margin = new global::Avalonia.Thickness (12),
@@ -25,7 +29,7 @@ public sealed class HistoryWindow : Window
 				new TextBlock { Text = "Actions", FontSize = 17 }, entries, refresh, clear
 		}
 		};
-		Refresh (canvas);
+		RefreshHistory ();
 	}
 
 	private void Refresh (CanvasHost canvas)
