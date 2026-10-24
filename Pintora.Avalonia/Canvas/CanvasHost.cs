@@ -249,6 +249,7 @@ public sealed class CanvasHost : Control
 
 	public void ClearSelection ()
 	{
+		selection_tool.CancelSelection ();
 		selection_tool.Clear ();
 		InvalidateVisual ();
 	}

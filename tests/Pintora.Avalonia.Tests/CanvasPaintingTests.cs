@@ -1006,6 +1006,18 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void DeselectCancelsAnInProgressSelection ()
+	{
+		using MemoryImageSurface surface = new (4, 3);
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 3), surface);
+		canvas.SelectRectangle (new PointI (1, 1), new PointI (3, 2));
+
+		canvas.ClearSelection ();
+
+		Assert.That (canvas.Selection, Is.Null);
+	}
+
+	[Test]
 	public void LayerMetadataChangesCanBeUndone ()
 	{
 		using MemoryImageSurface surface = new (1, 1);
