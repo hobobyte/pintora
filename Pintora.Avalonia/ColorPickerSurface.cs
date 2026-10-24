@@ -18,6 +18,7 @@ internal sealed class ColorPickerSurface : Control
 	private WriteableBitmap? bitmap;
 	private int bitmapSize;
 	private bool bitmapDirty = true;
+	private bool isDragging;
 
 	public event EventHandler<Color>? ColorChanged;
 	public SurfaceMode Mode { get => mode; set { if (mode == value) return; mode = value; InvalidateSurface (); } }
@@ -36,31 +37,34 @@ internal sealed class ColorPickerSurface : Control
 	public override void Render (DrawingContext context)
 	{
 		int size = Math.Max (1, (int) Math.Min (Bounds.Width, Bounds.Height));
-		int radius = size / 2;
+		double center = (size - 1) / 2.0;
+		double radius = center;
+		var destination = new Rect ((Bounds.Width - size) / 2, (Bounds.Height - size) / 2, size, size);
 		var hsv = ColorSpace.ToHsv (color);
 		if (bitmap is null || bitmapDirty || bitmapSize != size) {
 			bitmap?.Dispose ();
-			bitmap = CreateBitmap (size, radius, hsv);
+			bitmap = CreateBitmap (size, center, radius, hsv);
 			bitmapSize = size;
 			bitmapDirty = false;
 		}
-		context.DrawImage (bitmap, new Rect (0, 0, size, size), new Rect (0, 0, size, size));
-		Point cursor = GetCursor (hsv, radius);
+		context.DrawImage (bitmap, new Rect (0, 0, size, size), destination);
+		Point localCursor = GetCursor (hsv, size, center, radius);
+		Point cursor = new (destination.X + localCursor.X, destination.Y + localCursor.Y);
 		context.DrawEllipse (null, new Pen (Brushes.Black, 2), cursor, 6, 6);
 		context.DrawEllipse (null, new Pen (Brushes.White, 1), cursor, 5, 5);
 	}
 
-	private WriteableBitmap CreateBitmap (int size, int radius, (double H, double S, double V) hsv)
+	private WriteableBitmap CreateBitmap (int size, double center, double radius, (double H, double S, double V) hsv)
 	{
 		var pixels = new byte[size * size * 4];
 		for (int y = 0; y < size; y++) {
 			for (int x = 0; x < size; x++) {
-				double dx = x - radius + 0.5, dy = y - radius + 0.5;
+				double dx = x - center, dy = y - center;
 				Color pixel;
 				if (Mode == SurfaceMode.HueAndSaturation) {
 					double distance = Math.Sqrt (dx * dx + dy * dy);
 					if (distance > radius) { pixels[(y * size + x) * 4 + 3] = 0; continue; }
-					double hue = (Math.Atan2 (dy, -dx) + Math.PI) / (2 * Math.PI) * 360;
+						double hue = HueFromPoint (dx, dy);
 					double saturation = Math.Min (distance / radius, 1);
 					pixel = ColorSpace.FromHsv (hue, saturation, ShowValue ? hsv.V : 1, 255);
 				} else {
@@ -81,6 +85,9 @@ internal sealed class ColorPickerSurface : Control
 
 	private void InvalidateSurface () { bitmapDirty = true; InvalidateVisual (); }
 
+	private static double HueFromPoint (double dx, double dy)
+		=> (Math.Atan2 (-dy, dx) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI) * 360;
+
 	protected override void OnDetachedFromVisualTree (VisualTreeAttachmentEventArgs e)
 	{
 		bitmap?.Dispose ();
@@ -88,28 +95,32 @@ internal sealed class ColorPickerSurface : Control
 		base.OnDetachedFromVisualTree (e);
 	}
 
-	private Point GetCursor ((double H, double S, double V) hsv, int radius)
+	private Point GetCursor ((double H, double S, double V) hsv, int size, double center, double radius)
 	{
 		if (Mode == SurfaceMode.HueAndSaturation) {
 			double angle = hsv.H * Math.PI / 180;
-			return new Point (radius - Math.Cos (angle) * hsv.S * radius, radius - Math.Sin (angle) * hsv.S * radius);
+			// Keep this inverse mapping in sync with HueFromPoint: hue 0 is at the right.
+			return new Point (center + Math.Cos (angle) * hsv.S * radius, center - Math.Sin (angle) * hsv.S * radius);
 		}
-		return new Point (hsv.V * (radius * 2 - 1), (1 - hsv.S) * (radius * 2 - 1));
+		return new Point (hsv.V * (size - 1), (1 - hsv.S) * (size - 1));
 	}
 
 	private void OnPointer (object? sender, PointerEventArgs args)
 	{
 		if (args is PointerPressedEventArgs pressed) {
 			if (!pressed.GetCurrentPoint (this).Properties.IsLeftButtonPressed) return;
+			isDragging = true;
 			pressed.Pointer.Capture (this);
-		} else if (!args.GetCurrentPoint (this).Properties.IsLeftButtonPressed) return;
+		} else if (!isDragging) return;
 		Point point = args.GetPosition (this);
 		int size = Math.Max (1, (int) Math.Min (Bounds.Width, Bounds.Height));
-		int radius = size / 2;
+		double center = (size - 1) / 2.0;
+		double radius = center;
+		point -= new Vector ((Bounds.Width - size) / 2, (Bounds.Height - size) / 2);
 		var hsv = ColorSpace.ToHsv (color);
 		if (Mode == SurfaceMode.HueAndSaturation) {
-			double dx = point.X - radius, dy = point.Y - radius;
-			hsv = (H: (Math.Atan2 (dy, -dx) + Math.PI) / (2 * Math.PI) * 360, S: Math.Clamp (Math.Sqrt (dx * dx + dy * dy) / radius, 0, 1), V: hsv.V);
+			double dx = point.X - center, dy = point.Y - center;
+			hsv = (H: HueFromPoint (dx, dy), S: Math.Clamp (Math.Sqrt (dx * dx + dy * dy) / radius, 0, 1), V: hsv.V);
 		} else {
 			hsv = (hsv.H, 1 - Math.Clamp (point.Y / Math.Max (1, size - 1), 0, 1), Math.Clamp (point.X / Math.Max (1, size - 1), 0, 1));
 		}
@@ -121,6 +132,9 @@ internal sealed class ColorPickerSurface : Control
 	private void OnPointerReleased (object? sender, PointerReleasedEventArgs args)
 	{
 		if (args.InitialPressMouseButton == MouseButton.Left)
+		{
+			isDragging = false;
 			args.Pointer.Capture (null);
+		}
 	}
 }

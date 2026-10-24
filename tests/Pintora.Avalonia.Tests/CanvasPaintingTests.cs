@@ -31,6 +31,7 @@ internal sealed class CanvasPaintingTests
 		Assert.That (surface.GetReadOnlyPixelData ()[6], Is.EqualTo (ColorBgra.Red));
 	}
 
+
 	[Test]
 	public void ColorPickerReadsPixelIntoPrimaryColor ()
 	{
@@ -999,7 +1000,11 @@ internal sealed class CanvasPaintingTests
 
 		Assert.That (canvas.MergeActiveLayerDown (), Is.True);
 		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
-		Assert.That (canvas.Surface!.GetReadOnlyPixelData ()[0].A, Is.EqualTo (255));
+		ColorBgra merged = canvas.Surface!.GetReadOnlyPixelData ()[0];
+		Assert.That (merged.A, Is.EqualTo (255));
+		Assert.That (merged.R, Is.EqualTo (128).Within (1));
+		Assert.That (merged.G, Is.EqualTo (0));
+		Assert.That (merged.B, Is.EqualTo (127).Within (1));
 	}
 
 	[Test]

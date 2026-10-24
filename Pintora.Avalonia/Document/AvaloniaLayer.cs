@@ -1,22 +1,42 @@
 using Pintora.Avalonia.Imaging;
+using Pintora.Avalonia.Editor.Annotations;
+using System;
 
 namespace Pintora.Avalonia.Document;
 
 public sealed class AvaloniaLayer
 {
-	public AvaloniaLayer (string name, MemoryImageSurface surface)
-	{
-		Name = name;
-		Surface = surface;
-	}
-
-	public string Name { get; set; }
-	public bool IsVisible { get; set; } = true;
-	public bool IsLocked { get; set; }
+	private string name;
+	private bool is_visible = true;
+	private bool is_locked;
 	private double opacity = 1.0;
+	public string Name { get => name; set { if (name == value) return; name = value; NotifyMetadataChanged (); } }
+	public bool IsVisible { get => is_visible; set { if (is_visible == value) return; is_visible = value; NotifyMetadataChanged (); } }
+	public bool IsLocked { get => is_locked; set { if (is_locked == value) return; is_locked = value; NotifyMetadataChanged (); } }
 	public double Opacity {
 		get => opacity;
-		set => opacity = System.Math.Clamp (value, 0, 1);
+		set { double next = System.Math.Clamp (value, 0, 1); if (System.Math.Abs (opacity - next) < double.Epsilon) return; opacity = next; NotifyMetadataChanged (); }
 	}
 	public MemoryImageSurface Surface { get; }
+	public AnnotationCollection Annotations { get; } = new ();
+	public event EventHandler? Changed;
+	public event EventHandler? MetadataChanged;
+
+	private void OnAnnotationsChanged (object? sender, EventArgs e)
+	{
+		Changed?.Invoke (this, e);
+	}
+
+	private void NotifyMetadataChanged ()
+	{
+		MetadataChanged?.Invoke (this, EventArgs.Empty);
+		Changed?.Invoke (this, EventArgs.Empty);
+	}
+
+	public AvaloniaLayer (string name, MemoryImageSurface surface)
+	{
+		this.name = name;
+		Surface = surface;
+		Annotations.Changed += OnAnnotationsChanged;
+	}
 }

@@ -1,6 +1,8 @@
 using System;
+using Avalonia;
 using Pinta.Core;
 using Pintora.Avalonia.Document;
+using Pintora.Avalonia.Editor.Annotations;
 
 namespace Pintora.Avalonia.Canvas;
 
@@ -12,6 +14,7 @@ internal sealed class SelectionTool : ICanvasTool
 	private PointD? dragStart;
 	private PointD? dragEnd;
 	public RectangleI? Selection { get; private set; }
+	public SelectionAnnotation? Annotation { get; private set; }
 	public bool IsSelecting => dragStart is not null;
 
 	public bool PointerPressed (CanvasToolPointerContext context)
@@ -72,13 +75,19 @@ internal sealed class SelectionTool : ICanvasTool
 		int bottom = Math.Clamp (requested.Y + requested.Height, 0, imageSize.Height);
 		if (right <= left || bottom <= top) {
 			Selection = null;
+			Annotation = null;
 			return false;
 		}
 		Selection = new RectangleI (left, top, right - left, bottom - top);
+		Annotation = new SelectionAnnotation {
+			Bounds = new Rect (left, top, right - left, bottom - top),
+			Kind = SelectionAnnotationKind.Rectangle,
+			CombineMode = SelectionCombineMode.Replace
+		};
 		return true;
 	}
 
-	public void Clear () => Selection = null;
+	public void Clear () { Selection = null; Annotation = null; }
 
 	public bool Copy (IImageSurface? surface)
 	{
@@ -128,6 +137,8 @@ internal sealed class SelectionTool : ICanvasTool
 			for (int x = 0; x < clipped.Width; x++)
 				pixels[(clipped.Y + y) * surface.Width + clipped.X + x] = clipboard![y * area.Width + (clipped.X - destination.X) + x];
 		Selection = clipped;
+		if (Annotation is not null)
+			Annotation = Annotation with { Bounds = new Rect (clipped.X, clipped.Y, clipped.Width, clipped.Height) };
 		commitStroke ();
 		return true;
 	}

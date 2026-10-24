@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Xml.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -14,6 +17,10 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Pinta.Core;
 using Pintora.Avalonia.Document;
+using Pintora.Avalonia.Editor.History;
+using Pintora.Avalonia.Editor.Hosting;
+using Pintora.Avalonia.Editor.Annotations;
+using Pintora.Avalonia.Editor.Viewport;
 using Pintora.Avalonia.Imaging;
 using Pintora.Avalonia.Input;
 using SkiaSharp;
@@ -28,7 +35,7 @@ public sealed class CanvasHost : Control
 {
 	public enum CanvasTool
 	{
-		Selection,
+		Selection, Text,
 		Brush,
 		Pencil,
 		Shapes,
@@ -36,7 +43,8 @@ public sealed class CanvasHost : Control
 		Fill,
 		ColorPicker,
 		Zoom,
-		Eraser
+		Eraser,
+		Blur, Pixelate, Highlight, Magnify, Spotlight
 	}
 
 	public enum ShapeKind { Line, Rectangle, Ellipse, RoundedRectangle }
@@ -44,16 +52,37 @@ public sealed class CanvasHost : Control
 	public enum ShapeDashStyle { Solid, Dash, Dot, DashDot }
 
 	private AvaloniaDocumentSession session;
+	private readonly HashSet<AvaloniaLayer> subscribed_layers = new ();
+	private readonly NotifyCollectionChangedEventHandler session_layers_changed;
+	private readonly Dictionary<string, IImageSurface> annotation_sources = new (StringComparer.Ordinal);
+	private readonly HashSet<IImageSurface> owned_annotation_sources = new ();
+	private Annotation? selected_annotation;
+	private Annotation? dragged_annotation;
+	private PointD drag_start_point;
+	private Rect drag_start_bounds;
+	private LayerStackSnapshot? drag_undo_snapshot;
+	private bool drag_changed;
 	private readonly CanvasToolSet tool_set = CanvasToolFactory.CreateTools ();
 	private ShapeTool shape_tool => tool_set.Get<ShapeTool> (CanvasTool.Shapes);
+	private TextTool text_tool => tool_set.Get<TextTool> (CanvasTool.Text);
+	public string TextToolText { get => text_tool.Text; set { text_tool.Text = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
+	public string TextToolFontFamily { get => text_tool.FontFamily; set { text_tool.FontFamily = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
+	public double TextToolFontSize { get => text_tool.FontSize; set { text_tool.FontSize = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
+	public bool TextToolBold { get => text_tool.Bold; set { text_tool.Bold = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
+	public bool TextToolUnderline { get => text_tool.Underline; set { text_tool.Underline = value; ToolOptionsChanged?.Invoke (this, EventArgs.Empty); } }
 	private GradientTool gradient_tool => tool_set.Get<GradientTool> (CanvasTool.Gradient);
+	public GradientToolOptions GetGradientToolOptions () => gradient_tool.Options;
 	private FillTool fill_tool => tool_set.Get<FillTool> (CanvasTool.Fill);
 	private SelectionTool selection_tool => tool_set.Get<SelectionTool> (CanvasTool.Selection);
 	private ColorPickerTool color_picker_tool => tool_set.Get<ColorPickerTool> (CanvasTool.ColorPicker);
 	private ZoomTool zoom_tool => tool_set.Get<ZoomTool> (CanvasTool.Zoom);
+	private EffectTool effect_tool => tool_set.Get<EffectTool> (ActiveTool);
 	private BrushTool brush_tool => tool_set.Brush (CanvasTool.Brush);
 	private BrushTool pencil_tool => tool_set.Brush (CanvasTool.Pencil);
 	private BrushTool eraser_tool => tool_set.Brush (CanvasTool.Eraser);
+	public EffectToolOptions GetEffectOptions (CanvasTool tool)
+		=> tool_set.Get<EffectTool> (tool).Options;
+	public TextToolOptions GetTextToolOptions () => text_tool.Options;
 	private readonly PintoraKeyboardSettings keyboard;
 	private WriteableBitmap? bitmap;
 	private bool is_painting;
@@ -64,21 +93,34 @@ public sealed class CanvasHost : Control
 	private Vector pan_start_offset;
 	private ColorBgra stroke_color;
 	private CanvasTool active_tool = CanvasTool.Brush;
-	private ShapeKind shape_kind = ShapeKind.Rectangle;
+	private readonly ShapeToolOptions shape_options = new ();
 	private Rect rendered_canvas_rect;
 	private Vector viewport_offset;
 	private readonly Stack<RasterSnapshot> undo_stack = new ();
 	private readonly Stack<RasterSnapshot> redo_stack = new ();
-	private readonly Stack<string> history_stack = new ();
-	private readonly Stack<string> redo_history_stack = new ();
 	private readonly Stack<LayerStackSnapshot> layer_undo_stack = new ();
 	private readonly Stack<LayerStackSnapshot> layer_redo_stack = new ();
 	private enum HistoryKind { Raster, Layer }
-	private readonly Stack<HistoryKind> history_kinds = new ();
-	private readonly Stack<HistoryKind> redo_history_kinds = new ();
-	private sealed record RasterSnapshot (AvaloniaLayer Layer, ColorBgra[] Pixels, ShapeTool.ShapeSnapshot? Shape);
-	private sealed record LayerSnapshot (AvaloniaLayer Layer, string Name, bool IsVisible, bool IsLocked, double Opacity, ColorBgra[] Pixels);
+	private readonly EditorHistory<HistoryKind> history_kinds = new ();
+	private readonly EditorHistory<HistoryKind> redo_history_kinds = new ();
+	private sealed record RasterSnapshot (AvaloniaLayer Layer, ColorBgra[] Pixels, ShapeTool.ShapeSnapshot? Shape, List<Annotation> Annotations);
+	private sealed record LayerSnapshot (AvaloniaLayer Layer, string Name, bool IsVisible, bool IsLocked, double Opacity, ColorBgra[] Pixels, List<Annotation> Annotations);
 	private sealed record LayerStackSnapshot (List<LayerSnapshot> Layers, int ActiveIndex);
+	private static RasterSnapshot CaptureRasterSnapshot (AvaloniaLayer layer, ShapeTool.ShapeSnapshot? shape)
+		=> new (layer, layer.Surface.GetReadOnlyPixelData ().ToArray (), shape, layer.Annotations.Items.ToList ());
+
+	private static void RestoreRasterSnapshot (RasterSnapshot snapshot)
+	{
+		snapshot.Pixels.AsSpan ().CopyTo (snapshot.Layer.Surface.GetPixelData ());
+		snapshot.Layer.Annotations.Clear ();
+		snapshot.Layer.Annotations.AddRange (snapshot.Annotations);
+	}
+
+	private void ReconcileAnnotationSelection (AvaloniaLayer layer)
+	{
+		if (selected_annotation is not null && !layer.Annotations.Items.Contains (selected_annotation))
+			ClearAnnotationSelection ();
+	}
 
 	private void RecordLayerUndo ()
 	{
@@ -99,7 +141,9 @@ public sealed class CanvasHost : Control
 
 	public CanvasHost (Pinta.Core.Size imageSize, IImageSurface? surface, PintoraKeyboardSettings? keyboard = null)
 	{
+		session_layers_changed = (_, _) => LayersChanged?.Invoke (this, EventArgs.Empty);
 		session = new AvaloniaDocumentSession (imageSize, surface);
+		AttachSession (session);
 		this.keyboard = keyboard ?? new PintoraKeyboardSettings ();
 		ClipToBounds = true;
 		Focusable = true;
@@ -110,7 +154,405 @@ public sealed class CanvasHost : Control
 		KeyDown += OnKeyDown;
 	}
 
+	private void SubscribeToLayer (AvaloniaLayer layer)
+	{
+		if (!subscribed_layers.Add (layer))
+			return;
+		layer.Changed += OnLayerChanged;
+		layer.MetadataChanged += OnLayerMetadataChanged;
+	}
+
+	private void AttachSession (AvaloniaDocumentSession nextSession)
+	{
+		nextSession.Layers.CollectionChanged += session_layers_changed;
+		foreach (AvaloniaLayer layer in nextSession.Layers)
+			SubscribeToLayer (layer);
+	}
+
+	private void DetachSession ()
+	{
+		session.Layers.CollectionChanged -= session_layers_changed;
+		foreach (AvaloniaLayer layer in subscribed_layers) {
+			layer.Changed -= OnLayerChanged;
+			layer.MetadataChanged -= OnLayerMetadataChanged;
+		}
+		subscribed_layers.Clear ();
+	}
+
+	private void InitializeSession (AvaloniaDocumentSession nextSession)
+	{
+		DetachSession ();
+		session = nextSession;
+		AttachSession (session);
+		shape_tool.ClearSelectedShape ();
+	}
+
+	private void OnLayerChanged (object? sender, EventArgs e)
+	{
+		MarkCanvasChanged ();
+	}
+
+	private void OnLayerMetadataChanged (object? sender, EventArgs e) => LayersChanged?.Invoke (this, e);
+
 	public double Scale => session.Scale;
+
+	/// <summary>Registers a decoded source used by image and cursor annotations during compositing.</summary>
+	public void RegisterAnnotationSource (string sourceId, IImageSurface source)
+	{
+		if (string.IsNullOrWhiteSpace (sourceId))
+			throw new ArgumentException ("A source id is required.", nameof (sourceId));
+		if (annotation_sources.TryGetValue (sourceId, out IImageSurface? previous) && previous != source && owned_annotation_sources.Remove (previous) && previous is IDisposable disposable)
+			disposable.Dispose ();
+		annotation_sources[sourceId] = source ?? throw new ArgumentNullException (nameof (source));
+		MarkCanvasChanged ();
+	}
+
+	public void RegisterAnnotationSource (string sourceId, Bitmap source)
+	{
+		if (string.IsNullOrWhiteSpace (sourceId))
+			throw new ArgumentException ("A source id is required.", nameof (sourceId));
+		if (source is null)
+			throw new ArgumentNullException (nameof (source));
+		MemoryImageSurface decoded = DecodeSurface (source);
+		RegisterAnnotationSource (sourceId, decoded);
+		owned_annotation_sources.Add (decoded);
+	}
+
+	public bool UnregisterAnnotationSource (string sourceId)
+	{
+		bool removed = annotation_sources.Remove (sourceId, out IImageSurface? source);
+		if (source is not null && owned_annotation_sources.Remove (source) && source is IDisposable disposable)
+			disposable.Dispose ();
+		if (removed)
+			MarkCanvasChanged ();
+		return removed;
+	}
+
+	private void ClearAnnotationSources ()
+	{
+		foreach (IImageSurface source in owned_annotation_sources)
+			if (source is IDisposable disposable)
+				disposable.Dispose ();
+		owned_annotation_sources.Clear ();
+		annotation_sources.Clear ();
+	}
+
+	public ImageAnnotation AddImageAnnotation (string sourceId, IImageSurface source, Rect bounds, double opacity = 1, bool preserveAspectRatio = true)
+	{
+		if (session.ActiveLayer is null || session.ActiveLayer.IsLocked)
+			throw new InvalidOperationException ("The active layer is locked or unavailable.");
+		RegisterAnnotationSource (sourceId, source);
+		RecordLayerUndo ();
+		AvaloniaLayer activeLayer = session.ActiveLayer ?? throw new InvalidOperationException ("The document has no active layer.");
+		var annotation = new ImageAnnotation {
+			SourceId = sourceId,
+			Bounds = bounds,
+			Opacity = opacity,
+			PreserveAspectRatio = preserveAspectRatio
+		};
+		activeLayer.Annotations.Add (annotation);
+		return annotation;
+	}
+
+	public async Task<ImageAnnotation?> AddImageAnnotationFromFileAsync (IImageSourceProvider provider, string path, Rect bounds, double opacity = 1, bool preserveAspectRatio = true, CancellationToken cancellationToken = default)
+	{
+		if (session.ActiveLayer is null || session.ActiveLayer.IsLocked)
+			throw new InvalidOperationException ("The active layer is locked or unavailable.");
+		ImageSourceData? loaded = await provider.LoadAsync (path, cancellationToken);
+		if (loaded is null)
+			return null;
+		MemoryImageSurface source = DecodeSurface (loaded.Bitmap);
+		RegisterAnnotationSource (loaded.SourceId, source);
+		owned_annotation_sources.Add (source);
+		return AddImageAnnotationFromRegisteredSource (loaded.SourceId, bounds, opacity, preserveAspectRatio);
+	}
+
+	public async Task<ImageAnnotation?> AddImageAnnotationFromClipboardAsync (IImageSourceProvider provider, double opacity = 1, bool preserveAspectRatio = true, CancellationToken cancellationToken = default)
+	{
+		if (session.ActiveLayer is null || session.ActiveLayer.IsLocked)
+			throw new InvalidOperationException ("The active layer is locked or unavailable.");
+		ImageSourceData? loaded = await provider.GetFromClipboardAsync (cancellationToken);
+		if (loaded is null)
+			return null;
+		MemoryImageSurface source = DecodeSurface (loaded.Bitmap);
+		RegisterAnnotationSource (loaded.SourceId, source);
+		owned_annotation_sources.Add (source);
+		Pinta.Core.Size size = ImageSize;
+		return AddImageAnnotationFromRegisteredSource (loaded.SourceId, new Rect (size.Width * 0.25, size.Height * 0.25, size.Width * 0.5, size.Height * 0.5), opacity, preserveAspectRatio);
+	}
+
+	private ImageAnnotation AddImageAnnotationFromRegisteredSource (string sourceId, Rect bounds, double opacity, bool preserveAspectRatio)
+	{
+		if (session.ActiveLayer is null || session.ActiveLayer.IsLocked)
+			throw new InvalidOperationException ("The active layer is locked or unavailable.");
+		RecordLayerUndo ();
+		AvaloniaLayer activeLayer = session.ActiveLayer ?? throw new InvalidOperationException ("The document has no active layer.");
+		var annotation = new ImageAnnotation { SourceId = sourceId, Bounds = bounds, Opacity = opacity, PreserveAspectRatio = preserveAspectRatio };
+		activeLayer.Annotations.Add (annotation);
+		return annotation;
+	}
+
+	public bool MoveAnnotation (Annotation annotation, Vector delta)
+	{
+		if (annotation is ShapeAnnotation shape && shape_tool.SelectedShape?.Annotation is { } selectedShape
+			&& ReferenceEquals (selectedShape, shape) && shape_tool.MoveSelected (new PointD (delta.X, delta.Y), Surface as MemoryImageSurface,
+				IsActiveLayerLocked, BeginStroke, CommitStroke)) {
+			selected_annotation = shape_tool.SelectedShape.Annotation;
+			AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+			bitmap = null;
+			InvalidateVisual ();
+			return true;
+		}
+		return TransformAnnotation (annotation, bounds => bounds.Translate (delta));
+	}
+
+	public bool ResizeAnnotation (Annotation annotation, global::Avalonia.Size size)
+	{
+		if (size.Width <= 0 || size.Height <= 0)
+			return false;
+		return TransformAnnotation (annotation, bounds => new Rect (bounds.Position, size));
+	}
+
+	public bool RotateAnnotation (Annotation annotation, double deltaRadians)
+	{
+		if (!double.IsFinite (deltaRadians))
+			return false;
+		// Region effects are raster operations; rotating their metadata without
+		// rotating the effect kernel produces a misleading selection frame.
+		if (annotation is RegionEffectAnnotation)
+			return false;
+		if (annotation is ShapeAnnotation shape && shape_tool.SelectedShape?.Annotation is { } selectedShape
+			&& ReferenceEquals (selectedShape, shape) && shape_tool.RotateSelected (deltaRadians, Surface as MemoryImageSurface,
+				IsActiveLayerLocked, BeginStroke, CommitStroke)) {
+			selected_annotation = shape_tool.SelectedShape.Annotation;
+			AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+			bitmap = null;
+			InvalidateVisual ();
+			return true;
+		}
+		foreach (AvaloniaLayer layer in Layers) {
+			if (layer.IsLocked || !layer.Annotations.Items.Contains (annotation))
+				continue;
+			RecordLayerUndo ();
+			Annotation updated = annotation with { Rotation = annotation.Rotation + deltaRadians };
+			layer.Annotations.Replace (annotation, updated);
+			if (ReferenceEquals (selected_annotation, annotation)) {
+				selected_annotation = updated;
+				AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	public bool RemoveAnnotation (Annotation annotation)
+	{
+		foreach (AvaloniaLayer layer in Layers) {
+			if (layer.IsLocked || !layer.Annotations.Items.Contains (annotation))
+				continue;
+			RecordLayerUndo ();
+			bool removed = layer.Annotations.Remove (annotation);
+			if (removed && shape_tool.SelectedShape?.Annotation is { } selectedShape && ReferenceEquals (selectedShape, annotation))
+				shape_tool.ClearSelectedShape ();
+			if (removed && ReferenceEquals (selected_annotation, annotation))
+				ClearAnnotationSelection ();
+			return removed;
+		}
+		return false;
+	}
+
+	public Annotation? DuplicateSelectedAnnotation (Vector? offset = null)
+	{
+		if (selected_annotation is not { } annotation || session.ActiveLayer is not { } layer || layer.IsLocked || !layer.Annotations.Items.Contains (annotation))
+			return null;
+		RecordLayerUndo ();
+		Annotation duplicate = annotation with { Bounds = annotation.Bounds.Translate (offset ?? new Vector (10, 10)) };
+		layer.Annotations.Add (duplicate);
+		selected_annotation = duplicate;
+		AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+		MarkCanvasChanged ();
+		InvalidateVisual ();
+		return duplicate;
+	}
+
+	public Annotation? HitTestAnnotation (PointD canvasPoint)
+	{
+		for (int layerIndex = Layers.Count - 1; layerIndex >= 0; layerIndex--) {
+			AvaloniaLayer layer = Layers[layerIndex];
+			if (!layer.IsVisible)
+				continue;
+			for (int annotationIndex = layer.Annotations.Items.Count - 1; annotationIndex >= 0; annotationIndex--) {
+				Annotation annotation = layer.Annotations.Items[annotationIndex];
+				// SelectionAnnotation is a transient overlay; all other annotation kinds
+				// participate in the same hit-test and can be edited uniformly.
+				if (annotation is not SelectionAnnotation && ContainsAnnotationPoint (annotation, canvasPoint))
+					return annotation;
+			}
+		}
+		return null;
+	}
+
+	public Annotation? SelectedAnnotation => selected_annotation;
+	public event EventHandler? AnnotationSelectionChanged;
+
+	public bool SelectAnnotationAt (PointD canvasPoint)
+	{
+		Annotation? next = HitTestAnnotation (canvasPoint);
+		if (ReferenceEquals (selected_annotation, next))
+			return next is not null;
+		selected_annotation = next;
+		AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+		InvalidateVisual ();
+		return next is not null;
+	}
+
+	public void ClearAnnotationSelection ()
+	{
+		if (selected_annotation is null)
+			return;
+		selected_annotation = null;
+		AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+		InvalidateVisual ();
+	}
+
+	private static bool ContainsAnnotationPoint (Annotation annotation, PointD point)
+	{
+		Rect bounds = annotation.Bounds;
+		if (annotation is CursorAnnotation cursor) {
+			double scale = Math.Max (0.01, cursor.Scale);
+			bounds = new Rect (bounds.X - cursor.HotspotX * scale, bounds.Y - cursor.HotspotY * scale, bounds.Width * scale, bounds.Height * scale);
+		}
+		Point center = bounds.Center;
+		double cosine = Math.Cos (-annotation.Rotation), sine = Math.Sin (-annotation.Rotation);
+		double dx = point.X - center.X, dy = point.Y - center.Y;
+		Point local = new (center.X + dx * cosine - dy * sine, center.Y + dx * sine + dy * cosine);
+		return bounds.Contains (local);
+	}
+
+	private bool TransformAnnotation (Annotation annotation, Func<Rect, Rect> transform)
+	{
+		foreach (AvaloniaLayer layer in Layers) {
+			if (layer.IsLocked || !layer.Annotations.Items.Contains (annotation))
+				continue;
+			RecordLayerUndo ();
+			Annotation updated = annotation with { Bounds = transform (annotation.Bounds) };
+			layer.Annotations.Replace (annotation, updated);
+			if (ReferenceEquals (selected_annotation, annotation)) {
+				selected_annotation = updated;
+				AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	private bool UpdateDraggedAnnotation (Annotation annotation, Vector delta)
+	{
+		foreach (AvaloniaLayer layer in Layers) {
+			if (layer.IsLocked || !layer.Annotations.Items.Contains (annotation))
+				continue;
+			Annotation updated = annotation with { Bounds = drag_start_bounds.Translate (delta) };
+			layer.Annotations.Replace (annotation, updated);
+			selected_annotation = dragged_annotation = updated;
+			drag_changed = delta.X != 0 || delta.Y != 0;
+			InvalidateVisual ();
+			return true;
+		}
+		return false;
+	}
+
+	private void CommitDraggedAnnotationUndo ()
+	{
+		if (!drag_changed || drag_undo_snapshot is null)
+			return;
+		layer_undo_stack.Push (drag_undo_snapshot);
+		layer_redo_stack.Clear ();
+		history_kinds.Push (HistoryKind.Layer);
+		redo_history_kinds.Clear ();
+		HistoryChanged?.Invoke (this, EventArgs.Empty);
+	}
+
+	public CursorAnnotation AddCursorAnnotation (string cursorId, IImageSurface source, Rect bounds, double scale = 1, ColorBgra? tint = null, int hotspotX = 0, int hotspotY = 0)
+	{
+		if (session.ActiveLayer is null || session.ActiveLayer.IsLocked)
+			throw new InvalidOperationException ("The active layer is locked or unavailable.");
+		RegisterAnnotationSource (cursorId, source);
+		RecordLayerUndo ();
+		AvaloniaLayer activeLayer = session.ActiveLayer ?? throw new InvalidOperationException ("The document has no active layer.");
+		var annotation = new CursorAnnotation {
+			CursorId = cursorId,
+			Bounds = bounds,
+			Scale = scale,
+			Tint = tint ?? ColorBgra.White,
+			HotspotX = hotspotX,
+			HotspotY = hotspotY
+		};
+		activeLayer.Annotations.Add (annotation);
+		return annotation;
+	}
+
+	/// <summary>Creates editable text metadata for the active layer.</summary>
+	public TextAnnotation AddTextAnnotation (string text, PointD position, double fontSize = 16,
+		ColorBgra? color = null, string fontFamily = "Inter", FontWeight fontWeight = FontWeight.Normal,
+		bool underline = false)
+	{
+		if (string.IsNullOrWhiteSpace (text))
+			throw new ArgumentException ("Text cannot be empty.", nameof (text));
+		if (fontSize <= 0 || !double.IsFinite (fontSize))
+			throw new ArgumentOutOfRangeException (nameof (fontSize));
+		if (session.ActiveLayer is not { } activeLayer || activeLayer.IsLocked || Surface is not MemoryImageSurface surface)
+			throw new InvalidOperationException ("The active layer is locked or unavailable.");
+
+		RecordLayerUndo ();
+		global::Avalonia.Size textSize = AnnotationRenderer.MeasureText (text, fontSize, fontFamily, fontWeight);
+		var annotation = new TextAnnotation {
+			Bounds = new Rect (position.X, position.Y, textSize.Width, textSize.Height),
+			Text = text,
+			FontFamily = string.IsNullOrWhiteSpace (fontFamily) ? "Inter" : fontFamily,
+			FontSize = fontSize,
+			FontWeight = fontWeight,
+			Color = color ?? ColorBgra.Black,
+			Underline = underline
+		};
+		activeLayer.Annotations.Add (annotation);
+		selected_annotation = annotation;
+		AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+		MarkCanvasChanged ();
+		return annotation;
+	}
+
+	public bool UpdateTextAnnotation (TextAnnotation annotation, string text, double? fontSize = null,
+		ColorBgra? color = null, FontWeight? fontWeight = null, bool? underline = null, string? fontFamily = null)
+	{
+		if (string.IsNullOrWhiteSpace (text) || fontSize is <= 0 || (fontSize is double size && !double.IsFinite (size)))
+			return false;
+		foreach (AvaloniaLayer layer in Layers) {
+			if (layer.IsLocked || !layer.Annotations.Items.Contains (annotation))
+				continue;
+			RecordLayerUndo ();
+			double nextSize = fontSize ?? annotation.FontSize;
+			TextAnnotation updated = annotation with {
+				Text = text,
+				FontSize = nextSize,
+				Color = color ?? annotation.Color,
+				FontWeight = fontWeight ?? annotation.FontWeight,
+				Underline = underline ?? annotation.Underline,
+				FontFamily = string.IsNullOrWhiteSpace (fontFamily) ? annotation.FontFamily : fontFamily,
+				Bounds = new Rect (annotation.Bounds.Position,
+					AnnotationRenderer.MeasureText (text, nextSize, string.IsNullOrWhiteSpace (fontFamily) ? annotation.FontFamily : fontFamily,
+						fontWeight ?? annotation.FontWeight))
+			};
+			layer.Annotations.Replace (annotation, updated);
+			if (ReferenceEquals (selected_annotation, annotation)) {
+				selected_annotation = updated;
+				AnnotationSelectionChanged?.Invoke (this, EventArgs.Empty);
+			}
+			MarkCanvasChanged ();
+			return true;
+		}
+		return false;
+	}
+
 	public bool IsDirty { get; private set; }
 	public event EventHandler? DocumentStateChanged;
 	internal void InvalidateToolVisual () => InvalidateVisual ();
@@ -124,44 +566,60 @@ public sealed class CanvasHost : Control
 		InvalidateVisual ();
 	}
 	public event EventHandler? ScaleChanged;
-	private int brush_size = 1;
+	private readonly BrushToolOptions brush_options = new ();
 	public int BrushSize {
-		get => brush_size;
+		get => brush_options.Size;
 		set {
 			int next = Math.Clamp (value, 1, 256);
-			if (brush_size == next)
+			if (brush_options.Size == next)
 				return;
-			brush_size = next;
+			brush_options.Size = next;
 			BrushSizeChanged?.Invoke (this, EventArgs.Empty);
 		}
 	}
+	public BrushToolOptions GetBrushToolOptions () => brush_options;
 	public event EventHandler? BrushSizeChanged;
+	public event EventHandler? ToolOptionsChanged;
 	public event EventHandler? ColorsChanged;
-	private double brush_opacity = 1.0;
 	public double BrushOpacity {
-		get => brush_opacity;
-		set => brush_opacity = Math.Clamp (value, 0, 1);
+		get => brush_options.Opacity;
+		set {
+			double next = Math.Clamp (value, 0, 1);
+			if (brush_options.Opacity == next) return;
+			brush_options.Opacity = next;
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
+		}
 	}
-	private double brush_hardness = 1.0;
 	public double BrushHardness {
-		get => brush_hardness;
-		set => brush_hardness = Math.Clamp (value, 0, 1);
+		get => brush_options.Hardness;
+		set {
+			double next = Math.Clamp (value, 0, 1);
+			if (brush_options.Hardness == next) return;
+			brush_options.Hardness = next;
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
+		}
 	}
 	public ColorBgra BrushColor { get; set; } = ColorBgra.Black;
 	public ColorBgra SecondaryBrushColor { get; set; } = ColorBgra.White;
-	private int fill_tolerance;
+	private readonly FillToolOptions fill_options = new ();
 	public int FillTolerance {
-		get => fill_tolerance;
-		set => fill_tolerance = Math.Clamp (value, 0, 255);
+		get => fill_options.Tolerance;
+		set {
+			int next = Math.Clamp (value, 0, 255);
+			if (fill_options.Tolerance == next) return;
+			fill_options.Tolerance = next;
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
+		}
 	}
-	private ShapeFillStyle shape_fill_style;
+	public FillToolOptions GetFillToolOptions () => fill_options;
 	public ShapeFillStyle FillStyle {
-		get => shape_fill_style;
+		get => shape_options.FillStyle;
 		set {
 			if (!Enum.IsDefined (value)) throw new ArgumentOutOfRangeException (nameof (value));
-			if (shape_fill_style == value) return;
-			shape_fill_style = value;
+			if (shape_options.FillStyle == value) return;
+			shape_options.FillStyle = value;
 			UpdateSelectedShapeOptions ();
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
 		}
 	}
@@ -169,70 +627,101 @@ public sealed class CanvasHost : Control
 		get => FillStyle != ShapeFillStyle.Outline;
 		set => FillStyle = value ? ShapeFillStyle.Fill : ShapeFillStyle.Outline;
 	}
-	private int shape_outline_width = 2;
 	public int ShapeOutlineWidth {
-		get => shape_outline_width;
+		get => shape_options.OutlineWidth;
 		set {
 			int next = Math.Clamp (value, 1, 256);
-			if (shape_outline_width == next) return;
-			shape_outline_width = next;
+			if (shape_options.OutlineWidth == next) return;
+			shape_options.OutlineWidth = next;
 			UpdateSelectedShapeOptions ();
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
 		}
 	}
 	public ShapeDashStyle DashStyle {
-		get;
+		get => shape_options.Dash;
 		set {
 			if (!Enum.IsDefined (value)) throw new ArgumentOutOfRangeException (nameof (value));
-			if (field == value) return;
-			field = value;
+			if (shape_options.Dash == value) return;
+			shape_options.Dash = value;
 			UpdateSelectedShapeOptions ();
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
 		}
 	}
-	private int shape_corner_radius = 8;
 	public int ShapeCornerRadius {
-		get => shape_corner_radius;
+		get => shape_options.CornerRadius;
 		set {
 			int next = Math.Clamp (value, 1, 256);
-			if (shape_corner_radius == next) return;
-			shape_corner_radius = next;
+			if (shape_options.CornerRadius == next) return;
+			shape_options.CornerRadius = next;
 			UpdateSelectedShapeOptions ();
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
 		}
 	}
-	private bool shape_antialias = true;
 	public bool ShapeAntialias {
-		get => shape_antialias;
+		get => shape_options.Antialias;
 		set {
-			if (shape_antialias == value) return;
-			shape_antialias = value;
+			if (shape_options.Antialias == value) return;
+			shape_options.Antialias = value;
 			UpdateSelectedShapeOptions ();
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
 		}
 	}
 	public ShapeKind SelectedShape {
-		get => shape_kind;
+		get => shape_options.Kind;
 		set {
 			if (!Enum.IsDefined (value))
 				throw new ArgumentOutOfRangeException (nameof (value));
-			if (shape_kind == value)
+			if (shape_options.Kind == value)
 				return;
-			shape_kind = value;
+			shape_options.Kind = value;
 			UpdateSelectedShapeOptions ();
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
 			SelectedShapeChanged?.Invoke (this, EventArgs.Empty);
 			InvalidateVisual ();
 		}
 	}
 	public event EventHandler? SelectedShapeChanged;
+	public ShapeToolOptions GetShapeToolOptions () => shape_options;
 	private void UpdateSelectedShapeOptions ()
 	{
 		if (shape_tool.UpdateSelectedOptions (session.ActiveLayer, Surface as MemoryImageSurface,
-			shape_kind, shape_fill_style, shape_outline_width, DashStyle, shape_corner_radius,
-			shape_antialias, BeginStroke, CommitStroke))
+			shape_options.Kind, shape_options.FillStyle, shape_options.OutlineWidth, shape_options.Dash, shape_options.CornerRadius,
+			shape_options.Antialias, BeginStroke, CommitStroke))
 			bitmap = null;
 	}
-	public bool GradientReversed { get; set; }
+
+	public bool UpdateSelectedEffectOptions (double? strength = null, int? pixelSize = null)
+	{
+		if (selected_annotation is not RegionEffectAnnotation effect || session.ActiveLayer is not { } layer || layer.IsLocked || !layer.Annotations.Items.Contains (effect))
+			return false;
+		RegionEffectAnnotation updated = effect with {
+			Strength = strength is double value ? Math.Clamp (value, 0, 1) : effect.Strength,
+			PixelSize = pixelSize is int size ? Math.Clamp (size, 2, 64) : effect.PixelSize
+		};
+		if (updated == effect)
+			return false;
+		RecordLayerUndo ();
+		layer.Annotations.Replace (effect, updated);
+		selected_annotation = updated;
+		MarkCanvasChanged ();
+		InvalidateVisual ();
+		return true;
+	}
+	public bool GradientReversed {
+		get => gradient_tool.Options.Reversed;
+		set {
+			if (gradient_tool.Options.Reversed == value) return;
+			gradient_tool.Options.Reversed = value;
+			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
+		}
+	}
+	private PointD? pointer_position;
+	public PointD? PointerPosition => pointer_position;
+	public event EventHandler? PointerPositionChanged;
 	public CanvasTool ActiveTool {
 		get => active_tool;
 		set {
@@ -252,12 +741,15 @@ public sealed class CanvasHost : Control
 	public bool IsActiveLayerLocked => session.ActiveLayer?.IsLocked == true;
 	internal AvaloniaLayer? ActiveLayer => session.ActiveLayer;
 	public IReadOnlyList<AvaloniaLayer> Layers => session.Layers;
+	public event EventHandler? LayersChanged;
 	public int ActiveLayerIndex => session.ActiveLayerIndex;
+	public event EventHandler? ActiveLayerChanged;
 	public RectangleI? Selection => selection_tool.Selection;
 
 	public bool SelectRectangle (PointI start, PointI end)
 	{
 		bool selected = selection_tool.SelectRectangle (start, end, ImageSize);
+		SyncSelectionAnnotation ();
 		InvalidateVisual ();
 		return selected;
 	}
@@ -269,12 +761,46 @@ public sealed class CanvasHost : Control
 	{
 		selection_tool.CancelSelection ();
 		selection_tool.Clear ();
+		RemoveSelectionAnnotations ();
 		InvalidateVisual ();
+	}
+
+	private void RemoveSelectionAnnotations ()
+	{
+		if (ActiveLayer is not { } layer) return;
+		foreach (SelectionAnnotation annotation in layer.Annotations.Items.OfType<SelectionAnnotation> ().ToArray ())
+			layer.Annotations.Remove (annotation);
+	}
+
+	private void SyncSelectionAnnotation ()
+	{
+		RemoveSelectionAnnotations ();
+		if (ActiveLayer is { } layer && selection_tool.Annotation is SelectionAnnotation annotation)
+			layer.Annotations.Add (annotation);
 	}
 
 	public bool CopySelection ()
 	{
 		return selection_tool.Copy (Surface);
+	}
+
+	public async Task<bool> CopyImageToClipboardAsync (IClipboardService clipboard, CancellationToken cancellationToken = default)
+	{
+		using MemoryImageSurface composite = CreateCompositeSurface ();
+		using WriteableBitmap image = CreateBitmap (composite);
+		await clipboard.SetImageAsync (image, cancellationToken);
+		return true;
+	}
+
+	public async Task<bool> CopySelectionToClipboardAsync (IClipboardService clipboard, CancellationToken cancellationToken = default)
+	{
+		if (Surface is null || Selection is not RectangleI area || area.Width <= 0 || area.Height <= 0)
+			return false;
+		using var selection = new MemoryImageSurface (area.Width, area.Height);
+		RasterBlitter.CopyRegion (Surface, area, selection);
+		using WriteableBitmap image = CreateBitmap (selection);
+		await clipboard.SetImageAsync (image, cancellationToken);
+		return true;
 	}
 
 	public bool PasteSelection (PointI destination)
@@ -374,7 +900,7 @@ public sealed class CanvasHost : Control
 	public void AddLayer ()
 	{
 		RecordLayerUndo ();
-		session.AddLayer ($"Layer {session.Layers.Count}");
+		SubscribeToLayer (session.AddLayer ($"Layer {session.Layers.Count}"));
 		MarkCanvasChanged ();
 	}
 
@@ -383,17 +909,25 @@ public sealed class CanvasHost : Control
 		AvaloniaLayer source = Layers[ActiveLayerIndex];
 		RecordLayerUndo ();
 		AvaloniaLayer duplicate = session.AddLayer ($"{source.Name} copy");
+		SubscribeToLayer (duplicate);
 		source.Surface.GetReadOnlyPixelData ().CopyTo (duplicate.Surface.GetPixelData ());
 		duplicate.IsVisible = source.IsVisible;
 		duplicate.IsLocked = source.IsLocked;
 		duplicate.Opacity = source.Opacity;
+		duplicate.Annotations.AddRange (source.Annotations.Items);
+		shape_tool.ClearSelectedShape ();
 		MarkCanvasChanged ();
 		return true;
 	}
 
 	public void SelectLayer (int index)
 	{
+		if (index == session.ActiveLayerIndex)
+			return;
 		session.SelectLayer (index);
+		ClearAnnotationSelection ();
+		shape_tool.ClearSelectedShape ();
+		ActiveLayerChanged?.Invoke (this, EventArgs.Empty);
 		bitmap = null;
 		InvalidateVisual ();
 	}
@@ -401,8 +935,11 @@ public sealed class CanvasHost : Control
 	public void RemoveLayer ()
 	{
 		if (Layers.Count <= 1) return;
+		AvaloniaLayer removed = session.ActiveLayer!;
 		RecordLayerUndo ();
 		if (session.RemoveActiveLayer ()) {
+			if (selected_annotation is not null && removed.Annotations.Items.Contains (selected_annotation))
+				ClearAnnotationSelection ();
 			MarkCanvasChanged ();
 		}
 	}
@@ -451,7 +988,10 @@ public sealed class CanvasHost : Control
 		AvaloniaLayer upper = Layers[ActiveLayerIndex];
 		AvaloniaLayer lower = Layers[ActiveLayerIndex - 1];
 		Span<ColorBgra> destination = lower.Surface.GetPixelData ();
-		ReadOnlySpan<ColorBgra> source = upper.Surface.GetReadOnlyPixelData ();
+		using var renderedUpper = new MemoryImageSurface (ImageSize.Width, ImageSize.Height);
+		upper.Surface.GetReadOnlyPixelData ().CopyTo (renderedUpper.GetPixelData ());
+		RenderNonRasterAnnotations (renderedUpper, upper.Annotations.Items);
+		ReadOnlySpan<ColorBgra> source = renderedUpper.GetReadOnlyPixelData ();
 		for (int i = 0; i < destination.Length; i++) {
 			ColorBgra color = source[i];
 			if (upper.Opacity < 1)
@@ -459,9 +999,15 @@ public sealed class CanvasHost : Control
 			if (upper.IsVisible)
 				destination[i] = Blend (destination[i], color);
 		}
+		// The merged layer now contains the complete visible result. Keeping
+		// the lower layer's old opacity would attenuate the upper layer again.
+		lower.Opacity = 1;
+		lower.IsVisible = lower.IsVisible || upper.IsVisible;
 		lower.Name = $"{lower.Name} + {upper.Name}";
 		int lowerIndex = ActiveLayerIndex - 1;
 		session.RemoveLayerAt (ActiveLayerIndex);
+		ClearAnnotationSelection ();
+		shape_tool.ClearSelectedShape ();
 		SelectLayer (lowerIndex);
 		bitmap = null;
 		InvalidateVisual ();
@@ -502,21 +1048,27 @@ public sealed class CanvasHost : Control
 	}
 
 	private LayerStackSnapshot CaptureLayerStack ()
-		=> new (Layers.Select (layer => new LayerSnapshot (layer, layer.Name, layer.IsVisible, layer.IsLocked, layer.Opacity, layer.Surface.GetReadOnlyPixelData ().ToArray ())).ToList (), ActiveLayerIndex);
+		=> new (Layers.Select (layer => new LayerSnapshot (layer, layer.Name, layer.IsVisible, layer.IsLocked, layer.Opacity, layer.Surface.GetReadOnlyPixelData ().ToArray (), layer.Annotations.Items.ToList ())).ToList (), ActiveLayerIndex);
 
 	private void RestoreLayerStack (LayerStackSnapshot snapshot)
 	{
 		if (snapshot.Layers.Count == 0) return;
+		ClearAnnotationSelection ();
+		DetachSession ();
 		session.Layers.Clear ();
 		foreach (LayerSnapshot item in snapshot.Layers) {
 			AvaloniaLayer layer = item.Layer;
+			SubscribeToLayer (layer);
 			item.Pixels.CopyTo (layer.Surface.GetPixelData ());
 			layer.Name = item.Name;
 			layer.IsVisible = item.IsVisible;
 			layer.IsLocked = item.IsLocked;
 			layer.Opacity = item.Opacity;
+			layer.Annotations.Clear ();
+			layer.Annotations.AddRange (item.Annotations);
 			session.Layers.Add (layer);
 		}
+		AttachSession (session);
 		session.SelectLayer (Math.Min (snapshot.ActiveIndex, Layers.Count - 1));
 		bitmap = null; InvalidateVisual ();
 	}
@@ -583,7 +1135,9 @@ public sealed class CanvasHost : Control
 			? existing
 			: new MemoryImageSurface (width, height);
 		surface.Fill (ColorBgra.White);
-		session = new AvaloniaDocumentSession (new Pinta.Core.Size (width, height), surface);
+		ClearAnnotationSelection ();
+		ClearAnnotationSources ();
+		InitializeSession (new AvaloniaDocumentSession (new Pinta.Core.Size (width, height), surface));
 		ClearHistory ();
 		SetClean ();
 		viewport_offset = Vector.Zero;
@@ -618,7 +1172,9 @@ public sealed class CanvasHost : Control
 	{
 		using Bitmap image = new (path);
 		MemoryImageSurface surface = DecodeSurface (image);
-		session = new AvaloniaDocumentSession (new Pinta.Core.Size (surface.Width, surface.Height), surface);
+		ClearAnnotationSelection ();
+		ClearAnnotationSources ();
+		InitializeSession (new AvaloniaDocumentSession (new Pinta.Core.Size (surface.Width, surface.Height), surface));
 		ClearHistory ();
 		SetClean ();
 		viewport_offset = Vector.Zero;
@@ -649,8 +1205,36 @@ public sealed class CanvasHost : Control
 		if (source.Width != ImageSize.Width || source.Height != ImageSize.Height)
 			throw new InvalidDataException ("Imported layer dimensions must match the document.");
 		AvaloniaLayer layer = session.AddLayer (Path.GetFileNameWithoutExtension (path));
+		SubscribeToLayer (layer);
 		source.GetReadOnlyPixelData ().CopyTo (layer.Surface.GetPixelData ());
 		MarkCanvasChanged ();
+	}
+
+	public bool PasteImageAsLayer (Bitmap image, string name = "Clipboard")
+	{
+		MemoryImageSurface source = DecodeSurface (image);
+		return PasteSurfaceAsLayer (source, name);
+	}
+
+	private bool PasteSurfaceAsLayer (MemoryImageSurface source, string name)
+	{
+		RecordLayerUndo ();
+		AvaloniaLayer layer = session.AddLayer (string.IsNullOrWhiteSpace (name) ? "Clipboard" : name.Trim ());
+		SubscribeToLayer (layer);
+		RasterBlitter.CopyCentered (source, layer.Surface);
+		MarkCanvasChanged ();
+		return true;
+	}
+
+	public async Task<bool> PasteImageFromClipboardAsync (IImageSourceProvider provider, CancellationToken cancellationToken = default)
+	{
+		ImageSourceData? source = await provider.GetFromClipboardAsync (cancellationToken);
+		if (source is null)
+			return false;
+		MemoryImageSurface decoded = DecodeSurface (source.Bitmap);
+		RegisterAnnotationSource (source.SourceId, decoded);
+		owned_annotation_sources.Add (decoded);
+		return PasteSurfaceAsLayer (decoded, "Clipboard");
 	}
 
 	public void ImportSvgAsLayer (string path)
@@ -681,6 +1265,7 @@ public sealed class CanvasHost : Control
 			}
 		}
 		AvaloniaLayer layer = session.AddLayer (Path.GetFileNameWithoutExtension (path));
+		SubscribeToLayer (layer);
 		var bytes = new byte[ImageSize.Width * ImageSize.Height * ColorBgra.SizeOf];
 		Marshal.Copy (image.GetPixels (), bytes, 0, bytes.Length);
 		MemoryMarshal.Cast<byte, ColorBgra> (bytes).CopyTo (layer.Surface.GetPixelData ());
@@ -709,20 +1294,139 @@ public sealed class CanvasHost : Control
 		if (layerNodes.Count == 0)
 			throw new InvalidDataException ("The ORA file contains no layers.");
 
+		ClearAnnotationSelection ();
+		shape_tool.ClearSelectedShape ();
+		ClearAnnotationSources ();
 		MemoryImageSurface firstSurface = DecodeSurface (new Bitmap (archive.GetEntry (layerNodes[0].Attribute ("src")!.Value)!.Open ()));
-		session = new AvaloniaDocumentSession (new Pinta.Core.Size (firstSurface.Width, firstSurface.Height), firstSurface);
+		InitializeSession (new AvaloniaDocumentSession (new Pinta.Core.Size (firstSurface.Width, firstSurface.Height), firstSurface));
 		ApplyLayerMetadata (session.ActiveLayer!, layerNodes[0]);
 		for (int i = 1; i < layerNodes.Count; i++) {
 			XElement node = layerNodes[i];
 			MemoryImageSurface source = DecodeSurface (new Bitmap (archive.GetEntry (node.Attribute ("src")!.Value)!.Open ()));
 			AvaloniaLayer layer = session.AddLayer (node.Attribute ("name")?.Value ?? $"Layer {i}");
+			SubscribeToLayer (layer);
 			source.GetReadOnlyPixelData ().CopyTo (layer.Surface.GetPixelData ());
 			ApplyLayerMetadata (layer, node);
 		}
+		LoadRasterAnnotations (archive);
 		ClearHistory ();
+		SetClean ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
+	}
+
+	private void LoadRasterAnnotations (ZipArchive archive)
+	{
+		ZipArchiveEntry? metadata = archive.GetEntry ("pintora/annotations.xml");
+		if (metadata is null)
+			return;
+		XElement root = XElement.Parse (new StreamReader (metadata.Open ()).ReadToEnd ());
+		foreach (XElement node in root.Elements ("annotation")) {
+			if (!int.TryParse (node.Attribute ("layer")?.Value, out int layerIndex) || (uint) layerIndex >= (uint) Layers.Count)
+				continue;
+			// Shape metadata was written by an earlier Avalonia version, but
+			// shapes are raster content in the GTK/Pinta contract. Ignore the
+			// legacy duplicate and use the pixels from the layer PNG instead.
+			if (node.Attribute ("type")?.Value == "shape")
+				continue;
+			if (node.Attribute ("type")?.Value == "effect" && TryReadAnnotationRect (node, out Rect effectBounds)
+				&& Enum.TryParse (node.Attribute ("effect")?.Value, out RegionEffectKind effectKind)) {
+				double.TryParse (node.Attribute ("strength")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double strength);
+				int.TryParse (node.Attribute ("pixel-size")?.Value, out int pixelSize);
+				double.TryParse (node.Attribute ("rotation")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double rotation);
+				Layers[layerIndex].Annotations.Add (new RegionEffectAnnotation {
+					Bounds = effectBounds,
+					Rotation = rotation,
+					Effect = effectKind,
+					Strength = Math.Clamp (strength, 0, 1),
+					PixelSize = Math.Clamp (pixelSize, 2, 64)
+				});
+				continue;
+			}
+			if (node.Attribute ("type")?.Value == "text" && TryReadAnnotationRect (node, out Rect textBounds)) {
+				double.TryParse (node.Attribute ("font-size")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double fontSize);
+				double.TryParse (node.Attribute ("rotation")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double rotation);
+				Layers[layerIndex].Annotations.Add (new TextAnnotation {
+					Bounds = textBounds,
+					Rotation = rotation,
+					Text = node.Attribute ("text")?.Value ?? string.Empty,
+					FontFamily = node.Attribute ("font")?.Value ?? "Inter",
+					FontSize = fontSize > 0 ? fontSize : 16,
+					Color = ParseAnnotationColor (node.Attribute ("color")?.Value),
+					Underline = node.Attribute ("underline")?.Value == "true",
+					FontWeight = node.Attribute ("bold")?.Value == "true" ? FontWeight.Bold : FontWeight.Normal
+				});
+				continue;
+			}
+			if (node.Attribute ("type")?.Value == "shape" && TryReadAnnotationRect (node, out Rect shapeBounds)
+				&& Enum.TryParse (node.Attribute ("kind")?.Value, out ShapeKind shapeKind)
+				&& TryReadAnnotationPoint (node, "from", out PointD from) && TryReadAnnotationPoint (node, "to", out PointD to)) {
+				double.TryParse (node.Attribute ("rotation")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double rotation);
+				int.TryParse (node.Attribute ("outline-width")?.Value, out int outlineWidth);
+				int.TryParse (node.Attribute ("corner-radius")?.Value, out int cornerRadius);
+				Layers[layerIndex].Annotations.Add (new ShapeAnnotation {
+					Bounds = shapeBounds,
+					Rotation = rotation,
+					Kind = shapeKind,
+					From = from,
+					To = to,
+					Outline = ParseAnnotationColor (node.Attribute ("outline")?.Value),
+					Fill = ParseAnnotationColor (node.Attribute ("fill")?.Value),
+					FillStyle = Enum.TryParse (node.Attribute ("fill-style")?.Value, out ShapeFillStyle fillStyle) ? fillStyle : ShapeFillStyle.Outline,
+					OutlineWidth = Math.Max (1, outlineWidth),
+					Dash = Enum.TryParse (node.Attribute ("dash")?.Value, out ShapeDashStyle dash) ? dash : ShapeDashStyle.Solid,
+					CornerRadius = Math.Max (0, cornerRadius),
+					Antialias = node.Attribute ("antialias")?.Value != "false"
+				});
+				continue;
+			}
+			string? sourceId = node.Attribute ("source")?.Value;
+			string? sourcePath = node.Attribute ("file")?.Value;
+			ZipArchiveEntry? sourceEntry = sourcePath is null ? null : archive.GetEntry (sourcePath);
+			if (sourceId is null || sourceEntry is null || !TryReadAnnotationRect (node, out Rect bounds))
+				continue;
+			MemoryImageSurface source = DecodeSurface (new Bitmap (sourceEntry.Open ()));
+			RegisterAnnotationSource (sourceId, source);
+			owned_annotation_sources.Add (source);
+			if (node.Attribute ("type")?.Value == "image") {
+				double.TryParse (node.Attribute ("opacity")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double opacity);
+				double.TryParse (node.Attribute ("rotation")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double rotation);
+				Layers[layerIndex].Annotations.Add (new ImageAnnotation { SourceId = sourceId, Bounds = bounds, Rotation = rotation, Opacity = opacity > 0 ? opacity : 1, PreserveAspectRatio = node.Attribute ("preserve")?.Value != "False" });
+			} else if (node.Attribute ("type")?.Value == "cursor") {
+				double.TryParse (node.Attribute ("scale")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double scale);
+				double.TryParse (node.Attribute ("rotation")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double rotation);
+				int.TryParse (node.Attribute ("hotspot-x")?.Value, out int hotspotX);
+				int.TryParse (node.Attribute ("hotspot-y")?.Value, out int hotspotY);
+				Layers[layerIndex].Annotations.Add (new CursorAnnotation { CursorId = sourceId, Bounds = bounds, Rotation = rotation, Scale = scale > 0 ? scale : 1, Tint = ParseAnnotationColor (node.Attribute ("tint")?.Value), HotspotX = hotspotX, HotspotY = hotspotY });
+			}
+		}
+	}
+
+	private static bool TryReadAnnotationRect (XElement node, out Rect bounds)
+	{
+		bounds = default;
+		if (!double.TryParse (node.Attribute ("x")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double x) || !double.TryParse (node.Attribute ("y")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double y) || !double.TryParse (node.Attribute ("width")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double width) || !double.TryParse (node.Attribute ("height")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double height))
+			return false;
+		bounds = new Rect (x, y, width, height);
+		return true;
+	}
+
+	private static bool TryReadAnnotationPoint (XElement node, string prefix, out PointD point)
+	{
+		point = default;
+		if (!double.TryParse (node.Attribute ($"{prefix}-x")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double x)
+			|| !double.TryParse (node.Attribute ($"{prefix}-y")?.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double y))
+			return false;
+		point = new PointD (x, y);
+		return true;
+	}
+
+	private static ColorBgra ParseAnnotationColor (string? value)
+	{
+		if (string.IsNullOrWhiteSpace (value) || value.Length != 8 || !uint.TryParse (value, System.Globalization.NumberStyles.HexNumber, null, out uint rgba))
+			return ColorBgra.White;
+		return ColorBgra.FromBgra ((byte) rgba, (byte) (rgba >> 8), (byte) (rgba >> 16), (byte) (rgba >> 24));
 	}
 
 	private static void ApplyLayerMetadata (AvaloniaLayer layer, XElement node)
@@ -739,7 +1443,11 @@ public sealed class CanvasHost : Control
 		using (image) {
 			PixelSize size = image.PixelSize;
 			var bytes = new byte[size.Width * size.Height * ColorBgra.SizeOf];
-			using var decoded = new WriteableBitmap (size, new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+			// MemoryImageSurface stores straight-alpha ColorBgra values. Keep the
+			// decoded framebuffer in the same representation before copying pixels
+			// into the editable layer; premultiplied RGB would produce dark halos
+			// around translucent imported images.
+			using var decoded = new WriteableBitmap (size, new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
 			using (ILockedFramebuffer locked = decoded.Lock ()) {
 				image.CopyPixels (locked);
 				for (int y = 0; y < size.Height; y++)
@@ -758,19 +1466,20 @@ public sealed class CanvasHost : Control
 
 	public void SaveImage (string path)
 	{
-		switch (Path.GetExtension (path).ToLowerInvariant ()) {
-			case ".jpg":
-			case ".jpeg":
+		EditorExportFormat format;
+		try { format = EditorExportService.GetFormat (path); }
+		catch (ArgumentException) { format = EditorExportFormat.Png; }
+		switch (format) {
+			case EditorExportFormat.Jpeg:
 				SaveJpeg (path);
 				break;
-			case ".webp":
+			case EditorExportFormat.WebP:
 				SaveWebp (path);
 				break;
-			case ".tif":
-			case ".tiff":
+			case EditorExportFormat.Tiff:
 				SaveTiff (path);
 				break;
-			case ".ora":
+			case EditorExportFormat.OpenRaster:
 				SaveOra (path);
 				break;
 			default:
@@ -873,6 +1582,51 @@ public sealed class CanvasHost : Control
 		}
 		xml.Append ("</stack></image>");
 		WriteTextEntry (archive, "stack.xml", xml.ToString ());
+		SaveRasterAnnotations (archive);
+	}
+
+	private void SaveRasterAnnotations (ZipArchive archive)
+	{
+		var xml = new StringBuilder ("<annotations>");
+		int sourceIndex = 0;
+		bool hasMetadata = false;
+		for (int layerIndex = 0; layerIndex < Layers.Count; layerIndex++) {
+			foreach (Annotation annotation in Layers[layerIndex].Annotations.Items) {
+				// Shapes follow the GTK/Pinta raster contract: they are baked into the
+				// layer PNG during ORA export, so do not serialize a second editable
+				// copy that could diverge after reopening the document.
+				string? type = annotation switch { ImageAnnotation => "image", CursorAnnotation => "cursor", RegionEffectAnnotation => "effect", TextAnnotation => "text", _ => null };
+				if (type is null)
+					continue;
+				if (annotation is RegionEffectAnnotation effectAnnotation) {
+					hasMetadata = true;
+					string effectAttributes = $"type=\"effect\" layer=\"{layerIndex}\" effect=\"{effectAnnotation.Effect}\" x=\"{effectAnnotation.Bounds.X.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" y=\"{effectAnnotation.Bounds.Y.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" width=\"{effectAnnotation.Bounds.Width.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" height=\"{effectAnnotation.Bounds.Height.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" rotation=\"{effectAnnotation.Rotation.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" strength=\"{effectAnnotation.Strength.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" pixel-size=\"{effectAnnotation.PixelSize}\"";
+					xml.Append ($"<annotation {effectAttributes} />");
+					continue;
+				}
+				if (annotation is TextAnnotation textAnnotation) {
+					hasMetadata = true;
+					string textAttributes = $"type=\"text\" layer=\"{layerIndex}\" text=\"{System.Security.SecurityElement.Escape (textAnnotation.Text)}\" font=\"{System.Security.SecurityElement.Escape (textAnnotation.FontFamily)}\" font-size=\"{textAnnotation.FontSize.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" color=\"{textAnnotation.Color.R:X2}{textAnnotation.Color.G:X2}{textAnnotation.Color.B:X2}{textAnnotation.Color.A:X2}\" bold=\"{(textAnnotation.FontWeight == FontWeight.Bold || textAnnotation.FontWeight == FontWeight.SemiBold ? "true" : "false")}\" underline=\"{textAnnotation.Underline.ToString ().ToLowerInvariant ()}\" x=\"{textAnnotation.Bounds.X.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" y=\"{textAnnotation.Bounds.Y.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" width=\"{textAnnotation.Bounds.Width.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" height=\"{textAnnotation.Bounds.Height.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" rotation=\"{textAnnotation.Rotation.ToString (System.Globalization.CultureInfo.InvariantCulture)}\"";
+					xml.Append ($"<annotation {textAttributes} />");
+					continue;
+				}
+				string sourceId = annotation is ImageAnnotation image ? image.SourceId : ((CursorAnnotation) annotation).CursorId;
+				if (!annotation_sources.TryGetValue (sourceId, out IImageSurface? source))
+					continue;
+				string sourcePath = $"data/annotation{sourceIndex++}.png";
+				WritePngEntry (archive, sourcePath, source);
+				hasMetadata = true;
+				string attributes = $"type=\"{type}\" layer=\"{layerIndex}\" source=\"{System.Security.SecurityElement.Escape (sourceId)}\" file=\"{sourcePath}\" x=\"{annotation.Bounds.X.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" y=\"{annotation.Bounds.Y.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" width=\"{annotation.Bounds.Width.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" height=\"{annotation.Bounds.Height.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" rotation=\"{annotation.Rotation.ToString (System.Globalization.CultureInfo.InvariantCulture)}\"";
+				if (annotation is ImageAnnotation imageAnnotation)
+					attributes += $" opacity=\"{imageAnnotation.Opacity.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" preserve=\"{imageAnnotation.PreserveAspectRatio}\"";
+				else if (annotation is CursorAnnotation cursorAnnotation)
+					attributes += $" scale=\"{cursorAnnotation.Scale.ToString (System.Globalization.CultureInfo.InvariantCulture)}\" tint=\"{cursorAnnotation.Tint.R:X2}{cursorAnnotation.Tint.G:X2}{cursorAnnotation.Tint.B:X2}{cursorAnnotation.Tint.A:X2}\" hotspot-x=\"{cursorAnnotation.HotspotX}\" hotspot-y=\"{cursorAnnotation.HotspotY}\"";
+				xml.Append ($"<annotation {attributes} />");
+			}
+		}
+		xml.Append ("</annotations>");
+		if (hasMetadata)
+			WriteTextEntry (archive, "pintora/annotations.xml", xml.ToString ());
 	}
 
 	private static void WriteTextEntry (ZipArchive archive, string name, string text)
@@ -934,15 +1688,13 @@ public sealed class CanvasHost : Control
 
 	public bool CanUndoStroke => (undo_stack.Count > 0 && Layers.Contains (undo_stack.Peek ().Layer)) || CanUndoLayerOperation;
 	public bool CanRedoStroke => (redo_stack.Count > 0 && Layers.Contains (redo_stack.Peek ().Layer)) || CanRedoLayerOperation;
-	public IReadOnlyList<string> History => history_kinds.Select (kind => kind == HistoryKind.Layer ? "Layer operation" : "Raster operation").ToArray ();
+	public IReadOnlyList<string> History => history_kinds.UndoItems.Select (kind => kind == HistoryKind.Layer ? "Layer operation" : "Raster operation").ToArray ();
 	public event EventHandler? HistoryChanged;
 
 	public void ClearHistory ()
 	{
 		undo_stack.Clear ();
 		redo_stack.Clear ();
-		history_stack.Clear ();
-		redo_history_stack.Clear ();
 		layer_undo_stack.Clear ();
 		layer_redo_stack.Clear ();
 		history_kinds.Clear ();
@@ -956,18 +1708,17 @@ public sealed class CanvasHost : Control
 		if (Surface is null)
 			return;
 
-		undo_stack.Push (new RasterSnapshot (session.ActiveLayer!, Surface.GetReadOnlyPixelData ().ToArray (), shape_tool.CaptureState ()));
+		undo_stack.Push (CaptureRasterSnapshot (session.ActiveLayer!, shape_tool.CaptureState ()));
 		redo_stack.Clear ();
-		redo_history_stack.Clear ();
 		history_kinds.Push (HistoryKind.Raster);
 		redo_history_kinds.Clear ();
-		history_stack.Push ("Raster operation");
 		has_current_stroke = true;
 		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
 
 	public void CancelCurrentStroke ()
 	{
+		CancelDraggedAnnotation ();
 		tool_set.CancelPointerActions ();
 		pointer_action_tool = null;
 		is_painting = false;
@@ -977,15 +1728,30 @@ public sealed class CanvasHost : Control
 			return;
 		}
 		RasterSnapshot snapshot = undo_stack.Pop ();
-		history_stack.Pop ();
 		if (history_kinds.Count > 0 && history_kinds.Peek () == HistoryKind.Raster)
 			history_kinds.Pop ();
-		snapshot.Pixels.AsSpan ().CopyTo (snapshot.Layer.Surface.GetPixelData ());
+		RestoreRasterSnapshot (snapshot);
 		shape_tool.RestoreState (snapshot.Shape);
+		ReconcileAnnotationSelection (snapshot.Layer);
 		has_current_stroke = false;
 		bitmap = null;
 		InvalidateVisual ();
 		HistoryChanged?.Invoke (this, EventArgs.Empty);
+	}
+
+	private void CancelDraggedAnnotation ()
+	{
+		if (dragged_annotation is null || drag_undo_snapshot is null)
+			return;
+
+		// Annotation dragging is a layer operation, not a raster stroke. Restore
+		// its pre-drag snapshot when Escape cancels the pointer action; otherwise
+		// the updated bounds would remain in the layer without an undo entry.
+		if (drag_changed)
+			RestoreLayerStack (drag_undo_snapshot);
+		dragged_annotation = null;
+		drag_undo_snapshot = null;
+		drag_changed = false;
 	}
 
 	public void CommitStroke ()
@@ -1027,10 +1793,12 @@ public sealed class CanvasHost : Control
 
 		RasterSnapshot snapshot = undo_stack.Pop ();
 		AvaloniaLayer layer = snapshot.Layer;
-		redo_stack.Push (new RasterSnapshot (layer, layer.Surface.GetReadOnlyPixelData ().ToArray (), shape_tool.CaptureState ()));
-		snapshot.Pixels.AsSpan ().CopyTo (layer.Surface.GetPixelData ());
+		redo_stack.Push (CaptureRasterSnapshot (layer, shape_tool.CaptureState ()));
+		RestoreRasterSnapshot (snapshot);
+		layer.Annotations.Clear ();
+		layer.Annotations.AddRange (snapshot.Annotations);
 		shape_tool.RestoreState (snapshot.Shape);
-		redo_history_stack.Push (history_stack.Pop ());
+		ReconcileAnnotationSelection (layer);
 		if (history_kinds.Count > 0)
 			history_kinds.Pop ();
 		redo_history_kinds.Push (HistoryKind.Raster);
@@ -1054,10 +1822,12 @@ public sealed class CanvasHost : Control
 
 		RasterSnapshot snapshot = redo_stack.Pop ();
 		AvaloniaLayer layer = snapshot.Layer;
-		undo_stack.Push (new RasterSnapshot (layer, layer.Surface.GetReadOnlyPixelData ().ToArray (), shape_tool.CaptureState ()));
-		snapshot.Pixels.AsSpan ().CopyTo (layer.Surface.GetPixelData ());
+		undo_stack.Push (CaptureRasterSnapshot (layer, shape_tool.CaptureState ()));
+		RestoreRasterSnapshot (snapshot);
+		layer.Annotations.Clear ();
+		layer.Annotations.AddRange (snapshot.Annotations);
 		shape_tool.RestoreState (snapshot.Shape);
-		history_stack.Push (redo_history_stack.Pop ());
+		ReconcileAnnotationSelection (layer);
 		if (redo_history_kinds.Count > 0)
 			redo_history_kinds.Pop ();
 		history_kinds.Push (HistoryKind.Raster);
@@ -1077,7 +1847,7 @@ public sealed class CanvasHost : Control
 		if (!canvasRect.Contains (viewPoint))
 			return;
 
-		PointD canvasPoint = session.Viewport.ViewPointToCanvas (new PointD (viewPoint.X - canvasRect.X, viewPoint.Y - canvasRect.Y));
+		PointD canvasPoint = GetCoordinateMapper ().ViewToCanvas (viewPoint);
 		PaintCanvasPoint (canvasPoint, color);
 	}
 
@@ -1116,6 +1886,34 @@ public sealed class CanvasHost : Control
 			var selection_pen = new Pen (Brushes.DodgerBlue, 1, new DashStyle (new[] { 4d, 4d }, 0));
 			context.DrawRectangle (selection_pen, new Rect (origin.X + selected.X * Scale, origin.Y + selected.Y * Scale, selected.Width * Scale, selected.Height * Scale));
 		}
+		if (selected_annotation is not null) {
+			var annotation_pen = new Pen (Brushes.DodgerBlue, 1.5, new DashStyle (new[] { 5d, 3d }, 0));
+			Point[] corners = GetAnnotationDisplayCorners (selected_annotation);
+			for (int i = 0; i < corners.Length; i++) {
+				Point from = origin + new Vector (corners[i].X * Scale, corners[i].Y * Scale);
+				Point to = origin + new Vector (corners[(i + 1) % corners.Length].X * Scale, corners[(i + 1) % corners.Length].Y * Scale);
+				context.DrawLine (annotation_pen, from, to);
+			}
+			foreach (Point corner in corners.Select (point => origin + new Vector (point.X * Scale, point.Y * Scale))) {
+				var handle = new Rect (corner.X - 4, corner.Y - 4, 8, 8);
+				context.FillRectangle (Brushes.White, handle);
+				context.DrawRectangle (new Pen (Brushes.DodgerBlue, 1), handle);
+			}
+		}
+		if (ActiveTool is CanvasTool.Blur or CanvasTool.Pixelate or CanvasTool.Highlight or CanvasTool.Magnify or CanvasTool.Spotlight) {
+			EffectTool effect = effect_tool;
+			if (effect.IsCreating) {
+				double left = Math.Min (effect.Start.X, effect.Current.X);
+				double top = Math.Min (effect.Start.Y, effect.Current.Y);
+				var previewBrush = new SolidColorBrush (ActiveTool == CanvasTool.Highlight
+					? Color.FromArgb (55, 255, 220, 0) : Color.FromArgb (45, 80, 140, 255));
+				context.FillRectangle (previewBrush, new Rect (origin.X + left * Scale, origin.Y + top * Scale,
+					Math.Abs (effect.Current.X - effect.Start.X) * Scale, Math.Abs (effect.Current.Y - effect.Start.Y) * Scale));
+				context.DrawRectangle (new Pen (Brushes.DodgerBlue, 1, new DashStyle (new[] { 4d, 4d }, 0)),
+					new Rect (origin.X + left * Scale, origin.Y + top * Scale,
+						Math.Abs (effect.Current.X - effect.Start.X) * Scale, Math.Abs (effect.Current.Y - effect.Start.Y) * Scale));
+			}
+		}
 		if (ActiveTool == CanvasTool.Shapes && shape_tool.SelectedShape is ShapeTool.ShapeState selectedShape && !shape_tool.IsEditing)
 			shape_tool.DrawHandles (context, origin, Scale, selectedShape.Kind, selectedShape.From, selectedShape.To, selectedShape.Rotation);
 
@@ -1127,6 +1925,34 @@ public sealed class CanvasHost : Control
 			14,
 			Brushes.Gray);
 		context.DrawText (text, origin + new Vector (16, 16));
+	}
+
+	private static Rect GetAnnotationDisplayBounds (Annotation annotation)
+	{
+		if (annotation is not CursorAnnotation cursor)
+			return annotation.Bounds;
+		double scale = Math.Max (0.01, cursor.Scale);
+		return new Rect (annotation.Bounds.X - cursor.HotspotX * scale, annotation.Bounds.Y - cursor.HotspotY * scale, annotation.Bounds.Width * scale, annotation.Bounds.Height * scale);
+	}
+
+	private static Point[] GetAnnotationDisplayCorners (Annotation annotation)
+	{
+		Rect bounds = GetAnnotationDisplayBounds (annotation);
+		Point center = bounds.Center;
+		double cosine = Math.Cos (annotation.Rotation);
+		double sine = Math.Sin (annotation.Rotation);
+		Point[] corners = [
+			new Point (bounds.Left, bounds.Top),
+			new Point (bounds.Right, bounds.Top),
+			new Point (bounds.Right, bounds.Bottom),
+			new Point (bounds.Left, bounds.Bottom)
+		];
+		for (int i = 0; i < corners.Length; i++) {
+			double dx = corners[i].X - center.X;
+			double dy = corners[i].Y - center.Y;
+			corners[i] = new Point (center.X + dx * cosine - dy * sine, center.Y + dx * sine + dy * cosine);
+		}
+		return corners;
 	}
 
 	private static void DrawTransparencyGrid (DrawingContext context, Rect canvasRect)
@@ -1156,9 +1982,12 @@ public sealed class CanvasHost : Control
 		foreach (AvaloniaLayer layer in Layers) {
 			if (!layer.IsVisible || layer.Opacity <= 0)
 				continue;
-			ReadOnlySpan<ColorBgra> source = ReferenceEquals (layer, session.ActiveLayer) && activeLayerPreview is not null
-				? activeLayerPreview.GetReadOnlyPixelData ()
-				: layer.Surface.GetReadOnlyPixelData ();
+			IImageSurface sourceSurface = ReferenceEquals (layer, session.ActiveLayer) && activeLayerPreview is not null
+				? activeLayerPreview : layer.Surface;
+			using var layerComposite = new MemoryImageSurface (ImageSize.Width, ImageSize.Height);
+			sourceSurface.GetReadOnlyPixelData ().CopyTo (layerComposite.GetPixelData ());
+			RenderNonRasterAnnotations (layerComposite, layer.Annotations.Items);
+			ReadOnlySpan<ColorBgra> source = layerComposite.GetReadOnlyPixelData ();
 			int opacity = (int) Math.Round (Math.Clamp (layer.Opacity, 0, 1) * 255);
 			for (int i = 0; i < destination.Length; i++) {
 				ColorBgra top = source[i];
@@ -1177,6 +2006,29 @@ public sealed class CanvasHost : Control
 		return composite;
 	}
 
+	private void RenderNonRasterAnnotations (MemoryImageSurface surface, IReadOnlyList<Annotation> annotations)
+	{
+		foreach (Annotation annotation in annotations) {
+			switch (annotation) {
+				case RegionEffectAnnotation effect:
+					AnnotationRenderer.Render (surface, effect);
+					break;
+				// Shapes follow the GTK/Pinta raster contract and are already baked
+				// into the layer surface. Text remains non-destructive so it can be
+				// moved without leaving stale pixels behind.
+				case TextAnnotation text:
+					AnnotationRenderer.Render (surface, text);
+					break;
+				case ImageAnnotation image when annotation_sources.TryGetValue (image.SourceId, out IImageSurface? imageSource):
+					AnnotationRenderer.Render (surface, image, imageSource);
+					break;
+				case CursorAnnotation cursor when annotation_sources.TryGetValue (cursor.CursorId, out IImageSurface? cursorSource):
+					AnnotationRenderer.Render (surface, cursor, cursorSource);
+					break;
+			}
+		}
+	}
+
 	private void DrawSurface (DrawingContext context, Point origin, IImageSurface displaySurface)
 	{
 		IImageSurface surface = displaySurface;
@@ -1187,7 +2039,10 @@ public sealed class CanvasHost : Control
 
 	private static WriteableBitmap CreateBitmap (IImageSurface surface)
 	{
-		var image = new WriteableBitmap (new PixelSize (surface.Width, surface.Height), new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Premul);
+		// ColorBgra stores straight-alpha channels. Declaring this buffer as
+		// premultiplied makes translucent pixels appear too bright/dark when
+		// Avalonia composites the canvas over the checkerboard.
+		var image = new WriteableBitmap (new PixelSize (surface.Width, surface.Height), new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
 		using ILockedFramebuffer locked = image.Lock ();
 		ReadOnlySpan<byte> source = MemoryMarshal.AsBytes (surface.GetReadOnlyPixelData ());
 		for (int y = 0; y < surface.Height; y++) {
@@ -1223,7 +2078,22 @@ public sealed class CanvasHost : Control
 		e.Pointer.Capture (this);
 		Point position = e.GetPosition (this);
 		Point origin = GetCanvasOrigin ();
-		last_canvas_point = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
+		last_canvas_point = GetCoordinateMapper ().ViewToCanvas (position);
+		if (ActiveTool == CanvasTool.Text && SelectAnnotationAt (last_canvas_point.Value)
+			&& selected_annotation is TextAnnotation) {
+			e.Handled = true;
+			return;
+		}
+		if (ActiveTool == CanvasTool.Selection && properties.IsLeftButtonPressed && SelectAnnotationAt (last_canvas_point.Value)) {
+			dragged_annotation = selected_annotation;
+			drag_start_point = last_canvas_point.Value;
+			drag_start_bounds = dragged_annotation!.Bounds;
+			drag_undo_snapshot = CaptureLayerStack ();
+			drag_changed = false;
+			e.Pointer.Capture (this);
+			e.Handled = true;
+			return;
+		}
 		CanvasToolPointerContext context = new (this, position, last_canvas_point.Value, last_canvas_point.Value,
 			stroke_color, properties.IsRightButtonPressed, false);
 		bool handled = tool_set.Get<ICanvasTool> (ActiveTool).PointerPressed (context);
@@ -1233,7 +2103,8 @@ public sealed class CanvasHost : Control
 			return;
 		}
 		if (ActiveTool is CanvasTool.Selection or CanvasTool.Shapes or CanvasTool.Gradient
-			or CanvasTool.Brush or CanvasTool.Pencil or CanvasTool.Eraser) {
+				or CanvasTool.Brush or CanvasTool.Pencil or CanvasTool.Eraser or CanvasTool.Text or CanvasTool.Blur
+			or CanvasTool.Pixelate or CanvasTool.Highlight or CanvasTool.Magnify or CanvasTool.Spotlight) {
 			is_painting = handled;
 			pointer_action_tool = handled ? ActiveTool : null;
 		}
@@ -1268,10 +2139,18 @@ public sealed class CanvasHost : Control
 		if (is_painting) {
 			Point position = e.GetPosition (this);
 			Point origin = GetCanvasOrigin ();
-			PointD point = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
+			PointD point = GetCoordinateMapper ().ViewToCanvas (position);
 			PointD previous = last_canvas_point ?? point;
 			tool_set.Get<ICanvasTool> (pointer_action_tool ?? ActiveTool).PointerReleased (
 				new CanvasToolPointerContext (this, position, point, previous, stroke_color, false, false));
+			if (pointer_action_tool == CanvasTool.Selection)
+				SyncSelectionAnnotation ();
+		}
+		if (dragged_annotation is not null) {
+			CommitDraggedAnnotationUndo ();
+			dragged_annotation = null;
+			drag_undo_snapshot = null;
+			drag_changed = false;
 		}
 		is_painting = false;
 		pointer_action_tool = null;
@@ -1290,12 +2169,21 @@ public sealed class CanvasHost : Control
 			e.Handled = true;
 			return;
 		}
-		if (!is_painting)
-			return;
-
 		Point position = e.GetPosition (this);
 		Point origin = GetCanvasOrigin ();
-		PointD current = session.Viewport.ViewPointToCanvas (new PointD (position.X - origin.X, position.Y - origin.Y));
+		PointD current = GetCoordinateMapper ().ViewToCanvas (position);
+		PointD bounded = new (Math.Clamp (current.X, 0, ImageSize.Width), Math.Clamp (current.Y, 0, ImageSize.Height));
+		if (pointer_position != bounded) {
+			pointer_position = bounded;
+			PointerPositionChanged?.Invoke (this, EventArgs.Empty);
+		}
+		if (!is_painting) {
+			if (dragged_annotation is not null) {
+				UpdateDraggedAnnotation (dragged_annotation, new Vector (current.X - drag_start_point.X, current.Y - drag_start_point.Y));
+				e.Handled = true;
+			}
+			return;
+		}
 		PointD previous = last_canvas_point ?? current;
 		bool handled = tool_set.Get<ICanvasTool> (pointer_action_tool ?? ActiveTool).PointerMoved (
 			new CanvasToolPointerContext (this, position, current, previous, stroke_color, false,
@@ -1307,11 +2195,26 @@ public sealed class CanvasHost : Control
 	private void OnKeyDown (object? sender, KeyEventArgs e)
 	{
 		if (e.Key == Key.Escape) {
+			ClearAnnotationSelection ();
 			selection_tool.CancelSelection ();
 			if (shape_tool.IsEditing)
 				shape_tool.CancelEdit (CancelCurrentStroke);
 			else
 				CancelCurrentStroke ();
+			e.Handled = true;
+		} else if (selected_annotation is not null && (e.Key is Key.Delete or Key.Back)) {
+			if (RemoveAnnotation (selected_annotation))
+				ClearAnnotationSelection ();
+			e.Handled = true;
+		} else if (selected_annotation is not null && (e.Key is Key.Left or Key.Right or Key.Up or Key.Down)) {
+			int step = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 10 : 1;
+			Vector delta = e.Key switch {
+				Key.Left => new Vector (-step, 0),
+				Key.Right => new Vector (step, 0),
+				Key.Up => new Vector (0, -step),
+				_ => new Vector (0, step)
+			};
+			MoveAnnotation (selected_annotation, delta);
 			e.Handled = true;
 		} else if (ActiveTool == CanvasTool.Shapes && shape_tool.SelectedShape is not null && e.Key is Key.Left or Key.Right or Key.Up or Key.Down) {
 			int step = (e.KeyModifiers & KeyModifiers.Shift) != 0 ? 10 : 1;
@@ -1356,6 +2259,9 @@ public sealed class CanvasHost : Control
 		} else if (keyboard.Matches (e, PintoraKeyCommands.DuplicateLayer)) {
 			DuplicateActiveLayer ();
 			e.Handled = true;
+		} else if (keyboard.Matches (e, PintoraKeyCommands.DuplicateAnnotation)) {
+			DuplicateSelectedAnnotation ();
+			e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.SwapColors)) {
 			SwapColors ();
 			e.Handled = true;
@@ -1384,6 +2290,8 @@ public sealed class CanvasHost : Control
 			ActiveTool = CanvasTool.Brush; e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Pencil)) {
 			ActiveTool = CanvasTool.Pencil; e.Handled = true;
+		} else if (keyboard.Matches (e, PintoraKeyCommands.Text)) {
+			ActiveTool = CanvasTool.Text; e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Line)) {
 			SelectedShape = ShapeKind.Line; ActiveTool = CanvasTool.Shapes; e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Rectangle)) {
@@ -1407,6 +2315,9 @@ public sealed class CanvasHost : Control
 		Pinta.Core.Size viewSize = ViewSize;
 		return new Rect (GetCanvasOrigin (), new global::Avalonia.Size (viewSize.Width, viewSize.Height));
 	}
+
+	private CanvasCoordinateMapper GetCoordinateMapper ()
+		=> new (GetCanvasOrigin (), session.Scale);
 
 	public void PaintCanvasShape (ShapeKind shape, PointD from, PointD to, ColorBgra color)
 		=> PaintCanvasShape (shape, from, to, color, SecondaryBrushColor, FillStyle,

@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Media;
 using Pinta.Core;
 using Pintora.Avalonia.Document;
+using Pintora.Avalonia.Editor.Annotations;
 using Pintora.Avalonia.Imaging;
 
 namespace Pintora.Avalonia.Canvas;
@@ -12,6 +13,7 @@ internal sealed class ShapeTool : ICanvasTool
 	public CanvasHost.CanvasTool Kind => CanvasHost.CanvasTool.Shapes;
 	internal sealed class ShapeState
 	{
+		public ShapeAnnotation? Annotation { get; set; }
 		public required AvaloniaLayer Layer { get; init; }
 		public required ColorBgra[] BasePixels { get; init; }
 		public CanvasHost.ShapeKind Kind { get; set; }
@@ -59,8 +61,9 @@ internal sealed class ShapeTool : ICanvasTool
 			Dash = state.Dash,
 			CornerRadius = state.CornerRadius,
 			Antialias = state.Antialias,
-			Rotation = state.Rotation
+			Rotation = state.Rotation,
 		} : null;
+		SyncAnnotation (SelectedShape);
 	}
 	public bool IsEditing { get; private set; }
 	public bool IsCreating { get; private set; }
@@ -148,8 +151,8 @@ internal sealed class ShapeTool : ICanvasTool
 		shape.Dash = dash;
 		shape.CornerRadius = cornerRadius;
 		shape.Antialias = antialias;
-		ShapeRasterizer.DrawRotated (surface, shape.Kind, shape.From, shape.To, shape.Outline, shape.Fill,
-			shape.FillStyle, shape.Width, shape.Dash, shape.CornerRadius, shape.Antialias, shape.Rotation);
+		SyncAnnotation (shape);
+		AnnotationRenderer.Render (surface, shape.Annotation!);
 		commitStroke ();
 		return true;
 	}
@@ -175,6 +178,8 @@ internal sealed class ShapeTool : ICanvasTool
 			CornerRadius = cornerRadius,
 			Antialias = antialias
 		};
+		SyncAnnotation (SelectedShape);
+		layer.Annotations.Add (SelectedShape.Annotation!);
 	}
 
 	public bool BeginCreate (PointD point, MemoryImageSurface? surface, CanvasHost.ShapeKind kind,
@@ -245,6 +250,8 @@ internal sealed class ShapeTool : ICanvasTool
 			CornerRadius = creationCornerRadius,
 			Antialias = creationAntialias
 		};
+		SyncAnnotation (SelectedShape);
+		layer.Annotations.Add (SelectedShape.Annotation!);
 		ResetCreation ();
 		commitStroke ();
 		return true;
@@ -263,8 +270,8 @@ internal sealed class ShapeTool : ICanvasTool
 		if (!IsEditing || SelectedShape is not ShapeState shape || editBasePixels is null)
 			return;
 		editBasePixels.AsSpan ().CopyTo (preview.GetPixelData ());
-		ShapeRasterizer.DrawRotated (preview, shape.Kind, currentFrom, currentTo, shape.Outline, shape.Fill,
-			shape.FillStyle, shape.Width, shape.Dash, shape.CornerRadius, shape.Antialias, currentRotation);
+		AnnotationRenderer.Render (preview, shape.Annotation! with { From = currentFrom, To = currentTo, Rotation = currentRotation,
+			Bounds = new Rect (Math.Min (currentFrom.X, currentTo.X), Math.Min (currentFrom.Y, currentTo.Y), Math.Abs (currentTo.X - currentFrom.X), Math.Abs (currentTo.Y - currentFrom.Y)) });
 	}
 
 	public bool BeginEdit (PointD point, AvaloniaLayer? activeLayer, Action beginStroke)
@@ -325,11 +332,14 @@ internal sealed class ShapeTool : ICanvasTool
 		if (!IsEditing || SelectedShape is not ShapeState shape || surface is null || editBasePixels is null)
 			return false;
 		editBasePixels.AsSpan ().CopyTo (surface.GetPixelData ());
-		ShapeRasterizer.DrawRotated (surface, shape.Kind, currentFrom, currentTo, shape.Outline, shape.Fill,
-			shape.FillStyle, shape.Width, shape.Dash, shape.CornerRadius, shape.Antialias, currentRotation);
+		Annotation? previousAnnotation = shape.Annotation;
 		shape.From = currentFrom;
 		shape.To = currentTo;
 		shape.Rotation = currentRotation;
+		SyncAnnotation (shape);
+		AnnotationRenderer.Render (surface, shape.Annotation!);
+		if (previousAnnotation is not null && shape.Annotation is not null)
+			shape.Layer.Annotations.Replace (previousAnnotation, shape.Annotation);
 		ResetEdit ();
 		commitStroke ();
 		return true;
@@ -353,8 +363,29 @@ internal sealed class ShapeTool : ICanvasTool
 		PointD to = new (shape.To.X + delta.X, shape.To.Y + delta.Y);
 		ShapeRasterizer.DrawRotated (surface, shape.Kind, from, to, shape.Outline, shape.Fill, shape.FillStyle,
 			shape.Width, shape.Dash, shape.CornerRadius, shape.Antialias, shape.Rotation);
+		Annotation? previousAnnotation = shape.Annotation;
 		shape.From = from;
 		shape.To = to;
+		SyncAnnotation (shape);
+		if (previousAnnotation is not null && shape.Annotation is not null)
+			shape.Layer.Annotations.Replace (previousAnnotation, shape.Annotation);
+		commitStroke ();
+		return true;
+	}
+
+	public bool RotateSelected (double deltaRadians, MemoryImageSurface? surface, bool layerLocked, Action beginStroke, Action commitStroke)
+	{
+		if (SelectedShape is not ShapeState shape || surface is null || layerLocked || !double.IsFinite (deltaRadians))
+			return false;
+		beginStroke ();
+		shape.BasePixels.AsSpan ().CopyTo (surface.GetPixelData ());
+		Annotation? previousAnnotation = shape.Annotation;
+		shape.Rotation += deltaRadians;
+		SyncAnnotation (shape);
+		if (shape.Annotation is not null)
+			AnnotationRenderer.Render (surface, shape.Annotation);
+		if (previousAnnotation is not null && shape.Annotation is not null)
+			shape.Layer.Annotations.Replace (previousAnnotation, shape.Annotation);
 		commitStroke ();
 		return true;
 	}
@@ -364,6 +395,28 @@ internal sealed class ShapeTool : ICanvasTool
 		IsEditing = moving = rotating = false;
 		resizeHandle = -1;
 		editBasePixels = null;
+	}
+
+	private static void SyncAnnotation (ShapeState? shape)
+	{
+		if (shape is null)
+			return;
+		double left = Math.Min (shape.From.X, shape.To.X);
+		double top = Math.Min (shape.From.Y, shape.To.Y);
+		shape.Annotation = new ShapeAnnotation {
+			Bounds = new Rect (left, top, Math.Abs (shape.To.X - shape.From.X), Math.Abs (shape.To.Y - shape.From.Y)),
+			Rotation = shape.Rotation,
+			Kind = shape.Kind,
+			From = shape.From,
+			To = shape.To,
+			Outline = shape.Outline,
+			Fill = shape.Fill,
+			FillStyle = shape.FillStyle,
+			OutlineWidth = shape.Width,
+			Dash = shape.Dash,
+			CornerRadius = shape.CornerRadius,
+			Antialias = shape.Antialias
+		};
 	}
 
 	public void DrawHandles (DrawingContext context, Point origin, double scale, CanvasHost.ShapeKind kind,
