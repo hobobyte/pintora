@@ -562,6 +562,10 @@ public sealed class MainWindow : Window
 			return;
 		tool_options.Children.Clear ();
 		switch (canvas.ActiveTool) {
+			case CanvasHost.CanvasTool.Selection:
+				tool_options.Children.Add (CreateBrushButton ("Select all", () => canvas.SelectAll ()));
+				tool_options.Children.Add (CreateBrushButton ("Deselect", canvas.ClearSelection));
+				break;
 			case CanvasHost.CanvasTool.Brush:
 				tool_options.Children.Add (new TextBlock { Text = "Size", VerticalAlignment = VerticalAlignment.Center });
 				tool_options.Children.Add (CreateBrushSizeInput (canvas));
