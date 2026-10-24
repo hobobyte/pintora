@@ -150,6 +150,7 @@ internal sealed class CanvasPaintingTests
 
 		canvas.AddLayer ();
 		canvas.CropImage (0, 0, 1, 1);
+		Assert.That (canvas.IsDirty, Is.True);
 		Assert.That (canvas.CanUndoLayerOperation, Is.False);
 		canvas.UndoLayerOperation ();
 		Assert.That (canvas.Layers, Has.Count.EqualTo (3));
