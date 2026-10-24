@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Linq;
 using NUnit.Framework;
 using Pintora.Avalonia.Canvas;
+using Pintora.Avalonia.Document;
 using Pintora.Avalonia.Editor.Viewport;
 using Pintora.Avalonia.Editor.Annotations;
 using Pintora.Avalonia.Editor.Hosting;
@@ -433,6 +434,40 @@ internal sealed class CanvasHostTests
 	}
 
 	[Test]
+	public void LayerContentChangedFiresForPaintOperation ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		AvaloniaLayer layer = canvas.Layers[canvas.ActiveLayerIndex];
+		var changes = new System.Collections.Generic.List<AvaloniaLayer> ();
+		canvas.LayerContentChanged += (_, e) => changes.Add (e.Layer);
+
+		canvas.PaintCanvasPoint (new PointD (10, 10), ColorBgra.Red);
+
+		Assert.That (changes, Does.Contain (layer));
+	}
+
+	[Test]
+	public void LayerContentChangedFiresForUndoAndRedo ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		AvaloniaLayer layer = canvas.Layers[canvas.ActiveLayerIndex];
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (10, 10), ColorBgra.Red);
+		canvas.CommitStroke ();
+		int changes = 0;
+		canvas.LayerContentChanged += (_, e) => { if (ReferenceEquals (e.Layer, layer)) changes++; };
+
+		canvas.UndoLastStroke ();
+		Assert.That (changes, Is.GreaterThan (0));
+
+		int afterUndo = changes;
+		canvas.RedoLastStroke ();
+		Assert.That (changes, Is.GreaterThan (afterUndo));
+	}
+
+	[Test]
 	public async Task EmptyClipboardDoesNotCreateLayer ()
 	{
 		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
@@ -442,6 +477,166 @@ internal sealed class CanvasHostTests
 		Assert.That (pasted, Is.False);
 		Assert.That (canvas.Layers, Is.Empty);
 		Assert.That (canvas.IsDirty, Is.False);
+	}
+
+	[Test]
+	public void LayerContentChangedFiresForFillAndGradient ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		AvaloniaLayer layer = canvas.Layers[canvas.ActiveLayerIndex];
+		var changes = new System.Collections.Generic.List<AvaloniaLayer> ();
+		canvas.LayerContentChanged += (_, e) => changes.Add (e.Layer);
+
+		canvas.FillAt (new PointD (10, 10), ColorBgra.Blue);
+		canvas.PaintGradient (new PointD (0, 0), new PointD (50, 50));
+
+		Assert.That (changes, Does.Contain (layer));
+		Assert.That (changes.Count, Is.GreaterThanOrEqualTo (2));
+	}
+
+	[Test]
+	public void LayerContentChangedFiresForCropResizeAndLayerOperation ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		var changes = new System.Collections.Generic.List<AvaloniaLayer> ();
+		canvas.LayerContentChanged += (_, e) => changes.Add (e.Layer);
+
+		canvas.ResizeImage (80, 80);
+		canvas.CropImage (0, 0, 50, 50);
+		canvas.AddLayer ();
+		canvas.UndoLayerOperation ();
+		canvas.RedoLayerOperation ();
+
+		Assert.That (changes, Is.Not.Empty);
+	}
+
+	[Test]
+	public void RemovedLayerDoesNotRaiseLayerContentChanged ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		canvas.AddLayer ();
+		AvaloniaLayer removed = canvas.Layers[canvas.ActiveLayerIndex];
+		int changes = 0;
+		canvas.LayerContentChanged += (_, e) => { if (ReferenceEquals (e.Layer, removed)) changes++; };
+
+		canvas.RemoveLayer ();
+		removed.Annotations.Add (new TextAnnotation { Bounds = new Rect (5, 6, 20, 10), Text = "gone" });
+
+		Assert.That (canvas.Layers, Does.Not.Contain (removed));
+		Assert.That (changes, Is.EqualTo (0));
+	}
+
+	[Test]
+	public void MergedLayerDoesNotRaiseLayerContentChanged ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		canvas.AddLayer ();
+		AvaloniaLayer upper = canvas.Layers[canvas.ActiveLayerIndex];
+		int changes = 0;
+		canvas.LayerContentChanged += (_, e) => { if (ReferenceEquals (e.Layer, upper)) changes++; };
+
+		Assert.That (canvas.MergeActiveLayerDown (), Is.True);
+		upper.Annotations.Add (new TextAnnotation { Bounds = new Rect (1, 1, 8, 8), Text = "merged" });
+
+		Assert.That (canvas.Layers, Does.Not.Contain (upper));
+		Assert.That (changes, Is.EqualTo (0));
+	}
+
+	[Test]
+	public void RemovedLayerIsUnsubscribedImmediately ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		canvas.AddLayer ();
+		AvaloniaLayer removed = canvas.Layers[canvas.ActiveLayerIndex];
+		int layer_changes = 0;
+		int content_changes = 0;
+		canvas.LayersChanged += (_, _) => layer_changes++;
+		canvas.LayerContentChanged += (_, e) => { if (ReferenceEquals (e.Layer, removed)) content_changes++; };
+
+		canvas.RemoveLayer ();
+		int layer_changes_after_remove = layer_changes;
+		int content_changes_after_remove = content_changes;
+
+		removed.Opacity = 0.25;
+		removed.IsVisible = false;
+		removed.Annotations.Add (new TextAnnotation { Bounds = new Rect (1, 1, 4, 4), Text = "detached" });
+
+		Assert.That (canvas.Layers, Does.Not.Contain (removed));
+		Assert.That (layer_changes, Is.EqualTo (layer_changes_after_remove));
+		Assert.That (content_changes, Is.EqualTo (content_changes_after_remove));
+	}
+
+	[Test]
+	public void MergedUpperLayerIsUnsubscribedImmediately ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		canvas.AddLayer ();
+		AvaloniaLayer upper = canvas.Layers[canvas.ActiveLayerIndex];
+		int layer_changes = 0;
+		int content_changes = 0;
+		canvas.LayersChanged += (_, _) => layer_changes++;
+		canvas.LayerContentChanged += (_, e) => { if (ReferenceEquals (e.Layer, upper)) content_changes++; };
+
+		Assert.That (canvas.MergeActiveLayerDown (), Is.True);
+		int layer_changes_after_merge = layer_changes;
+		int content_changes_after_merge = content_changes;
+
+		upper.Opacity = 0.25;
+		upper.IsVisible = false;
+		upper.Annotations.Add (new TextAnnotation { Bounds = new Rect (1, 1, 4, 4), Text = "detached" });
+
+		Assert.That (canvas.Layers, Does.Not.Contain (upper));
+		Assert.That (layer_changes, Is.EqualTo (layer_changes_after_merge));
+		Assert.That (content_changes, Is.EqualTo (content_changes_after_merge));
+	}
+
+	[Test]
+	public void VisibilityAndOpacityRedrawButNameAndLockDoNot ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		AvaloniaLayer layer = canvas.Layers[canvas.ActiveLayerIndex];
+		int content_changes = 0;
+		canvas.LayerContentChanged += (_, e) => { if (ReferenceEquals (e.Layer, layer)) content_changes++; };
+
+		layer.Name = "Renamed";
+		layer.IsLocked = true;
+		layer.IsLocked = false;
+		Assert.That (content_changes, Is.Zero);
+
+		canvas.SetLayerVisibility (canvas.ActiveLayerIndex, false);
+		Assert.That (content_changes, Is.Zero);
+		Assert.That (canvas.IsDirty, Is.True);
+
+		canvas.SetActiveLayerOpacity (0.5);
+		Assert.That (content_changes, Is.Zero);
+	}
+
+	[Test]
+	public void RenameDoesNotRaiseLayerContentChanged ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		canvas.AddLayer ();
+		AvaloniaLayer layer = canvas.Layers[canvas.ActiveLayerIndex];
+		int changes = 0;
+		canvas.LayerContentChanged += (_, e) => { if (ReferenceEquals (e.Layer, layer)) changes++; };
+
+		canvas.RenameLayer ("Renamed");
+		layer.Name = "Also renamed";
+		layer.IsLocked = true;
+		layer.IsLocked = false;
+
+		Assert.That (changes, Is.EqualTo (0));
+
+		canvas.PaintCanvasPoint (new PointD (10, 10), ColorBgra.Red);
+
+		Assert.That (changes, Is.GreaterThan (0));
 	}
 
 	private sealed class EmptyImageProvider : IImageSourceProvider

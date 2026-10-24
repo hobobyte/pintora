@@ -23,4 +23,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Pinta.Core\Pinta.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Pintora.Avalonia.Tests" />
+  </ItemGroup>
 </Project>

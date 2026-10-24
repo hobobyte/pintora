@@ -15,6 +15,7 @@ using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Pinta.Core;
 using Pintora.Avalonia.Canvas;
+using Pintora.Avalonia.Document;
 using Pintora.Avalonia.Editor.Commands;
 using Pintora.Avalonia.Editor.Hosting;
 using Pintora.Avalonia.Editor.Annotations;
@@ -31,6 +32,8 @@ public sealed class MainWindow : Window
 	private readonly IClipboardService? clipboard_service;
 	private readonly List<ColorBgra> recent_colors = new ();
 	private readonly List<ColorBgra> palette_colors = new ();
+	private LayerThumbnailProvider? thumbnail_provider;
+	private EventHandler<LayerThumbnailUpdatedEventArgs>? thumbnail_updated_handler;
 	private Action? refresh_layers;
 	private StackPanel? tool_options;
 	private readonly EditorCommandRegistry commands = new ();
@@ -93,6 +96,11 @@ public sealed class MainWindow : Window
 		} else if (Enum.TryParse (saved_tool_name, out CanvasHost.CanvasTool saved_tool) && Enum.IsDefined (saved_tool))
 			canvas.ActiveTool = saved_tool;
 		Closed += (_, _) => {
+			if (thumbnail_provider is not null && thumbnail_updated_handler is not null)
+				thumbnail_provider.ThumbnailUpdated -= thumbnail_updated_handler;
+			thumbnail_updated_handler = null;
+			thumbnail_provider?.Dispose ();
+			thumbnail_provider = null;
 			settings.PutSetting ("Pintora.Brush.Size", canvas.BrushSize);
 			settings.PutSetting ("Pintora.Brush.Hardness", canvas.BrushHardness);
 			settings.PutSetting ("Pintora.Brush.Opacity", canvas.BrushOpacity);
@@ -1056,27 +1064,37 @@ public sealed class MainWindow : Window
 
 	private Control CreateLayersPanel (CanvasHost canvas)
 	{
+		thumbnail_provider ??= new LayerThumbnailProvider (canvas);
+		LayerThumbnailProvider provider = thumbnail_provider;
 		var layers = new StackPanel { Spacing = 3 };
+		// Maps each layer to the Image control currently displaying it. Rebuilt
+		// on every refresh; the single provider subscription below looks up the
+		// live control instead of capturing per-row handlers.
+		var thumbnails = new Dictionary<AvaloniaLayer, Image> ();
 		Slider? opacity_slider = null;
 		void RebuildLayers ()
 		{
 			int? drag_source = null;
 			layers.Children.Clear ();
+			thumbnails.Clear ();
 			for (int i = canvas.Layers.Count - 1; i >= 0; i--) {
 				int index = i;
-				var visibility = new CheckBox { IsChecked = canvas.Layers[index].IsVisible, Content = canvas.Layers[index].Name };
-				var locked = new CheckBox { IsChecked = canvas.Layers[index].IsLocked, Content = "Lock" };
+				AvaloniaLayer layer = canvas.Layers[index];
+				var visibility = new CheckBox { IsChecked = layer.IsVisible, Content = layer.Name };
+				var locked = new CheckBox { IsChecked = layer.IsLocked, Content = "Lock" };
 				visibility.IsCheckedChanged += (_, _) => {
 					canvas.SetLayerVisibility (index, visibility.IsChecked == true);
 				};
 				locked.IsCheckedChanged += (_, _) => canvas.SetLayerLocked (index, locked.IsChecked == true);
+				var thumbnail = new Image { Source = provider.GetThumbnail (layer), Width = 42, Height = 28, Stretch = Stretch.Uniform };
+				thumbnails[layer] = thumbnail;
 				var button = new Button {
 					Content = new StackPanel {
 						Orientation = Orientation.Horizontal,
 						Spacing = 4,
 						Children = {
 						new TextBlock { Text = index == canvas.ActiveLayerIndex ? "▣" : "□" },
-						new Image { Source = CreateLayerThumbnail (canvas.Layers[index].Surface), Width = 42, Height = 28, Stretch = Stretch.Uniform },
+						thumbnail,
 						visibility, locked
 					}
 					},
@@ -1133,6 +1151,13 @@ public sealed class MainWindow : Window
 		};
 		RebuildLayers ();
 		refresh_layers = RebuildLayers;
+		// Single subscription for the lifetime of the panel. Rebuilds only
+		// replace the dictionary entries, so no handler can outlive its row.
+		thumbnail_updated_handler = (_, e) => {
+			if (e.Thumbnail is not null && thumbnails.TryGetValue (e.Layer, out Image? image))
+				image.Source = e.Thumbnail;
+		};
+		provider.ThumbnailUpdated += thumbnail_updated_handler;
 		canvas.LayersChanged += (_, _) => RebuildLayers ();
 		canvas.ActiveLayerChanged += (_, _) => RebuildLayers ();
 		var panel = new Border {
@@ -1160,18 +1185,4 @@ public sealed class MainWindow : Window
 		return slider;
 	}
 
-	private static WriteableBitmap CreateLayerThumbnail (MemoryImageSurface surface)
-	{
-		// MemoryImageSurface stores ColorBgra in straight-alpha form.  Using a
-		// premultiplied framebuffer here makes transparent layer thumbnails show
-		// dark/opaque fringes and makes them disagree with the canvas preview.
-		var image = new WriteableBitmap (new PixelSize (surface.Width, surface.Height), new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
-		ReadOnlySpan<byte> source = MemoryMarshal.AsBytes (surface.GetReadOnlyPixelData ());
-		using ILockedFramebuffer locked = image.Lock ();
-		for (int y = 0; y < surface.Height; y++) {
-			ReadOnlySpan<byte> row = source.Slice (y * surface.Width * ColorBgra.SizeOf, surface.Width * ColorBgra.SizeOf);
-			Marshal.Copy (row.ToArray (), 0, locked.Address + y * locked.RowBytes, row.Length);
-		}
-		return image;
-	}
 }

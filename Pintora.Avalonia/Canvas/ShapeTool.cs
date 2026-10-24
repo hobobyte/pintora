@@ -125,7 +125,7 @@ internal sealed class ShapeTool : ICanvasTool
 				host.ActiveLayerIndex >= 0 && host.ActiveLayerIndex < host.Layers.Count ? host.Layers[host.ActiveLayerIndex] : null,
 				host.CommitStroke);
 		if (completed)
-			host.MarkCanvasChanged ();
+			host.MarkCanvasChanged (true);
 		return completed;
 	}
 
