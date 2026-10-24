@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -28,6 +29,7 @@ public sealed class MainWindow : Window
 {
 	private readonly PintoraKeyboardSettings keyboard;
 	private readonly SettingsManager settings;
+	private readonly string version;
 	private readonly IImageSourceProvider image_source_provider;
 	private readonly IClipboardService? clipboard_service;
 	private readonly List<ColorBgra> recent_colors = new ();
@@ -35,13 +37,25 @@ public sealed class MainWindow : Window
 	private LayerThumbnailProvider? thumbnail_provider;
 	private EventHandler<LayerThumbnailUpdatedEventArgs>? thumbnail_updated_handler;
 	private Action? refresh_layers;
+	private Action? rebuild_layers_panel;
 	private StackPanel? tool_options;
 	private readonly EditorCommandRegistry commands = new ();
+	private readonly DocumentTabManager tab_manager;
+	private readonly DocumentTabStrip tab_strip = new ();
+	private readonly ContentControl canvas_host = new ();
+	private bool closing_after_confirmation;
+	private bool close_in_progress;
+	private CanvasHost? subscribed_canvas;
+	private Action? refresh_status;
+	private Action? refresh_history_commands;
+	private Action? refresh_zoom;
+	private CanvasHost.CanvasTool active_tool = CanvasHost.CanvasTool.Brush;
+	private List<(Button Button, CanvasHost.CanvasTool Tool)>? tool_buttons;
 	private static readonly CanvasHost.CanvasTool[] EffectTools = [CanvasHost.CanvasTool.Blur, CanvasHost.CanvasTool.Pixelate, CanvasHost.CanvasTool.Highlight, CanvasHost.CanvasTool.Magnify, CanvasHost.CanvasTool.Spotlight];
 
 	public MainWindow ()
 	{
-		string version = typeof (MainWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?.InformationalVersion
+		version = typeof (MainWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?.InformationalVersion
 			?? "0.0.1-alpha";
 		int buildMetadata = version.IndexOf ('+');
 		if (buildMetadata >= 0)
@@ -56,9 +70,25 @@ public sealed class MainWindow : Window
 		App.InitializeTheme (settings);
 		keyboard = new PintoraKeyboardSettings (settings);
 		CanvasHost canvas = CreateCanvasHost (keyboard);
+		// Close prompts perform the save asynchronously before asking the manager
+		// to remove the tab; the synchronous delegate is therefore a final guard.
+		tab_manager = new DocumentTabManager (_ => true, tab => tab.Canvas.Dispose ());
+		tab_manager.AddTab (canvas, canvas.DocumentSession);
+		tab_manager.ActiveTabChanged += (_, _) => {
+			CanvasHost active = ActiveCanvas;
+			active.ActiveTool = active_tool;
+			if (tool_buttons is not null)
+				UpdateToolButtons (tool_buttons, active_tool);
+			RefreshToolOptions (active);
+			SyncActiveCanvas ();
+			RebindActiveCanvas ();
+			rebuild_layers_panel?.Invoke ();
+		};
+		SyncActiveCanvas ();
+		thumbnail_provider = new LayerThumbnailProvider (canvas);
 		clipboard_service = Clipboard is null ? null : new AvaloniaClipboardService (Clipboard);
 		image_source_provider = new FileImageSourceProvider (clipboard_service);
-		canvas.DocumentStateChanged += (_, _) => UpdateDocumentTitle (canvas, version);
+		UpdateDocumentTitle (canvas, version);
 		canvas.BrushColor = LoadColor ("Pintora.Palette.Primary", ColorBgra.Black);
 		canvas.SecondaryBrushColor = LoadColor ("Pintora.Palette.Secondary", ColorBgra.White);
 		LoadRecentColors ();
@@ -92,10 +122,27 @@ public sealed class MainWindow : Window
 		string saved_tool_name = settings.GetSetting ("Pintora.Tool", "Brush");
 		if (Enum.TryParse (saved_tool_name, out CanvasHost.ShapeKind legacy_shape)) {
 			canvas.SelectedShape = legacy_shape;
-			canvas.ActiveTool = CanvasHost.CanvasTool.Shapes;
+			active_tool = CanvasHost.CanvasTool.Shapes;
 		} else if (Enum.TryParse (saved_tool_name, out CanvasHost.CanvasTool saved_tool) && Enum.IsDefined (saved_tool))
-			canvas.ActiveTool = saved_tool;
+			active_tool = saved_tool;
+		canvas.ActiveTool = active_tool;
+		Closing += OnWindowClosing;
 		Closed += (_, _) => {
+			if (subscribed_canvas is not null) {
+				subscribed_canvas.HistoryChanged -= OnActiveCanvasHistoryChanged;
+				subscribed_canvas.ScaleChanged -= OnActiveCanvasScaleChanged;
+				subscribed_canvas.ActiveToolChanged -= OnActiveCanvasToolOptionsChanged;
+				subscribed_canvas.SelectedShapeChanged -= OnActiveCanvasToolOptionsChanged;
+				subscribed_canvas.BrushSizeChanged -= OnActiveCanvasToolOptionsChanged;
+				subscribed_canvas.PointerPositionChanged -= OnActiveCanvasToolChanged;
+				subscribed_canvas.ColorsChanged -= OnActiveCanvasColorsChanged;
+				subscribed_canvas.LayersChanged -= OnActiveCanvasLayersChanged;
+				subscribed_canvas.ActiveLayerChanged -= OnActiveCanvasLayersChanged;
+				subscribed_canvas.ToolOptionsChanged -= OnActiveCanvasToolOptionsChanged;
+				subscribed_canvas.AnnotationSelectionChanged -= OnActiveCanvasToolOptionsChanged;
+				subscribed_canvas.DocumentStateChanged -= OnActiveCanvasDocumentStateChanged;
+				subscribed_canvas = null;
+			}
 			if (thumbnail_provider is not null && thumbnail_updated_handler is not null)
 				thumbnail_provider.ThumbnailUpdated -= thumbnail_updated_handler;
 			thumbnail_updated_handler = null;
@@ -136,14 +183,18 @@ public sealed class MainWindow : Window
 	private Control CreateCommandBar (CanvasHost canvas)
 	{
 		var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-		commands.Children.Add (CreateCompactCommand ("New", "New image", () => new NewDocumentWindow (canvas).Show (this)));
-		commands.Children.Add (CreateCompactCommand ("Open", "Open image", () => _ = OpenImageAsync (canvas)));
-		commands.Children.Add (CreateCompactCommand ("Save", "Save image as", () => _ = SaveAsAsync (canvas)));
+		commands.Children.Add (CreateCompactCommand ("New", "New image", () => tab_manager.AddNewDocument ()));
+		commands.Children.Add (CreateCompactCommand ("Open", "Open image", () => _ = OpenImageAsync (ActiveCanvas)));
+		commands.Children.Add (CreateCompactCommand ("Save", "Save image as", () => _ = SaveAsAsync (ActiveCanvas)));
 		commands.Children.Add (new Separator { Width = 1, Margin = new global::Avalonia.Thickness (6, 4) });
 		var undo = CreateCompactCommand ("↶", "Undo", () => this.commands.TryExecute (PintoraKeyCommands.Undo.Id));
 		var redo = CreateCompactCommand ("↷", "Redo", () => this.commands.TryExecute (PintoraKeyCommands.Redo.Id));
-		void RefreshHistory () { undo.IsEnabled = canvas.CanUndoStroke; redo.IsEnabled = canvas.CanRedoStroke; }
-		canvas.HistoryChanged += (_, _) => RefreshHistory ();
+		void RefreshHistory () {
+			CanvasHost active = ActiveCanvas;
+			undo.IsEnabled = active.CanUndoStroke;
+			redo.IsEnabled = active.CanRedoStroke;
+		}
+		refresh_history_commands = RefreshHistory;
 		RefreshHistory ();
 		commands.Children.Add (undo);
 		commands.Children.Add (redo);
@@ -201,30 +252,28 @@ public sealed class MainWindow : Window
 		return button;
 	}
 
-	private static Control CreateStatusBar (CanvasHost canvas)
+	private Control CreateStatusBar (CanvasHost canvas)
 	{
-		var dimensions = new TextBlock { Text = $"{canvas.ImageSize.Width} × {canvas.ImageSize.Height} px" };
+		var dimensions = new TextBlock ();
 		var details = new TextBlock ();
 		void RefreshDetails () {
-			string position = canvas.PointerPosition is PointD point ? $"  •  X: {point.X:0}  Y: {point.Y:0}" : string.Empty;
-			details.Text = $"{(canvas.ActiveTool == CanvasHost.CanvasTool.Shapes ? canvas.SelectedShape.ToString () : canvas.ActiveTool.ToString ())}  •  Brush {canvas.BrushSize}px{position}";
+			CanvasHost active = ActiveCanvas;
+			dimensions.Text = $"{active.ImageSize.Width} × {active.ImageSize.Height} px";
+			string position = active.PointerPosition is PointD point ? $"  •  X: {point.X:0}  Y: {point.Y:0}" : string.Empty;
+			details.Text = $"{(active.ActiveTool == CanvasHost.CanvasTool.Shapes ? active.SelectedShape.ToString () : active.ActiveTool.ToString ())}  •  Brush {active.BrushSize}px{position}";
 		}
+		refresh_status = RefreshDetails;
 		RefreshDetails ();
-		canvas.ScaleChanged += (_, _) => RefreshDetails ();
-		canvas.ActiveToolChanged += (_, _) => RefreshDetails ();
-		canvas.SelectedShapeChanged += (_, _) => RefreshDetails ();
-		canvas.BrushSizeChanged += (_, _) => RefreshDetails ();
-		canvas.PointerPositionChanged += (_, _) => RefreshDetails ();
 		var zoom = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
-		void RefreshZoom () => zoom.Text = canvas.Scale.ToString ("P0");
+		void RefreshZoom () => zoom.Text = ActiveCanvas.Scale.ToString ("P0");
+		refresh_zoom = RefreshZoom;
 		RefreshZoom ();
-		canvas.ScaleChanged += (_, _) => RefreshZoom ();
 		var zoom_controls = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Children = {
 			dimensions,
-			CreateCompactCommand ("−", "Zoom out", () => canvas.SetScale (Math.Max (0.1, canvas.Scale / 1.25))),
+			CreateCompactCommand ("−", "Zoom out", () => ActiveCanvas.SetScale (Math.Max (0.1, ActiveCanvas.Scale / 1.25))),
 			zoom,
-			CreateCompactCommand ("+", "Zoom in", () => canvas.SetScale (Math.Min (32, canvas.Scale * 1.25))),
-			CreateCompactCommand ("Fit", "Fit canvas to window", canvas.FitToWindow)
+			CreateCompactCommand ("+", "Zoom in", () => ActiveCanvas.SetScale (Math.Min (32, ActiveCanvas.Scale * 1.25))),
+			CreateCompactCommand ("Fit", "Fit canvas to window", () => ActiveCanvas.FitToWindow ())
 		} };
 		DockPanel.SetDock (zoom_controls, Dock.Right);
 		var status = new Border {
@@ -249,32 +298,33 @@ public sealed class MainWindow : Window
 		preferences.Click += (_, _) => new SettingsWindow (canvas, settings, keyboard).Show (this);
 		MenuItem undo = CreateMenuItem ("_Undo", () => commands.TryExecute (PintoraKeyCommands.Undo.Id), keyboard, PintoraKeyCommands.Undo);
 		MenuItem redo = CreateMenuItem ("_Redo", () => commands.TryExecute (PintoraKeyCommands.Redo.Id), keyboard, PintoraKeyCommands.Redo);
-		MenuItem layer_undo = CreateMenuItem ("Undo layer", () => canvas.UndoLayerOperation ());
-		MenuItem layer_redo = CreateMenuItem ("Redo layer", () => canvas.RedoLayerOperation ());
+		MenuItem layer_undo = CreateMenuItem ("Undo layer", () => ActiveCanvas.UndoLayerOperation ());
+		MenuItem layer_redo = CreateMenuItem ("Redo layer", () => ActiveCanvas.RedoLayerOperation ());
 		MenuItem clear_history = CreateMenuItem ("Clear history", () => commands.TryExecute (PintoraKeyCommands.ClearHistory.Id), keyboard, PintoraKeyCommands.ClearHistory);
 		void RefreshHistoryCommands () {
-			undo.IsEnabled = canvas.CanUndoStroke;
-			redo.IsEnabled = canvas.CanRedoStroke;
-			layer_undo.IsEnabled = canvas.CanUndoLayerOperation;
-			layer_redo.IsEnabled = canvas.CanRedoLayerOperation;
-			clear_history.IsEnabled = canvas.History.Count > 0;
+			CanvasHost active = ActiveCanvas;
+			undo.IsEnabled = active.CanUndoStroke;
+			redo.IsEnabled = active.CanRedoStroke;
+			layer_undo.IsEnabled = active.CanUndoLayerOperation;
+			layer_redo.IsEnabled = active.CanRedoLayerOperation;
+			clear_history.IsEnabled = active.History.Count > 0;
 		}
-		canvas.HistoryChanged += (_, _) => RefreshHistoryCommands ();
+		refresh_history_commands = RefreshHistoryCommands;
 		RefreshHistoryCommands ();
 		var menu = new Menu {
 			Items = {
 				new MenuItem { Header = "_File", Items = {
-					CreateMenuItem ("_New", () => new NewDocumentWindow (canvas).Show (this)),
-					CreateMenuItem ("_Open", () => _ = OpenImageAsync (canvas)),
-					CreateMenuItem ("Import image as layer", () => _ = ImportImageLayerAsync (canvas)),
-					CreateMenuItem ("Insert image annotation", () => _ = InsertImageAnnotationAsync (canvas)),
+					CreateMenuItem ("_New", () => tab_manager.AddNewDocument ()),
+					CreateMenuItem ("_Open", () => _ = OpenImageAsync (ActiveCanvas)),
+					CreateMenuItem ("Import image as layer", () => _ = ImportImageLayerAsync (ActiveCanvas)),
+					CreateMenuItem ("Insert image annotation", () => _ = InsertImageAnnotationAsync (ActiveCanvas)),
 					new Separator (),
-					CreateMenuItem ("Save _As", () => _ = SaveAsAsync (canvas)),
-					CreateMenuItem ("Save _PNG", () => _ = SavePngAsync (canvas)),
-					CreateMenuItem ("Save _JPEG", () => _ = SaveJpegAsync (canvas)),
-					CreateMenuItem ("Save _WebP", () => _ = SaveWebpAsync (canvas)),
-					CreateMenuItem ("Save _TIFF", () => _ = SaveTiffAsync (canvas)),
-					CreateMenuItem ("Save _ORA", () => _ = SaveOraAsync (canvas))
+					CreateMenuItem ("Save _As", () => _ = SaveAsAsync (ActiveCanvas)),
+					CreateMenuItem ("Save _PNG", () => _ = SavePngAsync (ActiveCanvas)),
+					CreateMenuItem ("Save _JPEG", () => _ = SaveJpegAsync (ActiveCanvas)),
+					CreateMenuItem ("Save _WebP", () => _ = SaveWebpAsync (ActiveCanvas)),
+					CreateMenuItem ("Save _TIFF", () => _ = SaveTiffAsync (ActiveCanvas)),
+					CreateMenuItem ("Save _ORA", () => _ = SaveOraAsync (ActiveCanvas))
 				} },
 				new MenuItem { Header = "_Edit", Items = {
 					undo,
@@ -282,54 +332,59 @@ public sealed class MainWindow : Window
 					clear_history,
 					layer_undo,
 					layer_redo,
-					CreateMenuItem ("Clear layer", () => canvas.ClearActiveLayer (), keyboard, PintoraKeyCommands.ClearLayer),
+					CreateMenuItem ("Clear layer", () => ActiveCanvas.ClearActiveLayer (), keyboard, PintoraKeyCommands.ClearLayer),
 					new Separator (),
-					CreateMenuItem ("Copy selection", () => canvas.CopySelection (), keyboard, PintoraKeyCommands.Copy),
-					CreateMenuItem ("Copy selection to clipboard", () => _ = CopySelectionToClipboardAsync (canvas), keyboard, PintoraKeyCommands.CopySelectionImage),
-					CreateMenuItem ("Copy image to clipboard", () => _ = CopyImageToClipboardAsync (canvas), keyboard, PintoraKeyCommands.CopyImage),
-					CreateMenuItem ("Paste selection", () => canvas.PasteSelection (), keyboard, PintoraKeyCommands.Paste),
-					CreateMenuItem ("Paste image as layer", () => _ = canvas.PasteImageFromClipboardAsync (image_source_provider), keyboard, PintoraKeyCommands.PasteImageAsLayer),
-					CreateMenuItem ("Paste image as annotation", () => _ = canvas.AddImageAnnotationFromClipboardAsync (image_source_provider), keyboard, PintoraKeyCommands.PasteImageAnnotation),
+					CreateMenuItem ("Copy selection", () => ActiveCanvas.CopySelection (), keyboard, PintoraKeyCommands.Copy),
+					CreateMenuItem ("Copy selection to clipboard", () => _ = CopySelectionToClipboardAsync (ActiveCanvas), keyboard, PintoraKeyCommands.CopySelectionImage),
+					CreateMenuItem ("Copy image to clipboard", () => _ = CopyImageToClipboardAsync (ActiveCanvas), keyboard, PintoraKeyCommands.CopyImage),
+					CreateMenuItem ("Paste selection", () => ActiveCanvas.PasteSelection (), keyboard, PintoraKeyCommands.Paste),
+					CreateMenuItem ("Paste image as layer", () => _ = ActiveCanvas.PasteImageFromClipboardAsync (image_source_provider), keyboard, PintoraKeyCommands.PasteImageAsLayer),
+					CreateMenuItem ("Paste image as annotation", () => _ = ActiveCanvas.AddImageAnnotationFromClipboardAsync (image_source_provider), keyboard, PintoraKeyCommands.PasteImageAnnotation),
 					CreateMenuItem ("Rotate selected annotation 90° clockwise", () => {
-						if (canvas.SelectedAnnotation is { } annotation)
-							canvas.RotateAnnotation (annotation, Math.PI / 2);
+						CanvasHost active = ActiveCanvas;
+						if (active.SelectedAnnotation is { } annotation)
+							active.RotateAnnotation (annotation, Math.PI / 2);
 					}),
 					CreateMenuItem ("Delete selected annotation", () => {
-						if (canvas.SelectedAnnotation is { } annotation && canvas.RemoveAnnotation (annotation))
-							canvas.ClearAnnotationSelection ();
+						CanvasHost active = ActiveCanvas;
+						if (active.SelectedAnnotation is { } annotation && active.RemoveAnnotation (annotation))
+							active.ClearAnnotationSelection ();
 					}),
-					CreateMenuItem ("Duplicate selected annotation", () => canvas.DuplicateSelectedAnnotation (), keyboard, PintoraKeyCommands.DuplicateAnnotation),
-					CreateMenuItem ("Select _all", () => canvas.SelectAll (), keyboard, PintoraKeyCommands.SelectAll),
-					CreateMenuItem ("Deselect", canvas.ClearSelection, keyboard, PintoraKeyCommands.Deselect),
-					CreateMenuItem ("Flip selection horizontally", () => canvas.FlipSelectionHorizontal ()),
-					CreateMenuItem ("Flip selection vertically", () => canvas.FlipSelectionVertical ()),
-					CreateMenuItem ("Rotate selection 90° clockwise", () => canvas.RotateSelectionClockwise ()),
+					CreateMenuItem ("Duplicate selected annotation", () => ActiveCanvas.DuplicateSelectedAnnotation (), keyboard, PintoraKeyCommands.DuplicateAnnotation),
+					CreateMenuItem ("Select _all", () => ActiveCanvas.SelectAll (), keyboard, PintoraKeyCommands.SelectAll),
+					CreateMenuItem ("Deselect", () => ActiveCanvas.ClearSelection (), keyboard, PintoraKeyCommands.Deselect),
+					CreateMenuItem ("Flip selection horizontally", () => ActiveCanvas.FlipSelectionHorizontal ()),
+					CreateMenuItem ("Flip selection vertically", () => ActiveCanvas.FlipSelectionVertical ()),
+					CreateMenuItem ("Rotate selection 90° clockwise", () => ActiveCanvas.RotateSelectionClockwise ()),
 					new Separator (),
 					preferences
 				} },
 				new MenuItem { Header = "_View", Items = {
-					CreateMenuItem ("Fit canvas", canvas.FitToWindow, keyboard, PintoraKeyCommands.FitCanvas),
-					CreateMenuItem ("100%", canvas.SetActualSize, keyboard, PintoraKeyCommands.ActualSize),
+					CreateMenuItem ("Fit canvas", () => ActiveCanvas.FitToWindow (), keyboard, PintoraKeyCommands.FitCanvas),
+					CreateMenuItem ("100%", () => ActiveCanvas.SetActualSize (), keyboard, PintoraKeyCommands.ActualSize),
 					new Separator (),
 					CreateMenuItem ("Light theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Light)),
 					CreateMenuItem ("Dark theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Dark)),
 					CreateMenuItem ("System theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Default))
 				} },
 				new MenuItem { Header = "_Image", Items = {
-					CreateMenuItem ("Resize image", () => new ResizeImageWindow (canvas).Show (this)),
-					CreateMenuItem ("Crop image", () => new CropImageWindow (canvas).Show (this))
+					CreateMenuItem ("Resize image", () => new ResizeImageWindow (ActiveCanvas).Show (this)),
+					CreateMenuItem ("Crop image", () => new CropImageWindow (ActiveCanvas).Show (this))
 				} },
 				new MenuItem { Header = "_Layers", Items = {
-					CreateMenuItem ("Add layer", canvas.AddLayer),
-					CreateMenuItem ("Duplicate layer", () => canvas.DuplicateActiveLayer (), keyboard, PintoraKeyCommands.DuplicateLayer),
-					CreateMenuItem ("Move layer up", () => canvas.MoveLayer (1)),
-					CreateMenuItem ("Move layer down", () => canvas.MoveLayer (-1)),
-					CreateMenuItem ("Merge layer down", () => canvas.MergeActiveLayerDown ()),
-					CreateMenuItem ("Delete layer", canvas.RemoveLayer),
-					CreateMenuItem ("Rename layer", () => new LayerRenameWindow (canvas, canvas.Layers[canvas.ActiveLayerIndex].Name, () => { }).Show (this))
+					CreateMenuItem ("Add layer", () => ActiveCanvas.AddLayer ()),
+					CreateMenuItem ("Duplicate layer", () => ActiveCanvas.DuplicateActiveLayer (), keyboard, PintoraKeyCommands.DuplicateLayer),
+					CreateMenuItem ("Move layer up", () => ActiveCanvas.MoveLayer (1)),
+					CreateMenuItem ("Move layer down", () => ActiveCanvas.MoveLayer (-1)),
+					CreateMenuItem ("Merge layer down", () => ActiveCanvas.MergeActiveLayerDown ()),
+					CreateMenuItem ("Delete layer", () => ActiveCanvas.RemoveLayer ()),
+					CreateMenuItem ("Rename layer", () => {
+						CanvasHost active = ActiveCanvas;
+						new LayerRenameWindow (active, active.Layers[active.ActiveLayerIndex].Name, () => { }).Show (this);
+					})
 				} },
 				new MenuItem { Header = "_Window", Items = {
-					CreateMenuItem ("History", () => new HistoryWindow (canvas).Show (this))
+					CreateMenuItem ("History", () => new HistoryWindow (ActiveCanvas).Show (this))
 				} },
 				new MenuItem { Header = "_Help", Items = {
 					CreateMenuItem ("Keyboard shortcuts", () => new KeyboardSettingsWindow (keyboard).Show (this)),
@@ -341,8 +396,15 @@ public sealed class MainWindow : Window
 		return menu;
 	}
 
+	private CanvasHost ActiveCanvas => tab_manager.ActiveTab?.Canvas ?? throw new InvalidOperationException ("No active document tab.");
+
 	private void UpdateDocumentTitle (CanvasHost canvas, string version)
-		=> Title = $"{(canvas.IsDirty ? "* " : string.Empty)}Pintora {version} — Simple. Powerful. Creative.";
+	{
+		DocumentSession document = canvas.DocumentSession;
+		string dirty_marker = document.IsDirty ? "* " : string.Empty;
+		string document_name = document.FilePath is null ? string.Empty : $" — {document.Title}";
+		Title = $"{dirty_marker}Pintora {version}{document_name} — Simple. Powerful. Creative.";
+	}
 
 	private static Button CreateBrushButton (string label, Action action)
 	{
@@ -407,7 +469,7 @@ public sealed class MainWindow : Window
 			return;
 
 		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
-			SuggestedFileName = "pintora.png",
+			SuggestedFileName = SuggestedFileName (canvas, "pintora.png"),
 			DefaultExtension = "png",
 			FileTypeChoices = new[] {
 				new FilePickerFileType ("PNG image") { Patterns = new[] { "*.png" } }
@@ -418,13 +480,22 @@ public sealed class MainWindow : Window
 			canvas.SavePng (file.Path.LocalPath);
 	}
 
+	private static string SuggestedFileName (CanvasHost canvas, string fallback)
+	{
+		string? path = canvas.DocumentSession.FilePath;
+		if (path is null)
+			return fallback;
+		string name = System.IO.Path.GetFileName (path);
+		return string.IsNullOrEmpty (name) ? fallback : name;
+	}
+
 	private async Task SaveAsAsync (CanvasHost canvas)
 	{
 		if (StorageProvider is null)
 			return;
 
 		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
-			SuggestedFileName = "pintora.png",
+			SuggestedFileName = SuggestedFileName (canvas, "pintora.png"),
 			DefaultExtension = "png",
 			FileTypeChoices = new[] {
 				new FilePickerFileType ("PNG image") { Patterns = new[] { "*.png" } },
@@ -467,7 +538,7 @@ public sealed class MainWindow : Window
 		});
 
 		if (file.Count > 0)
-			canvas.OpenImage (file[0].Path.LocalPath);
+			tab_manager.AddExistingDocument (file[0].Path.LocalPath);
 	}
 
 	private async Task ImportImageLayerAsync (CanvasHost canvas)
@@ -502,7 +573,7 @@ public sealed class MainWindow : Window
 		if (StorageProvider is null)
 			return;
 		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
-			SuggestedFileName = "pintora.ora",
+			SuggestedFileName = SuggestedFileName (canvas, "pintora.ora"),
 			DefaultExtension = "ora",
 			FileTypeChoices = new[] { new FilePickerFileType ("OpenRaster image") { Patterns = new[] { "*.ora" } } }
 		});
@@ -515,7 +586,7 @@ public sealed class MainWindow : Window
 		if (StorageProvider is null)
 			return;
 		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
-			SuggestedFileName = "pintora.jpg",
+			SuggestedFileName = SuggestedFileName (canvas, "pintora.jpg"),
 			DefaultExtension = "jpg",
 			FileTypeChoices = new[] { new FilePickerFileType ("JPEG image") { Patterns = new[] { "*.jpg", "*.jpeg" } } }
 		});
@@ -527,7 +598,7 @@ public sealed class MainWindow : Window
 	{
 		if (StorageProvider is null) return;
 		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
-			SuggestedFileName = "pintora.webp",
+			SuggestedFileName = SuggestedFileName (canvas, "pintora.webp"),
 			DefaultExtension = "webp",
 			FileTypeChoices = new[] { new FilePickerFileType ("WebP image") { Patterns = new[] { "*.webp" } } }
 		});
@@ -538,7 +609,7 @@ public sealed class MainWindow : Window
 	{
 		if (StorageProvider is null) return;
 		var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
-			SuggestedFileName = "pintora.tiff",
+			SuggestedFileName = SuggestedFileName (canvas, "pintora.tiff"),
 			DefaultExtension = "tiff",
 			FileTypeChoices = new[] { new FilePickerFileType ("TIFF image") { Patterns = new[] { "*.tif", "*.tiff" } } }
 		});
@@ -564,7 +635,7 @@ public sealed class MainWindow : Window
 				CreateCanvasPlaceholder (canvas),
 				CreateToolPanel (canvas),
 				CreatePalette (canvas),
-				CreateLayersPanel (canvas)
+				CreateLayersPanel ()
 			}
 		};
 		workspace.Bind (Grid.BackgroundProperty, new DynamicResourceExtension ("Pintora.Workspace.Background"));
@@ -614,27 +685,24 @@ public sealed class MainWindow : Window
 		buttons.Add ((highlight, CanvasHost.CanvasTool.Highlight));
 		buttons.Add ((magnify, CanvasHost.CanvasTool.Magnify));
 		buttons.Add ((spotlight, CanvasHost.CanvasTool.Spotlight));
+		tool_buttons = buttons;
 		foreach ((Button button, CanvasHost.CanvasTool tool) in buttons) {
 			button.Click += (_, _) => {
-				canvas.ActiveTool = tool;
-				UpdateToolButtons (buttons, canvas.ActiveTool);
-				RefreshToolOptions (canvas);
+				CanvasHost active = ActiveCanvas;
+				active_tool = tool;
+				active.ActiveTool = tool;
+				UpdateToolButtons (buttons, active.ActiveTool);
+				RefreshToolOptions (active);
 			};
 			tools.Children.Add (button);
 		}
-		canvas.ActiveToolChanged += (_, _) => {
-			UpdateToolButtons (buttons, canvas.ActiveTool);
-			RefreshToolOptions (canvas);
-		};
-		canvas.ToolOptionsChanged += (_, _) => RefreshToolOptions (canvas);
-		canvas.BrushSizeChanged += (_, _) => RefreshToolOptions (canvas);
-		canvas.SelectedShapeChanged += (_, _) => {
-			if (canvas.ActiveTool == CanvasHost.CanvasTool.Shapes)
-				RefreshToolOptions (canvas);
-		};
-		canvas.AnnotationSelectionChanged += (_, _) => {
-			if (canvas.ActiveTool == CanvasHost.CanvasTool.Text)
-				RefreshToolOptions (canvas);
+		// Tool buttons and options always follow the active tab. The handlers
+		// read ActiveCanvas instead of capturing the initial canvas, so a tab
+		// switch cannot leave them pointing at a stale document.
+		tab_manager.ActiveTabChanged += (_, _) => {
+			CanvasHost active = ActiveCanvas;
+			UpdateToolButtons (buttons, active.ActiveTool);
+			RefreshToolOptions (active);
 		};
 		var panel = new Border {
 			Width = 88,
@@ -659,39 +727,43 @@ public sealed class MainWindow : Window
 		var wheel = new ColorPickerSurface { Width = 136, Height = 136, ShowValue = false };
 		void RefreshColors ()
 		{
-			primary.Background = new SolidColorBrush (ToAvaloniaColor (canvas.BrushColor));
-			secondary.Background = new SolidColorBrush (ToAvaloniaColor (canvas.SecondaryBrushColor));
-			wheel.Color = ToAvaloniaColor (canvas.BrushColor);
+			CanvasHost active = ActiveCanvas;
+			primary.Background = new SolidColorBrush (ToAvaloniaColor (active.BrushColor));
+			secondary.Background = new SolidColorBrush (ToAvaloniaColor (active.SecondaryBrushColor));
+			wheel.Color = ToAvaloniaColor (active.BrushColor);
 		}
-		canvas.ColorsChanged += (_, _) => RefreshColors ();
+		tab_manager.ActiveTabChanged += (_, _) => RefreshColors ();
 		void SaveColors ()
 		{
-			settings.PutSetting ("Pintora.Palette.Primary", ToAvaloniaColor (canvas.BrushColor).ToString ());
-			settings.PutSetting ("Pintora.Palette.Secondary", ToAvaloniaColor (canvas.SecondaryBrushColor).ToString ());
+			CanvasHost active = ActiveCanvas;
+			settings.PutSetting ("Pintora.Palette.Primary", ToAvaloniaColor (active.BrushColor).ToString ());
+			settings.PutSetting ("Pintora.Palette.Secondary", ToAvaloniaColor (active.SecondaryBrushColor).ToString ());
 			settings.PutSetting ("Pintora.Palette.Recent", string.Join (",", recent_colors.ConvertAll (ToAvaloniaColor).ConvertAll (color => color.ToString ())));
 			settings.PutSetting ("Pintora.Palette.Colors", string.Join (",", palette_colors.ConvertAll (ToAvaloniaColor).ConvertAll (color => color.ToString ())));
 			RefreshColors ();
 		}
-		primary.Click += (_, _) => new ColorDialogWindow (ToAvaloniaColor (canvas.BrushColor), color => {
-			canvas.BrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
-			SavePaletteColor (canvas);
+		primary.Click += (_, _) => new ColorDialogWindow (ToAvaloniaColor (ActiveCanvas.BrushColor), color => {
+			CanvasHost active = ActiveCanvas;
+			active.BrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
+			SavePaletteColor (active);
 			RefreshColors ();
 		}).Show (this);
-		secondary.Click += (_, _) => new ColorDialogWindow (ToAvaloniaColor (canvas.SecondaryBrushColor), color => {
-			canvas.SecondaryBrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
-			SavePaletteColor (canvas);
+		secondary.Click += (_, _) => new ColorDialogWindow (ToAvaloniaColor (ActiveCanvas.SecondaryBrushColor), color => {
+			CanvasHost active = ActiveCanvas;
+			active.SecondaryBrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
+			SavePaletteColor (active);
 			RefreshColors ();
 		}).Show (this);
 		wheel.ColorChanged += (_, color) => {
-			canvas.BrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
+			ActiveCanvas.BrushColor = ColorBgra.FromBgra (color.B, color.G, color.R, color.A);
 			SaveColors ();
 		};
 		var swap = CreateCompactCommand ("⇄", "Swap colors", () => {
-			canvas.SwapColors ();
+			ActiveCanvas.SwapColors ();
 			SaveColors ();
 		});
 		var reset = CreateCompactCommand ("◩", "Reset colors", () => {
-			canvas.ResetColors ();
+			ActiveCanvas.ResetColors ();
 			SaveColors ();
 		});
 		var colors = new WrapPanel { Width = 216, ItemWidth = 18, ItemHeight = 18 };
@@ -708,12 +780,13 @@ public sealed class MainWindow : Window
 			int index = palette_index;
 			ColorBgra color = palette_colors[index];
 			var swatch = CreateColorSwatch (ToAvaloniaColor (color).ToString (),
-				() => { canvas.BrushColor = color; SavePaletteColor (canvas); RefreshColors (); },
-				() => { canvas.SecondaryBrushColor = color; SavePaletteColor (canvas); RefreshColors (); },
+				() => { CanvasHost active = ActiveCanvas; active.BrushColor = color; SavePaletteColor (active); RefreshColors (); },
+				() => { CanvasHost active = ActiveCanvas; active.SecondaryBrushColor = color; SavePaletteColor (active); RefreshColors (); },
 				() => new ColorDialogWindow (ToAvaloniaColor (color), picked => {
 					palette_colors[index] = ColorBgra.FromBgra (picked.B, picked.G, picked.R, picked.A);
-					canvas.BrushColor = palette_colors[index];
-					SavePaletteColor (canvas);
+					CanvasHost active = ActiveCanvas;
+					active.BrushColor = palette_colors[index];
+					SavePaletteColor (active);
 					RefreshColors ();
 				}).Show (this));
 			swatch.Width = 18;
@@ -724,8 +797,8 @@ public sealed class MainWindow : Window
 		foreach (ColorBgra recent_color in recent_colors) {
 			ColorBgra color = recent_color;
 			var swatch = CreateColorSwatch (ToAvaloniaColor (color).ToString (),
-				() => { canvas.BrushColor = color; SavePaletteColor (canvas); },
-				() => { canvas.SecondaryBrushColor = color; SavePaletteColor (canvas); });
+				() => { CanvasHost active = ActiveCanvas; active.BrushColor = color; SavePaletteColor (active); },
+				() => { CanvasHost active = ActiveCanvas; active.SecondaryBrushColor = color; SavePaletteColor (active); });
 			swatch.Width = 18;
 			swatch.Height = 18;
 			recent.Children.Add (swatch);
@@ -743,15 +816,16 @@ public sealed class MainWindow : Window
 		applyHex.Click += (_, _) => {
 			if (!string.IsNullOrWhiteSpace (hexInput.Text) &&
 				Color.TryParse (hexInput.Text.Trim (), out Color parsed)) {
-				canvas.BrushColor = ToColorBgra (parsed);
-				SavePaletteColor (canvas);
+				CanvasHost active = ActiveCanvas;
+				active.BrushColor = ToColorBgra (parsed);
+				SavePaletteColor (active);
 				RefreshColors ();
 			}
 		};
 		var more = CreateCompactCommand ("More…", "Show custom color controls", () => {
 			advancedColors.IsVisible = !advancedColors.IsVisible;
 			if (advancedColors.IsVisible)
-				hexInput.Text = ToAvaloniaColor (canvas.BrushColor).ToString ();
+				hexInput.Text = ToAvaloniaColor (ActiveCanvas.BrushColor).ToString ();
 		});
 		RefreshColors ();
 		var content = new StackPanel {
@@ -1045,14 +1119,247 @@ public sealed class MainWindow : Window
 			button.Classes.Set ("active", active == tool);
 	}
 
-	private static Control CreateCanvasPlaceholder (CanvasHost canvas)
+	private async Task<CloseDecision> PromptCloseDecisionAsync (DocumentTab tab)
 	{
+		if (!tab.IsDirty)
+			return CloseDecision.Discard;
+
+		var result = new TaskCompletionSource<CloseDecision> (TaskCreationOptions.RunContinuationsAsynchronously);
+		var dialog = new Window {
+			Title = $"Save changes to {tab.Title}?",
+			Width = 420,
+			Height = 160,
+			CanResize = false,
+			Content = new StackPanel {
+				Margin = new Thickness (16),
+				Spacing = 12,
+				Children = {
+					new TextBlock { Text = $"{tab.Title} has unsaved changes." },
+					new StackPanel {
+						Orientation = Orientation.Horizontal,
+						HorizontalAlignment = HorizontalAlignment.Right,
+						Spacing = 8,
+						Children = {
+							new Button { Content = "Cancel", Tag = CloseDecision.Cancel },
+							new Button { Content = "Discard", Tag = CloseDecision.Discard },
+							new Button { Content = "Save", Tag = CloseDecision.Save }
+						}
+					}
+				}
+			}
+		};
+		if (dialog.Content is StackPanel root && root.Children[1] is StackPanel buttons)
+			foreach (Button button in buttons.Children)
+				button.Click += (_, _) => {
+					result.TrySetResult ((CloseDecision) button.Tag!);
+					dialog.Close ();
+				};
+		dialog.Closed += (_, _) => result.TrySetResult (CloseDecision.Cancel);
+		await dialog.ShowDialog (this);
+		return await result.Task;
+	}
+
+	private async Task<CloseDecision> RequestCloseDecisionAsync (DocumentTab tab)
+	{
+		CloseDecision decision = await PromptCloseDecisionAsync (tab);
+		if (decision == CloseDecision.Save && !await SaveTabAsync (tab))
+			return CloseDecision.Cancel;
+		return decision;
+	}
+
+	private async Task<bool> SaveTabAsync (DocumentTab tab)
+	{
+		string? path = tab.Session.FilePath;
+		if (path is null) {
+			if (StorageProvider is null)
+				return false;
+			var file = await StorageProvider.SaveFilePickerAsync (new FilePickerSaveOptions {
+				SuggestedFileName = "pintora.png",
+				DefaultExtension = "png",
+				FileTypeChoices = new[] { new FilePickerFileType ("PNG image") { Patterns = new[] { "*.png" } } }
+			});
+			if (file is null)
+				return false;
+			path = file.Path.LocalPath;
+		}
+		try {
+			tab.Canvas.SaveImage (path);
+			tab.Session.MarkSaved (path);
+			return true;
+		} catch (Exception exception) {
+			System.Diagnostics.Debug.WriteLine ($"Failed to save '{path}': {exception.Message}");
+			await ShowErrorAsync ($"Could not save '{tab.Title}'.", exception.Message);
+			return false;
+		}
+	}
+
+	private async Task ShowErrorAsync (string title, string message)
+	{
+		var dialog = new Window {
+			Title = title,
+			Width = 420,
+			Height = 160,
+			CanResize = false,
+			Content = new StackPanel {
+				Margin = new Thickness (16),
+				Spacing = 12,
+				Children = {
+					new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap },
+					new Button {
+						Content = "OK",
+						HorizontalAlignment = HorizontalAlignment.Right,
+					}
+				}
+			}
+		};
+		if (dialog.Content is StackPanel root && root.Children[1] is Button ok)
+			ok.Click += (_, _) => dialog.Close ();
+		await dialog.ShowDialog (this);
+	}
+
+	private async void OnWindowClosing (object? sender, WindowClosingEventArgs e)
+	{
+		if (closing_after_confirmation)
+			return;
+		if (close_in_progress) {
+			e.Cancel = true;
+			return;
+		}
+		e.Cancel = true;
+		close_in_progress = true;
+		try {
+			foreach (DocumentTab tab in tab_manager.Tabs.ToArray ()) {
+				CloseDecision decision = await PromptCloseDecisionAsync (tab);
+				if (decision == CloseDecision.Cancel)
+					return;
+				if (decision == CloseDecision.Save && !await SaveTabAsync (tab))
+					return;
+				int index = tab_manager.Tabs.IndexOf (tab);
+				if (index >= 0 && !tab_manager.CloseTab (index, decision == CloseDecision.Save ? CloseDecision.Discard : decision))
+					return;
+			}
+			closing_after_confirmation = true;
+			Close ();
+		} catch (Exception exception) {
+			System.Diagnostics.Debug.WriteLine ($"Failed to close window: {exception.Message}");
+		} finally {
+			close_in_progress = false;
+		}
+	}
+
+	private Control CreateCanvasPlaceholder (CanvasHost canvas)
+	{
+		tab_strip.AttachAsync (tab_manager, RequestCloseDecisionAsync);
 		var canvas_panel = new Border {
 			Margin = new global::Avalonia.Thickness (96, 10, 252, 190),
-			Child = canvas
+			Child = new DockPanel {
+				Children = {
+					new Border {
+						Child = tab_strip
+					},
+					canvas_host
+				}
+			}
 		};
+		DockPanel.SetDock ((Border) ((DockPanel) canvas_panel.Child).Children[0], Dock.Top);
 		return canvas_panel;
 	}
+
+	private void SyncActiveCanvas ()
+	{
+		canvas_host.Content = tab_manager.ActiveTab?.Canvas;
+	}
+
+	/// <summary>
+	/// Moves the per-canvas event subscriptions and the thumbnail provider to
+	/// the currently active tab. The previous canvas is detached first so
+	/// handlers never accumulate across tab switches.
+	/// </summary>
+	private void RebindActiveCanvas ()
+	{
+		if (subscribed_canvas is not null) {
+			subscribed_canvas.HistoryChanged -= OnActiveCanvasHistoryChanged;
+			subscribed_canvas.ScaleChanged -= OnActiveCanvasScaleChanged;
+			subscribed_canvas.ActiveToolChanged -= OnActiveCanvasToolOptionsChanged;
+			subscribed_canvas.SelectedShapeChanged -= OnActiveCanvasToolOptionsChanged;
+			subscribed_canvas.BrushSizeChanged -= OnActiveCanvasToolOptionsChanged;
+			subscribed_canvas.PointerPositionChanged -= OnActiveCanvasToolChanged;
+			subscribed_canvas.ColorsChanged -= OnActiveCanvasColorsChanged;
+			subscribed_canvas.LayersChanged -= OnActiveCanvasLayersChanged;
+			subscribed_canvas.ActiveLayerChanged -= OnActiveCanvasLayersChanged;
+			subscribed_canvas.ToolOptionsChanged -= OnActiveCanvasToolOptionsChanged;
+			subscribed_canvas.AnnotationSelectionChanged -= OnActiveCanvasToolOptionsChanged;
+			subscribed_canvas.DocumentStateChanged -= OnActiveCanvasDocumentStateChanged;
+			subscribed_canvas = null;
+		}
+
+		if (thumbnail_provider is not null && thumbnail_updated_handler is not null)
+			thumbnail_provider.ThumbnailUpdated -= thumbnail_updated_handler;
+		thumbnail_updated_handler = null;
+		thumbnail_provider?.Dispose ();
+		thumbnail_provider = null;
+
+		CanvasHost? active = tab_manager.ActiveTab?.Canvas;
+		if (active is null)
+			return;
+
+		thumbnail_provider = new LayerThumbnailProvider (active);
+		subscribed_canvas = active;
+		active.HistoryChanged += OnActiveCanvasHistoryChanged;
+		active.ScaleChanged += OnActiveCanvasScaleChanged;
+		active.ActiveToolChanged += OnActiveCanvasToolOptionsChanged;
+		active.SelectedShapeChanged += OnActiveCanvasToolOptionsChanged;
+		active.BrushSizeChanged += OnActiveCanvasToolOptionsChanged;
+		active.PointerPositionChanged += OnActiveCanvasToolChanged;
+		active.ColorsChanged += OnActiveCanvasColorsChanged;
+		active.LayersChanged += OnActiveCanvasLayersChanged;
+		active.ActiveLayerChanged += OnActiveCanvasLayersChanged;
+		active.ToolOptionsChanged += OnActiveCanvasToolOptionsChanged;
+		active.AnnotationSelectionChanged += OnActiveCanvasToolOptionsChanged;
+		active.DocumentStateChanged += OnActiveCanvasDocumentStateChanged;
+
+		refresh_history_commands?.Invoke ();
+		refresh_status?.Invoke ();
+		refresh_zoom?.Invoke ();
+		refresh_layers?.Invoke ();
+		UpdateDocumentTitle (active, version);
+	}
+
+	private void OnActiveCanvasHistoryChanged (object? sender, EventArgs e)
+		=> refresh_history_commands?.Invoke ();
+
+	private void OnActiveCanvasDocumentStateChanged (object? sender, EventArgs e)
+	{
+		if (sender is CanvasHost canvas)
+			UpdateDocumentTitle (canvas, version);
+	}
+
+	private void OnActiveCanvasScaleChanged (object? sender, EventArgs e)
+	{
+		refresh_status?.Invoke ();
+		refresh_zoom?.Invoke ();
+	}
+
+	private void OnActiveCanvasToolChanged (object? sender, EventArgs e)
+		=> refresh_status?.Invoke ();
+
+	private void OnActiveCanvasToolOptionsChanged (object? sender, EventArgs e)
+	{
+		refresh_status?.Invoke ();
+		if (sender is CanvasHost canvas) {
+			// Tool selection is editor-global; document-specific options remain
+			// owned by each CanvasHost.
+			if (ReferenceEquals (canvas, ActiveCanvas))
+				active_tool = canvas.ActiveTool;
+			RefreshToolOptions (canvas);
+		}
+	}
+
+	private void OnActiveCanvasColorsChanged (object? sender, EventArgs e)
+		=> refresh_status?.Invoke ();
+
+	private void OnActiveCanvasLayersChanged (object? sender, EventArgs e)
+		=> refresh_layers?.Invoke ();
 
 	private static CanvasHost CreateCanvasHost (PintoraKeyboardSettings keyboard)
 	{
@@ -1062,10 +1369,8 @@ public sealed class MainWindow : Window
 		return new CanvasHost (new Pinta.Core.Size (surface.Width, surface.Height), surface, keyboard);
 	}
 
-	private Control CreateLayersPanel (CanvasHost canvas)
+	private Control CreateLayersPanel ()
 	{
-		thumbnail_provider ??= new LayerThumbnailProvider (canvas);
-		LayerThumbnailProvider provider = thumbnail_provider;
 		var layers = new StackPanel { Spacing = 3 };
 		// Maps each layer to the Image control currently displaying it. Rebuilt
 		// on every refresh; the single provider subscription below looks up the
@@ -1074,6 +1379,8 @@ public sealed class MainWindow : Window
 		Slider? opacity_slider = null;
 		void RebuildLayers ()
 		{
+			CanvasHost canvas = ActiveCanvas;
+			LayerThumbnailProvider? provider = thumbnail_provider;
 			int? drag_source = null;
 			layers.Children.Clear ();
 			thumbnails.Clear ();
@@ -1083,10 +1390,10 @@ public sealed class MainWindow : Window
 				var visibility = new CheckBox { IsChecked = layer.IsVisible, Content = layer.Name };
 				var locked = new CheckBox { IsChecked = layer.IsLocked, Content = "Lock" };
 				visibility.IsCheckedChanged += (_, _) => {
-					canvas.SetLayerVisibility (index, visibility.IsChecked == true);
+					ActiveCanvas.SetLayerVisibility (index, visibility.IsChecked == true);
 				};
-				locked.IsCheckedChanged += (_, _) => canvas.SetLayerLocked (index, locked.IsChecked == true);
-				var thumbnail = new Image { Source = provider.GetThumbnail (layer), Width = 42, Height = 28, Stretch = Stretch.Uniform };
+				locked.IsCheckedChanged += (_, _) => ActiveCanvas.SetLayerLocked (index, locked.IsChecked == true);
+				var thumbnail = new Image { Source = provider?.GetThumbnail (layer), Width = 42, Height = 28, Stretch = Stretch.Uniform };
 				thumbnails[layer] = thumbnail;
 				var button = new Button {
 					Content = new StackPanel {
@@ -1107,20 +1414,20 @@ public sealed class MainWindow : Window
 				};
 				button.PointerReleased += (_, args) => {
 					if (drag_source is int source && source != index)
-						canvas.MoveLayerTo (source, index);
+						ActiveCanvas.MoveLayerTo (source, index);
 					drag_source = null;
 					RebuildLayers ();
 				};
-				button.Click += (_, _) => canvas.SelectLayer (index);
+				button.Click += (_, _) => ActiveCanvas.SelectLayer (index);
 				button.ContextMenu = new ContextMenu {
 					Items = {
-						CreateMenuItem ("Rename", () => new LayerRenameWindow (canvas, canvas.Layers[index].Name, RebuildLayers).Show (this)),
-						CreateMenuItem ("Duplicate", () => { canvas.SelectLayer (index); canvas.DuplicateActiveLayer (); RebuildLayers (); }),
-						CreateMenuItem ("Delete", () => { canvas.SelectLayer (index); canvas.RemoveLayer (); RebuildLayers (); }),
+						CreateMenuItem ("Rename", () => new LayerRenameWindow (ActiveCanvas, ActiveCanvas.Layers[index].Name, RebuildLayers).Show (this)),
+						CreateMenuItem ("Duplicate", () => { ActiveCanvas.SelectLayer (index); ActiveCanvas.DuplicateActiveLayer (); RebuildLayers (); }),
+						CreateMenuItem ("Delete", () => { ActiveCanvas.SelectLayer (index); ActiveCanvas.RemoveLayer (); RebuildLayers (); }),
 						new Separator (),
-						CreateMenuItem ("Move up", () => { canvas.SelectLayer (index); canvas.MoveLayer (1); RebuildLayers (); }),
-						CreateMenuItem ("Move down", () => { canvas.SelectLayer (index); canvas.MoveLayer (-1); RebuildLayers (); }),
-						CreateMenuItem ("Merge down", () => { canvas.SelectLayer (index); canvas.MergeActiveLayerDown (); RebuildLayers (); })
+						CreateMenuItem ("Move up", () => { ActiveCanvas.SelectLayer (index); ActiveCanvas.MoveLayer (1); RebuildLayers (); }),
+						CreateMenuItem ("Move down", () => { ActiveCanvas.SelectLayer (index); ActiveCanvas.MoveLayer (-1); RebuildLayers (); }),
+						CreateMenuItem ("Merge down", () => { ActiveCanvas.SelectLayer (index); ActiveCanvas.MergeActiveLayerDown (); RebuildLayers (); })
 					}
 				};
 				layers.Children.Add (button);
@@ -1128,7 +1435,7 @@ public sealed class MainWindow : Window
 			if (opacity_slider is not null && canvas.Layers.Count > 0)
 				opacity_slider.Value = canvas.Layers[canvas.ActiveLayerIndex].Opacity;
 		}
-		opacity_slider = CreateOpacitySlider (canvas);
+		opacity_slider = CreateOpacitySlider ();
 		var controls = new StackPanel {
 			Spacing = 5,
 			Children = {
@@ -1137,15 +1444,15 @@ public sealed class MainWindow : Window
 			new TextBlock { Text = "Opacity", FontSize = 11 },
 			opacity_slider,
 			new WrapPanel { Width = 216, ItemWidth = 43, ItemHeight = 34, Children = {
-				CreateCompactCommand ("+", "Add layer", () => { canvas.AddLayer (); RebuildLayers (); }),
-				CreateCompactCommand ("−", "Delete layer", () => { canvas.RemoveLayer (); RebuildLayers (); }),
-				CreateCompactCommand ("⧉", "Duplicate layer", () => { canvas.DuplicateActiveLayer (); RebuildLayers (); }),
-				CreateCompactCommand ("↑", "Move layer up", () => { canvas.MoveLayer (1); RebuildLayers (); }),
-				CreateCompactCommand ("↓", "Move layer down", () => { canvas.MoveLayer (-1); RebuildLayers (); }),
-				CreateCompactCommand ("Merge", "Merge layer down", () => { canvas.MergeActiveLayerDown (); RebuildLayers (); }),
-				CreateCompactCommand ("Name", "Rename layer", () => new LayerRenameWindow (canvas, canvas.Layers[canvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
-				CreateCompactCommand ("↶", "Undo layer operation", () => { canvas.UndoLayerOperation (); RebuildLayers (); }),
-				CreateCompactCommand ("↷", "Redo layer operation", () => { canvas.RedoLayerOperation (); RebuildLayers (); })
+				CreateCompactCommand ("+", "Add layer", () => { ActiveCanvas.AddLayer (); RebuildLayers (); }),
+				CreateCompactCommand ("−", "Delete layer", () => { ActiveCanvas.RemoveLayer (); RebuildLayers (); }),
+				CreateCompactCommand ("⧉", "Duplicate layer", () => { ActiveCanvas.DuplicateActiveLayer (); RebuildLayers (); }),
+				CreateCompactCommand ("↑", "Move layer up", () => { ActiveCanvas.MoveLayer (1); RebuildLayers (); }),
+				CreateCompactCommand ("↓", "Move layer down", () => { ActiveCanvas.MoveLayer (-1); RebuildLayers (); }),
+				CreateCompactCommand ("Merge", "Merge layer down", () => { ActiveCanvas.MergeActiveLayerDown (); RebuildLayers (); }),
+				CreateCompactCommand ("Name", "Rename layer", () => new LayerRenameWindow (ActiveCanvas, ActiveCanvas.Layers[ActiveCanvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
+				CreateCompactCommand ("↶", "Undo layer operation", () => { ActiveCanvas.UndoLayerOperation (); RebuildLayers (); }),
+				CreateCompactCommand ("↷", "Redo layer operation", () => { ActiveCanvas.RedoLayerOperation (); RebuildLayers (); })
 			} }
 		}
 		};
@@ -1153,13 +1460,23 @@ public sealed class MainWindow : Window
 		refresh_layers = RebuildLayers;
 		// Single subscription for the lifetime of the panel. Rebuilds only
 		// replace the dictionary entries, so no handler can outlive its row.
-		thumbnail_updated_handler = (_, e) => {
+		// The handler reads the current provider via the field so it never
+		// holds a reference to a disposed provider after a tab switch.
+		EventHandler<LayerThumbnailUpdatedEventArgs> handler = (_, e) => {
 			if (e.Thumbnail is not null && thumbnails.TryGetValue (e.Layer, out Image? image))
 				image.Source = e.Thumbnail;
 		};
-		provider.ThumbnailUpdated += thumbnail_updated_handler;
-		canvas.LayersChanged += (_, _) => RebuildLayers ();
-		canvas.ActiveLayerChanged += (_, _) => RebuildLayers ();
+		thumbnail_updated_handler = handler;
+		if (thumbnail_provider is not null)
+			thumbnail_provider.ThumbnailUpdated += handler;
+		rebuild_layers_panel = () => {
+			// RebindActiveCanvas has already disposed the previous provider and
+			// created a fresh one; re-attach the handler to the new instance so
+			// no row keeps a reference to a disposed provider.
+			if (thumbnail_provider is not null)
+				thumbnail_provider.ThumbnailUpdated += handler;
+			RebuildLayers ();
+		};
 		var panel = new Border {
 			Width = 232,
 			Padding = new global::Avalonia.Thickness (7),
@@ -1174,13 +1491,15 @@ public sealed class MainWindow : Window
 		return panel;
 	}
 
-	private static Slider CreateOpacitySlider (CanvasHost canvas)
+	private Slider CreateOpacitySlider ()
 	{
+		CanvasHost canvas = ActiveCanvas;
 		var slider = new Slider { Minimum = 0, Maximum = 1, Value = canvas.Layers.Count == 0 ? 1 : canvas.Layers[canvas.ActiveLayerIndex].Opacity };
 		slider.ValueChanged += (_, args) => {
-			if (canvas.Layers.Count == 0)
+			CanvasHost active = ActiveCanvas;
+			if (active.Layers.Count == 0)
 				return;
-			canvas.SetActiveLayerOpacity (args.NewValue);
+			active.SetActiveLayerOpacity (args.NewValue);
 		};
 		return slider;
 	}

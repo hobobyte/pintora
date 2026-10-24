@@ -38,7 +38,7 @@ internal sealed class ToolDescriptorTests
 		var canvas = new CanvasHost (new Pinta.Core.Size (2, 2), surface);
 		TextToolOptions options = canvas.GetTextToolOptions ();
 
-		Assert.That (options.Text, Is.EqualTo ("Text"));
+		Assert.That (options.Text, Is.Empty);
 		Assert.That (options.FontFamily, Is.EqualTo ("Inter"));
 		Assert.That (options.FontSize, Is.EqualTo (16));
 		canvas.TextToolBold = true;
@@ -104,6 +104,33 @@ internal sealed class ToolDescriptorTests
 		canvas.FillTolerance = 42;
 
 		Assert.That (options.Tolerance, Is.EqualTo (42));
+	}
+
+	[Test]
+	public void ActiveToolChangeRaisesToolOptionsChanged ()
+	{
+		using var surface = new Pintora.Avalonia.Imaging.MemoryImageSurface (2, 2);
+		var canvas = new CanvasHost (new Pinta.Core.Size (2, 2), surface);
+		int notifications = 0;
+		canvas.ToolOptionsChanged += (_, _) => notifications++;
+
+		canvas.ActiveTool = CanvasHost.CanvasTool.Text;
+
+		Assert.That (notifications, Is.EqualTo (1));
+	}
+
+	[Test]
+	public void TextToolTextChangeDoesNotRaiseToolOptionsChanged ()
+	{
+		using var surface = new Pintora.Avalonia.Imaging.MemoryImageSurface (2, 2);
+		var canvas = new CanvasHost (new Pinta.Core.Size (2, 2), surface);
+		int notifications = 0;
+		canvas.ToolOptionsChanged += (_, _) => notifications++;
+
+		canvas.TextToolText = "hello";
+
+		Assert.That (notifications, Is.Zero);
+		Assert.That (canvas.TextToolText, Is.EqualTo ("hello"));
 	}
 
 	[Test]
