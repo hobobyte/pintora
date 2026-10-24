@@ -23,6 +23,9 @@ on first launch.
 
 See the [Pintora changelog](CHANGELOG.md) for the fork baseline, alpha contents, and known limitations.
 
+The editor can open PNG, JPEG, WebP, TIFF, BMP, GIF, and OpenRaster (`.ora`) documents. SVG files
+can be imported as rasterized layers. Export is available for PNG, JPEG, WebP, TIFF, and OpenRaster.
+
 ## Build and run
 
 Install the .NET 10 SDK. From the repository root:
