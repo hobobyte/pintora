@@ -161,7 +161,7 @@ public sealed class MainWindow : Window
 			Items = {
 				new MenuItem { Header = "_File", Items = {
 					CreateMenuItem ("_New", () => new NewDocumentWindow (canvas).Show (this)),
-					CreateMenuItem ("Open _PNG", () => _ = OpenPngAsync (canvas)),
+					CreateMenuItem ("_Open", () => _ = OpenImageAsync (canvas)),
 					CreateMenuItem ("Import image as layer", () => _ = ImportImageLayerAsync (canvas)),
 					new Separator (),
 					CreateMenuItem ("Save _PNG", () => _ = SavePngAsync (canvas)),
@@ -200,14 +200,7 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("Resize image", () => new ResizeImageWindow (canvas).Show (this)),
 					CreateMenuItem ("Crop image", () => new CropImageWindow (canvas).Show (this))
 				} },
-				new MenuItem { Header = "Effe_cts", Items = {
-					new MenuItem { Header = "Blur" },
-					new MenuItem { Header = "Sharpen" }
-				} },
-				new MenuItem { Header = "A_dd-ins" },
 				new MenuItem { Header = "_Window", Items = {
-					new MenuItem { Header = "Layers" },
-					new MenuItem { Header = "Tools" },
 					CreateMenuItem ("History", () => new HistoryWindow (canvas).Show (this))
 				} },
 				new MenuItem { Header = "_Help", Items = {
@@ -284,7 +277,7 @@ public sealed class MainWindow : Window
 			canvas.SavePng (file.Path.LocalPath);
 	}
 
-	private async Task OpenPngAsync (CanvasHost canvas)
+	private async Task OpenImageAsync (CanvasHost canvas)
 	{
 		if (StorageProvider is null)
 			return;
@@ -292,12 +285,13 @@ public sealed class MainWindow : Window
 		var file = await StorageProvider.OpenFilePickerAsync (new FilePickerOpenOptions {
 			AllowMultiple = false,
 			FileTypeFilter = new[] {
-				new FilePickerFileType ("PNG image") { Patterns = new[] { "*.png" } }
+				new FilePickerFileType ("Pintora images") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.tif", "*.tiff", "*.ora" } },
+				new FilePickerFileType ("All files") { Patterns = new[] { "*.*" } }
 			}
 		});
 
 		if (file.Count > 0)
-			canvas.OpenPng (file[0].Path.LocalPath);
+			canvas.OpenImage (file[0].Path.LocalPath);
 	}
 
 	private async Task ImportImageLayerAsync (CanvasHost canvas)
