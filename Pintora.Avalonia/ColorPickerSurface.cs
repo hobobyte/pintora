@@ -29,6 +29,8 @@ internal sealed class ColorPickerSurface : Control
 	{
 		Width = 168;
 		Height = 168;
+		Focusable = true;
+		IsHitTestVisible = true;
 		PointerPressed += OnPointer;
 		PointerMoved += OnPointer;
 		PointerReleased += OnPointerReleased;
@@ -110,6 +112,7 @@ internal sealed class ColorPickerSurface : Control
 		if (args is PointerPressedEventArgs pressed) {
 			if (!pressed.GetCurrentPoint (this).Properties.IsLeftButtonPressed) return;
 			isDragging = true;
+			Focus ();
 			pressed.Pointer.Capture (this);
 		} else if (!isDragging) return;
 		Point point = args.GetPosition (this);
@@ -127,6 +130,7 @@ internal sealed class ColorPickerSurface : Control
 		color = ColorSpace.FromHsv (hsv.H, hsv.S, hsv.V, color.A);
 		ColorChanged?.Invoke (this, color);
 		InvalidateVisual ();
+		args.Handled = true;
 	}
 
 	private void OnPointerReleased (object? sender, PointerReleasedEventArgs args)
@@ -135,6 +139,7 @@ internal sealed class ColorPickerSurface : Control
 		{
 			isDragging = false;
 			args.Pointer.Capture (null);
+			args.Handled = true;
 		}
 	}
 }
