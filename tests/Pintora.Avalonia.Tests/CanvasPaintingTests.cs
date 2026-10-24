@@ -1022,6 +1022,20 @@ internal sealed class CanvasPaintingTests
 		Assert.That (canvas.Layers[0].Opacity, Is.EqualTo (1));
 	}
 
+	[Test]
+	public void RenamingLayerCanBeUndoneAndRedone ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+
+		canvas.RenameLayer ("Artwork");
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers[0].Name, Is.EqualTo ("Background"));
+
+		canvas.RedoLayerOperation ();
+		Assert.That (canvas.Layers[0].Name, Is.EqualTo ("Artwork"));
+	}
+
 
 	[Test]
 	public void CancelCurrentStrokeRestoresSnapshot ()
