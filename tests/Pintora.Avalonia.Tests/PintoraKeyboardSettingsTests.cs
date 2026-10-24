@@ -1,4 +1,7 @@
 using NUnit.Framework;
+using System;
+using System.Collections.Generic;
+using Pinta.Core;
 using Pintora.Avalonia.Input;
 
 namespace Pintora.Avalonia.Tests;
@@ -36,5 +39,34 @@ internal sealed class PintoraKeyboardSettingsTests
 
 		Assert.That (settings.GestureTextFor (PintoraKeyCommands.Undo), Is.EqualTo ("Ctrl+U"));
 		Assert.That (settings.GestureFor (PintoraKeyCommands.Undo), Is.Not.Null);
+	}
+
+	[Test]
+	public void UserBindingIsLoadedFromSettings ()
+	{
+		var stored = new MemorySettings ();
+		PintoraKeyboardSettings first = new (stored);
+		Assert.That (first.TrySetGesture (PintoraKeyCommands.Undo, "Ctrl+U"), Is.True);
+
+		PintoraKeyboardSettings reloaded = new (stored);
+
+		Assert.That (reloaded.GestureTextFor (PintoraKeyCommands.Undo), Is.EqualTo ("Ctrl+U"));
+	}
+
+	private sealed class MemorySettings : ISettingsService
+	{
+		private readonly Dictionary<string, object> values = new ();
+
+		#pragma warning disable CS0067
+		public event EventHandler? SaveSettingsBeforeQuit;
+		public event EventHandler<SettingChangedEventArgs>? SettingChanged;
+		#pragma warning restore CS0067
+
+		public T GetSetting<T> (string key, T defaultValue)
+			=> values.TryGetValue (key, out object? value) && value is T typed ? typed : defaultValue;
+
+		public string GetUserSettingsDirectory () => string.Empty;
+
+		public void PutSetting (string key, object value) => values[key] = value;
 	}
 }
