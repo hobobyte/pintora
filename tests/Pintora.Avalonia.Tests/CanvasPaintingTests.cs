@@ -128,9 +128,11 @@ internal sealed class CanvasPaintingTests
 		canvas.BeginStroke ();
 		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
 		canvas.CommitStroke ();
+		Assert.That (canvas.IsDirty, Is.True);
 
 		canvas.NewDocument (3, 1);
 
+		Assert.That (canvas.IsDirty, Is.False);
 		Assert.That (canvas.CanUndoLayerOperation, Is.False);
 		Assert.That (canvas.CanUndoStroke, Is.False);
 		Assert.That (canvas.History, Is.Empty);
