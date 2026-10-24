@@ -51,7 +51,10 @@ public sealed class KeyboardSettingsWindow : Window
 	private static Control CreateRow (string title, PintoraKeyCommand command, PintoraKeyboardSettings settings)
 	{
 		var input = new TextBox { Text = settings.GestureTextFor (command), Width = 150 };
-		input.LostFocus += (_, _) => settings.SetGesture (command, input.Text);
+		input.LostFocus += (_, _) => {
+			if (!settings.TrySetGesture (command, input.Text))
+				input.Text = settings.GestureTextFor (command);
+		};
 		var row = new Grid {
 			ColumnDefinitions = new ColumnDefinitions ("*,Auto"),
 			Children = {
