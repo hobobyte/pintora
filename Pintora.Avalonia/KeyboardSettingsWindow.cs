@@ -27,16 +27,34 @@ public sealed class KeyboardSettingsWindow : Window
 		rows.Children.Add (CreateRow ("Fill", PintoraKeyCommands.Fill, settings));
 		rows.Children.Add (CreateRow ("Color picker", PintoraKeyCommands.ColorPicker, settings));
 		rows.Children.Add (CreateRow ("Zoom", PintoraKeyCommands.Zoom, settings));
+		rows.Children.Add (CreateRow ("Fit canvas", PintoraKeyCommands.FitCanvas, settings));
+		rows.Children.Add (CreateRow ("Actual size", PintoraKeyCommands.ActualSize, settings));
+		rows.Children.Add (CreateRow ("Clear layer", PintoraKeyCommands.ClearLayer, settings));
+		rows.Children.Add (CreateRow ("Copy selection", PintoraKeyCommands.Copy, settings));
+		rows.Children.Add (CreateRow ("Paste selection", PintoraKeyCommands.Paste, settings));
+		rows.Children.Add (CreateRow ("Select all", PintoraKeyCommands.SelectAll, settings));
+		rows.Children.Add (CreateRow ("Deselect", PintoraKeyCommands.Deselect, settings));
+		rows.Children.Add (CreateRow ("Duplicate layer", PintoraKeyCommands.DuplicateLayer, settings));
+		rows.Children.Add (CreateRow ("Clear history", PintoraKeyCommands.ClearHistory, settings));
+		var reset = new Button { Content = "Reset to defaults", HorizontalAlignment = HorizontalAlignment.Left };
+		reset.Click += (_, _) => {
+			settings.ResetAll ();
+			Close ();
+		};
+		rows.Children.Add (reset);
 		Content = new Border {
 			Padding = new global::Avalonia.Thickness (20),
-			Child = rows
+			Child = new ScrollViewer { Content = rows }
 		};
 	}
 
 	private static Control CreateRow (string title, PintoraKeyCommand command, PintoraKeyboardSettings settings)
 	{
 		var input = new TextBox { Text = settings.GestureTextFor (command), Width = 150 };
-		input.LostFocus += (_, _) => settings.SetGesture (command, input.Text);
+		input.LostFocus += (_, _) => {
+			if (!settings.TrySetGesture (command, input.Text))
+				input.Text = settings.GestureTextFor (command);
+		};
 		var row = new Grid {
 			ColumnDefinitions = new ColumnDefinitions ("*,Auto"),
 			Children = {

@@ -31,6 +31,7 @@ internal sealed class CanvasPaintingTests
 		Assert.That (surface.GetReadOnlyPixelData ()[6], Is.EqualTo (ColorBgra.Red));
 	}
 
+
 	[Test]
 	public void ColorPickerReadsPixelIntoPrimaryColor ()
 	{
@@ -104,17 +105,52 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void NewCanvasStartsCleanAndPaintingMarksItDirty ()
+	{
+		using MemoryImageSurface surface = new (4, 4);
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 4), surface);
+		int stateChanges = 0;
+		canvas.DocumentStateChanged += (_, _) => stateChanges++;
+
+		Assert.That (canvas.IsDirty, Is.False);
+		canvas.PaintCanvasPoint (new PointD (1, 1), ColorBgra.Black);
+		canvas.PaintCanvasPoint (new PointD (2, 1), ColorBgra.Black);
+
+		Assert.That (canvas.IsDirty, Is.True);
+		Assert.That (stateChanges, Is.EqualTo (1));
+	}
+
+	[Test]
+	public void ResetColorsRestoresPrimaryAndSecondaryDefaults ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 2));
+		canvas.BrushColor = ColorBgra.Red;
+		canvas.SecondaryBrushColor = ColorBgra.Blue;
+		int notifications = 0;
+		canvas.ColorsChanged += (_, _) => notifications++;
+
+		canvas.ResetColors ();
+
+		Assert.That (canvas.BrushColor, Is.EqualTo (ColorBgra.Black));
+		Assert.That (canvas.SecondaryBrushColor, Is.EqualTo (ColorBgra.White));
+		Assert.That (notifications, Is.EqualTo (1));
+	}
+
+	[Test]
 	public void NewDocumentClearsLayerUndoAndHistory ()
 	{
 		using MemoryImageSurface surface = new (2, 1);
 		CanvasHost canvas = new (new Pinta.Core.Size (2, 1), surface);
 		canvas.AddLayer ();
+		Assert.That (canvas.IsDirty, Is.True);
 		canvas.BeginStroke ();
 		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
 		canvas.CommitStroke ();
+		Assert.That (canvas.IsDirty, Is.True);
 
 		canvas.NewDocument (3, 1);
 
+		Assert.That (canvas.IsDirty, Is.False);
 		Assert.That (canvas.CanUndoLayerOperation, Is.False);
 		Assert.That (canvas.CanUndoStroke, Is.False);
 		Assert.That (canvas.History, Is.Empty);
@@ -127,10 +163,12 @@ internal sealed class CanvasPaintingTests
 		CanvasHost canvas = new (new Pinta.Core.Size (3, 2), surface);
 		canvas.AddLayer ();
 		canvas.ResizeImage (2, 2);
+		Assert.That (canvas.IsDirty, Is.True);
 		Assert.That (canvas.CanUndoLayerOperation, Is.False);
 
 		canvas.AddLayer ();
 		canvas.CropImage (0, 0, 1, 1);
+		Assert.That (canvas.IsDirty, Is.True);
 		Assert.That (canvas.CanUndoLayerOperation, Is.False);
 		canvas.UndoLayerOperation ();
 		Assert.That (canvas.Layers, Has.Count.EqualTo (3));
@@ -962,7 +1000,11 @@ internal sealed class CanvasPaintingTests
 
 		Assert.That (canvas.MergeActiveLayerDown (), Is.True);
 		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
-		Assert.That (canvas.Surface!.GetReadOnlyPixelData ()[0].A, Is.EqualTo (255));
+		ColorBgra merged = canvas.Surface!.GetReadOnlyPixelData ()[0];
+		Assert.That (merged.A, Is.EqualTo (255));
+		Assert.That (merged.R, Is.EqualTo (128).Within (1));
+		Assert.That (merged.G, Is.EqualTo (0));
+		Assert.That (merged.B, Is.EqualTo (127).Within (1));
 	}
 
 	[Test]
@@ -980,6 +1022,74 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void StandardUndoAndRedoAlsoHandleLayerOperations ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.AddLayer ();
+
+		canvas.UndoLastStroke ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
+
+		canvas.RedoLastStroke ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
+	}
+
+	[Test]
+	public void HistoryIncludesLayerOperations ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+
+		canvas.AddLayer ();
+		Assert.That (canvas.History, Has.Count.EqualTo (1));
+		Assert.That (canvas.History[0], Is.EqualTo ("Layer operation"));
+
+		canvas.UndoLastStroke ();
+		Assert.That (canvas.History, Is.Empty);
+	}
+
+	[Test]
+	public void ClearHistoryRemovesUndoAndRedoEntries ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+		canvas.CommitStroke ();
+
+		canvas.ClearHistory ();
+
+		Assert.That (canvas.History, Is.Empty);
+		Assert.That (canvas.CanUndoStroke, Is.False);
+		Assert.That (canvas.CanRedoStroke, Is.False);
+	}
+
+	[Test]
+	public void SelectAllAndDeselectUseDocumentBounds ()
+	{
+		using MemoryImageSurface surface = new (4, 3);
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 3), surface);
+
+		Assert.That (canvas.SelectAll (), Is.True);
+		Assert.That (canvas.Selection, Is.EqualTo (new RectangleI (0, 0, 4, 3)));
+		canvas.ClearSelection ();
+		Assert.That (canvas.Selection, Is.Null);
+	}
+
+	[Test]
+	public void DeselectCancelsAnInProgressSelection ()
+	{
+		using MemoryImageSurface surface = new (4, 3);
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 3), surface);
+		canvas.SelectRectangle (new PointI (1, 1), new PointI (3, 2));
+
+		canvas.ClearSelection ();
+
+		Assert.That (canvas.Selection, Is.Null);
+	}
+
+	[Test]
 	public void LayerMetadataChangesCanBeUndone ()
 	{
 		using MemoryImageSurface surface = new (1, 1);
@@ -994,6 +1104,42 @@ internal sealed class CanvasPaintingTests
 		Assert.That (canvas.Layers[0].IsVisible, Is.True);
 		canvas.UndoLayerOperation ();
 		Assert.That (canvas.Layers[0].Opacity, Is.EqualTo (1));
+	}
+
+	[Test]
+	public void RenamingLayerCanBeUndoneAndRedone ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+
+		canvas.RenameLayer ("Artwork");
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers[0].Name, Is.EqualTo ("Background"));
+
+		canvas.RedoLayerOperation ();
+		Assert.That (canvas.Layers[0].Name, Is.EqualTo ("Artwork"));
+	}
+
+	[Test]
+	public void DuplicateLayerCopiesPixelsAndMetadata ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.SetActiveLayerOpacity (0.5);
+		canvas.SetActiveLayerVisibility (false);
+
+		Assert.That (canvas.DuplicateActiveLayer (), Is.True);
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
+		Assert.That (canvas.Layers[1].Name, Is.EqualTo ("Background copy"));
+		Assert.That (canvas.Layers[1].Opacity, Is.EqualTo (0.5));
+		Assert.That (canvas.Layers[1].IsVisible, Is.False);
+		Assert.That (canvas.Layers[1].Surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Red));
+
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
+		canvas.RedoLayerOperation ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
 	}
 
 

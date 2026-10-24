@@ -9,6 +9,7 @@ namespace Pintora.Avalonia.Canvas;
 internal sealed class GradientTool : ICanvasTool
 {
 	public CanvasHost.CanvasTool Kind => CanvasHost.CanvasTool.Gradient;
+	public GradientToolOptions Options { get; } = new ();
 	private PointD start;
 	private PointD end;
 	private ColorBgra primary;
@@ -21,7 +22,7 @@ internal sealed class GradientTool : ICanvasTool
 		CanvasHost host = context.Host;
 		if (host.IsActiveLayerLocked || host.Surface is null)
 			return false;
-		Begin (context.Point, host.BrushColor, host.SecondaryBrushColor, host.GradientReversed);
+		Begin (context.Point, host.BrushColor, host.SecondaryBrushColor, Options.Reversed);
 		return true;
 	}
 

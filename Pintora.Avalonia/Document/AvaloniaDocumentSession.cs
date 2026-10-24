@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Pinta.Core;
 using Pintora.Avalonia.Imaging;
+using System.Collections.ObjectModel;
 
 namespace Pintora.Avalonia.Document;
 
@@ -19,7 +20,7 @@ public sealed class AvaloniaDocumentSession
 	}
 
 	public DocumentViewportState Viewport { get; }
-	public List<AvaloniaLayer> Layers { get; } = new ();
+	public ObservableCollection<AvaloniaLayer> Layers { get; } = new ();
 	public int ActiveLayerIndex { get; private set; }
 	public AvaloniaLayer? ActiveLayer => Layers.Count == 0 ? null : Layers[ActiveLayerIndex];
 	public IImageSurface? Surface => ActiveLayer?.Surface;
@@ -113,10 +114,12 @@ public sealed class AvaloniaDocumentSession
 			for (int y = 0; y < height; y++)
 				source.Slice (y * layer.Surface.Width, width).CopyTo (destination.Slice (y * target.Width, width));
 			var copy = new AvaloniaLayer (layer.Name, target) { IsVisible = layer.IsVisible, Opacity = layer.Opacity };
+			copy.Annotations.AddRange (layer.Annotations.Items);
 			resized.Add (copy);
 		}
 		Layers.Clear ();
-		Layers.AddRange (resized);
+		foreach (AvaloniaLayer layer in resized)
+			Layers.Add (layer);
 		ActiveLayerIndex = Layers.Count == 0 ? 0 : Math.Min (ActiveLayerIndex, Layers.Count - 1);
 		Viewport.ImageSize = nextSize;
 	}
@@ -135,7 +138,8 @@ public sealed class AvaloniaDocumentSession
 			cropped.Add (new AvaloniaLayer (layer.Name, target) { IsVisible = layer.IsVisible, Opacity = layer.Opacity });
 		}
 		Layers.Clear ();
-		Layers.AddRange (cropped);
+		foreach (AvaloniaLayer layer in cropped)
+			Layers.Add (layer);
 		ActiveLayerIndex = Layers.Count == 0 ? 0 : Math.Min (ActiveLayerIndex, Layers.Count - 1);
 		Viewport.ImageSize = new Size (width, height);
 	}
