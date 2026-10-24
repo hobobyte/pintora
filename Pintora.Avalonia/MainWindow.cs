@@ -160,9 +160,13 @@ public sealed class MainWindow : Window
 		preferences.Click += (_, _) => new SettingsWindow (canvas, settings, keyboard).Show (this);
 		MenuItem undo = CreateMenuItem ("_Undo", canvas.UndoLastStroke, keyboard, PintoraKeyCommands.Undo);
 		MenuItem redo = CreateMenuItem ("_Redo", canvas.RedoLastStroke, keyboard, PintoraKeyCommands.Redo);
+		MenuItem layer_undo = CreateMenuItem ("Undo layer", () => { canvas.UndoLayerOperation (); refresh_layers?.Invoke (); });
+		MenuItem layer_redo = CreateMenuItem ("Redo layer", () => { canvas.RedoLayerOperation (); refresh_layers?.Invoke (); });
 		void RefreshHistoryCommands () {
 			undo.IsEnabled = canvas.CanUndoStroke;
 			redo.IsEnabled = canvas.CanRedoStroke;
+			layer_undo.IsEnabled = canvas.CanUndoLayerOperation;
+			layer_redo.IsEnabled = canvas.CanRedoLayerOperation;
 		}
 		canvas.HistoryChanged += (_, _) => RefreshHistoryCommands ();
 		RefreshHistoryCommands ();
@@ -184,8 +188,8 @@ public sealed class MainWindow : Window
 					undo,
 					redo,
 					CreateMenuItem ("Clear history", canvas.ClearHistory),
-					CreateMenuItem ("Undo layer", () => { canvas.UndoLayerOperation (); refresh_layers?.Invoke (); }),
-					CreateMenuItem ("Redo layer", () => { canvas.RedoLayerOperation (); refresh_layers?.Invoke (); }),
+					layer_undo,
+					layer_redo,
 					CreateMenuItem ("Clear layer", () => canvas.ClearActiveLayer (), keyboard, PintoraKeyCommands.ClearLayer),
 					new Separator (),
 					CreateMenuItem ("Copy selection", () => canvas.CopySelection (), keyboard, PintoraKeyCommands.Copy),
