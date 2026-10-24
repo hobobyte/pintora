@@ -15,11 +15,14 @@ internal sealed class ColorPickerSurface : Control
 	private SurfaceMode mode;
 	private Color color = Colors.White;
 	private bool showValue = true;
+	private WriteableBitmap? bitmap;
+	private int bitmapSize;
+	private bool bitmapDirty = true;
 
 	public event EventHandler<Color>? ColorChanged;
-	public SurfaceMode Mode { get => mode; set { mode = value; InvalidateVisual (); } }
-	public Color Color { get => color; set { color = value; InvalidateVisual (); } }
-	public bool ShowValue { get => showValue; set { showValue = value; InvalidateVisual (); } }
+	public SurfaceMode Mode { get => mode; set { if (mode == value) return; mode = value; InvalidateSurface (); } }
+	public Color Color { get => color; set { if (color == value) return; color = value; InvalidateSurface (); } }
+	public bool ShowValue { get => showValue; set { if (showValue == value) return; showValue = value; InvalidateSurface (); } }
 
 	public ColorPickerSurface ()
 	{
@@ -27,6 +30,7 @@ internal sealed class ColorPickerSurface : Control
 		Height = 168;
 		PointerPressed += OnPointer;
 		PointerMoved += OnPointer;
+		PointerReleased += OnPointerReleased;
 	}
 
 	public override void Render (DrawingContext context)
@@ -34,6 +38,20 @@ internal sealed class ColorPickerSurface : Control
 		int size = Math.Max (1, (int) Math.Min (Bounds.Width, Bounds.Height));
 		int radius = size / 2;
 		var hsv = ColorSpace.ToHsv (color);
+		if (bitmap is null || bitmapDirty || bitmapSize != size) {
+			bitmap?.Dispose ();
+			bitmap = CreateBitmap (size, radius, hsv);
+			bitmapSize = size;
+			bitmapDirty = false;
+		}
+		context.DrawImage (bitmap, new Rect (0, 0, size, size), new Rect (0, 0, size, size));
+		Point cursor = GetCursor (hsv, radius);
+		context.DrawEllipse (null, new Pen (Brushes.Black, 2), cursor, 6, 6);
+		context.DrawEllipse (null, new Pen (Brushes.White, 1), cursor, 5, 5);
+	}
+
+	private WriteableBitmap CreateBitmap (int size, int radius, (double H, double S, double V) hsv)
+	{
 		var pixels = new byte[size * size * 4];
 		for (int y = 0; y < size; y++) {
 			for (int x = 0; x < size; x++) {
@@ -54,14 +72,20 @@ internal sealed class ColorPickerSurface : Control
 				pixels[offset] = pixel.B; pixels[offset + 1] = pixel.G; pixels[offset + 2] = pixel.R; pixels[offset + 3] = pixel.A;
 			}
 		}
-		using var bitmap = new WriteableBitmap (new PixelSize (size, size), new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
-		using (ILockedFramebuffer locked = bitmap.Lock ())
+		var result = new WriteableBitmap (new PixelSize (size, size), new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+		using (ILockedFramebuffer locked = result.Lock ())
 			for (int y = 0; y < size; y++)
 				Marshal.Copy (pixels, y * size * 4, locked.Address + y * locked.RowBytes, size * 4);
-		context.DrawImage (bitmap, new Rect (0, 0, size, size), new Rect (0, 0, size, size));
-		Point cursor = GetCursor (hsv, radius);
-		context.DrawEllipse (null, new Pen (Brushes.Black, 2), cursor, 6, 6);
-		context.DrawEllipse (null, new Pen (Brushes.White, 1), cursor, 5, 5);
+		return result;
+	}
+
+	private void InvalidateSurface () { bitmapDirty = true; InvalidateVisual (); }
+
+	protected override void OnDetachedFromVisualTree (VisualTreeAttachmentEventArgs e)
+	{
+		bitmap?.Dispose ();
+		bitmap = null;
+		base.OnDetachedFromVisualTree (e);
 	}
 
 	private Point GetCursor ((double H, double S, double V) hsv, int radius)
@@ -75,7 +99,10 @@ internal sealed class ColorPickerSurface : Control
 
 	private void OnPointer (object? sender, PointerEventArgs args)
 	{
-		if (!args.GetCurrentPoint (this).Properties.IsLeftButtonPressed) return;
+		if (args is PointerPressedEventArgs pressed) {
+			if (!pressed.GetCurrentPoint (this).Properties.IsLeftButtonPressed) return;
+			pressed.Pointer.Capture (this);
+		} else if (!args.GetCurrentPoint (this).Properties.IsLeftButtonPressed) return;
 		Point point = args.GetPosition (this);
 		int size = Math.Max (1, (int) Math.Min (Bounds.Width, Bounds.Height));
 		int radius = size / 2;
@@ -89,5 +116,11 @@ internal sealed class ColorPickerSurface : Control
 		color = ColorSpace.FromHsv (hsv.H, hsv.S, hsv.V, color.A);
 		ColorChanged?.Invoke (this, color);
 		InvalidateVisual ();
+	}
+
+	private void OnPointerReleased (object? sender, PointerReleasedEventArgs args)
+	{
+		if (args.InitialPressMouseButton == MouseButton.Left)
+			args.Pointer.Capture (null);
 	}
 }

@@ -32,6 +32,7 @@ public sealed class ColorDialogWindow : Window
 		void SetRgb (Color color)
 		{
 			syncing = true; current = color; var hsv = ColorSpace.ToHsv (color);
+			picker.Color = color;
 			red.Value = color.R; green.Value = color.G; blue.Value = color.B; alpha.Value = color.A;
 			hue.Value = (decimal) hsv.H; saturation.Value = (decimal) (hsv.S * 100); value.Value = (decimal) (hsv.V * 100); PaintPreview (); syncing = false;
 		}
