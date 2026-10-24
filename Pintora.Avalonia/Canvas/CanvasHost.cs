@@ -486,6 +486,10 @@ public sealed class CanvasHost : Control
 
 	public void RenameLayer (string name)
 	{
+		if (string.Equals (Layers[ActiveLayerIndex].Name, name, StringComparison.Ordinal))
+			return;
+		layer_undo_stack.Push (CaptureLayerStack ());
+		layer_redo_stack.Clear ();
 		session.RenameActiveLayer (name);
 		InvalidateVisual ();
 	}
