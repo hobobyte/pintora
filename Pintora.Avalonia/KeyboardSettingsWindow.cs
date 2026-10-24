@@ -36,6 +36,12 @@ public sealed class KeyboardSettingsWindow : Window
 		rows.Children.Add (CreateRow ("Deselect", PintoraKeyCommands.Deselect, settings));
 		rows.Children.Add (CreateRow ("Duplicate layer", PintoraKeyCommands.DuplicateLayer, settings));
 		rows.Children.Add (CreateRow ("Clear history", PintoraKeyCommands.ClearHistory, settings));
+		var reset = new Button { Content = "Reset to defaults", HorizontalAlignment = HorizontalAlignment.Left };
+		reset.Click += (_, _) => {
+			settings.ResetAll ();
+			Close ();
+		};
+		rows.Children.Add (reset);
 		Content = new Border {
 			Padding = new global::Avalonia.Thickness (20),
 			Child = new ScrollViewer { Content = rows }

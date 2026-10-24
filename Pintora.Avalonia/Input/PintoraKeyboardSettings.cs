@@ -68,6 +68,12 @@ public sealed class PintoraKeyboardSettings
 		bindings[command.Id] = value;
 	}
 
+	public void ResetAll ()
+	{
+		foreach (PintoraKeyCommand command in PintoraKeyCommands.All)
+			SetGesture (command, command.DefaultGesture);
+	}
+
 	private static string SettingKey (PintoraKeyCommand command) => $"Pintora.Keyboard.{command.Id}";
 
 	private static KeyGesture? Parse (string? text)
