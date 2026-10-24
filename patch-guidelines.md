@@ -39,7 +39,7 @@ the source code, but please do not attempt to clean up existing code. We
 are only interested in seeing functional changes to the code, if they
 are mixed with cosmetic changes it becomes very difficult to see what
 has actually changed. Build your code according to the [building
-instructions](https://github.com/PintaProject/Pinta/blob/master/readme.md),
+instructions](readme.md),
 and test it to make sure it does what it's supposed to and doesn't do
 anything it's not supposed to.
 
