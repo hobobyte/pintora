@@ -1,4 +1,4 @@
-The MIT License
+# MIT License
 
 Copyright (c) 2010 Jonathan Pobst <monkey@jpobst.com>
 
