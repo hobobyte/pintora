@@ -331,8 +331,7 @@ public sealed class CanvasHost : Control
 		if (session.ActiveLayer.Opacity == clamped) return;
 		RecordLayerUndo ();
 		session.ActiveLayer.Opacity = clamped;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	public void SwapColors ()
@@ -353,8 +352,7 @@ public sealed class CanvasHost : Control
 		if (Layers[index].IsVisible == isVisible) return;
 		RecordLayerUndo ();
 		Layers[index].IsVisible = isVisible;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	public void SetLayerLocked (int index, bool isLocked)
@@ -363,15 +361,14 @@ public sealed class CanvasHost : Control
 			return;
 		RecordLayerUndo ();
 		Layers[index].IsLocked = isLocked;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	public void AddLayer ()
 	{
 		RecordLayerUndo ();
 		session.AddLayer ($"Layer {session.Layers.Count}");
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	public bool DuplicateActiveLayer ()
@@ -383,8 +380,7 @@ public sealed class CanvasHost : Control
 		duplicate.IsVisible = source.IsVisible;
 		duplicate.IsLocked = source.IsLocked;
 		duplicate.Opacity = source.Opacity;
-		bitmap = null;
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 		return true;
 	}
 
@@ -400,8 +396,7 @@ public sealed class CanvasHost : Control
 		if (Layers.Count <= 1) return;
 		RecordLayerUndo ();
 		if (session.RemoveActiveLayer ()) {
-			bitmap = null;
-			InvalidateVisual ();
+			MarkCanvasChanged ();
 		}
 	}
 
@@ -525,7 +520,7 @@ public sealed class CanvasHost : Control
 			return;
 		RecordLayerUndo ();
 		session.RenameActiveLayer (name);
-		InvalidateVisual ();
+		MarkCanvasChanged ();
 	}
 
 	public void SetScale (double scale)
