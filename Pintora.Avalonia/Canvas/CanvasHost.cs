@@ -111,9 +111,15 @@ public sealed class CanvasHost : Control
 	}
 
 	public double Scale => session.Scale;
+	public bool IsDirty { get; private set; }
+	public event EventHandler? DocumentStateChanged;
 	internal void InvalidateToolVisual () => InvalidateVisual ();
 	internal void MarkCanvasChanged ()
 	{
+		if (!IsDirty) {
+			IsDirty = true;
+			DocumentStateChanged?.Invoke (this, EventArgs.Empty);
+		}
 		bitmap = null;
 		InvalidateVisual ();
 	}
@@ -582,6 +588,7 @@ public sealed class CanvasHost : Control
 		surface.Fill (ColorBgra.White);
 		session = new AvaloniaDocumentSession (new Pinta.Core.Size (width, height), surface);
 		ClearHistory ();
+		SetClean ();
 		viewport_offset = Vector.Zero;
 		SetScale (1.0);
 		bitmap = null;
@@ -614,6 +621,7 @@ public sealed class CanvasHost : Control
 		MemoryImageSurface surface = DecodeSurface (image);
 		session = new AvaloniaDocumentSession (new Pinta.Core.Size (surface.Width, surface.Height), surface);
 		ClearHistory ();
+		SetClean ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -772,6 +780,15 @@ public sealed class CanvasHost : Control
 				SavePng (path);
 				break;
 		}
+		SetClean ();
+	}
+
+	private void SetClean ()
+	{
+		if (!IsDirty)
+			return;
+		IsDirty = false;
+		DocumentStateChanged?.Invoke (this, EventArgs.Empty);
 	}
 
 	public void SaveJpeg (string path, int quality = 95)

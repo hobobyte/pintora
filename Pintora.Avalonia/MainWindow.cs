@@ -40,6 +40,7 @@ public sealed class MainWindow : Window
 		App.InitializeTheme (settings);
 		keyboard = new PintoraKeyboardSettings (settings);
 		CanvasHost canvas = CreateCanvasHost (keyboard);
+		canvas.DocumentStateChanged += (_, _) => UpdateDocumentTitle (canvas, version);
 		canvas.BrushColor = LoadColor ("Pintora.Palette.Primary", ColorBgra.Black);
 		canvas.SecondaryBrushColor = LoadColor ("Pintora.Palette.Secondary", ColorBgra.White);
 		canvas.BrushSize = settings.GetSetting ("Pintora.Brush.Size", 1);
@@ -235,6 +236,9 @@ public sealed class MainWindow : Window
 		Grid.SetRow (menu, 0);
 		return menu;
 	}
+
+	private void UpdateDocumentTitle (CanvasHost canvas, string version)
+		=> Title = $"{(canvas.IsDirty ? "* " : string.Empty)}Pintora {version} — Simple. Powerful. Creative.";
 
 	private static Button CreateBrushButton (string label, Action action)
 	{
