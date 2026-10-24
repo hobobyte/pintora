@@ -95,7 +95,7 @@ jobs:
       - name: Include licenses and release documentation
         shell: bash
         run: |
-          cp license-mit.txt license-pdn.txt Pintora.Avalonia/README.md Pintora.Avalonia/RELEASE-NOTES-0.0.1-alpha.md publish/${{ matrix.rid }}/
+          cp license-mit.txt license-pdn.txt Pintora.Avalonia/README.md CHANGELOG.md publish/${{ matrix.rid }}/
           cp Pinta.Resources/icons/pinta-icons.md publish/${{ matrix.rid }}/THIRD-PARTY-NOTICES-icons.md
 
       - name: Archive portable app
@@ -161,11 +161,11 @@ jobs:
             <key>CFBundleVersion</key><string>${{ steps.version.outputs.msi-version }}</string>
             <key>CFBundleShortVersionString</key><string>${{ steps.version.outputs.app-version }}</string>
             <key>CFBundlePackageType</key><string>APPL</string>
-            <key>CFBundleExecutable</key><string>Pintora.Avalonia</string>
+            <key>CFBundleExecutable</key><string>Pintora</string>
             <key>CFBundleIconFile</key><string>Pintora.icns</string>
           </dict></plist>
           PLIST
-          chmod +x "$app_dir/MacOS/Pintora.Avalonia"
+          chmod +x "$app_dir/MacOS/Pintora"
           bash scripts/make-pintora-macos-dmg.sh "Pintora-${{ matrix.rid }}/Pintora.app" "Pintora-${{ matrix.rid }}.dmg"
 
       - name: Upload package artifact
@@ -201,7 +201,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: Pintora ${{ github.ref_name }}
-          body_path: Pintora.Avalonia/RELEASE-NOTES-0.0.1-alpha.md
+          body_path: CHANGELOG.md
           draft: true
           prerelease: true
           files: release-assets/*
