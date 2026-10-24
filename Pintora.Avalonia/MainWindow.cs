@@ -200,6 +200,9 @@ public sealed class MainWindow : Window
 				new MenuItem { Header = "_Image", Items = {
 					CreateMenuItem ("Add layer", () => { canvas.AddLayer (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Duplicate layer", () => { canvas.DuplicateActiveLayer (); refresh_layers?.Invoke (); }),
+					CreateMenuItem ("Move layer up", () => { canvas.MoveLayer (1); refresh_layers?.Invoke (); }),
+					CreateMenuItem ("Move layer down", () => { canvas.MoveLayer (-1); refresh_layers?.Invoke (); }),
+					CreateMenuItem ("Merge layer down", () => { canvas.MergeActiveLayerDown (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Delete layer", () => { canvas.RemoveLayer (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Rename layer", () => new LayerRenameWindow (canvas, canvas.Layers[canvas.ActiveLayerIndex].Name, () => refresh_layers?.Invoke ()).Show (this)),
 					CreateMenuItem ("Resize image", () => new ResizeImageWindow (canvas).Show (this)),
