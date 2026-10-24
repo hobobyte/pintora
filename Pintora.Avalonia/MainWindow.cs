@@ -254,6 +254,9 @@ public sealed class MainWindow : Window
 		return input;
 	}
 
+	private static TextBlock CreateToolbarLabel (string text)
+		=> new () { Text = text, VerticalAlignment = VerticalAlignment.Center };
+
 	private static Control CreateShapeWidthInput (CanvasHost canvas)
 	{
 		var value = new TextBox { Text = canvas.ShapeOutlineWidth.ToString (), Width = 42, Height = 30 };
@@ -586,12 +589,27 @@ public sealed class MainWindow : Window
 				tool_options.Children.Add (CreateBrushButton ("Deselect", canvas.ClearSelection));
 				break;
 			case CanvasHost.CanvasTool.Brush:
-				tool_options.Children.Add (new TextBlock { Text = "Size", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateToolbarLabel ("Tool:"));
+				tool_options.Children.Add (new TextBlock { Text = "✎", FontSize = 18, VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateToolbarLabel ("Brush width:"));
 				tool_options.Children.Add (CreateBrushSizeInput (canvas));
-				tool_options.Children.Add (new TextBlock { Text = "Hardness", VerticalAlignment = VerticalAlignment.Center });
-				tool_options.Children.Add (CreateBrushSlider (0, 1, canvas.BrushHardness, value => canvas.BrushHardness = value, 90));
-				tool_options.Children.Add (new TextBlock { Text = "Opacity", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (CreateToolbarLabel ("Type:"));
+				var brush_type = new ComboBox {
+					ItemsSource = new[] { "Normal", "Soft" },
+					SelectedIndex = canvas.BrushHardness < 1 ? 1 : 0,
+					MinWidth = 92
+				};
+				brush_type.SelectionChanged += (_, _) => {
+					if (brush_type.SelectedIndex >= 0)
+						canvas.BrushHardness = brush_type.SelectedIndex == 0 ? 1 : 0.45;
+				};
+				tool_options.Children.Add (brush_type);
+				tool_options.Children.Add (CreateToolbarLabel ("Opacity:"));
 				tool_options.Children.Add (CreateBrushSlider (0, 1, canvas.BrushOpacity, value => canvas.BrushOpacity = value, 90));
+				tool_options.Children.Add (CreateToolbarLabel ("Stroke:"));
+				var stroke = new ComboBox { ItemsSource = new[] { "Round", "Hard" }, SelectedIndex = canvas.BrushHardness < 1 ? 0 : 1, MinWidth = 92 };
+				stroke.SelectionChanged += (_, _) => { if (stroke.SelectedIndex >= 0) canvas.BrushHardness = stroke.SelectedIndex == 0 ? 0.45 : 1; };
+				tool_options.Children.Add (stroke);
 				break;
 			case CanvasHost.CanvasTool.Pencil:
 				break;
