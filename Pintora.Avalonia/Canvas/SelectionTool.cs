@@ -59,9 +59,17 @@ internal sealed class SelectionTool : ICanvasTool
 		if (dragStart is not PointD start || dragEnd is not PointD end)
 			return false;
 		dragStart = dragEnd = null;
+		// Pointer coordinates describe the edges of the dragged rectangle in
+		// image space. Convert those edges to pixel bounds instead of rounding
+		// each endpoint independently; rounding makes the selection jump at
+		// fractional zoom levels and can drop the last row/column.
+		double left = Math.Min (start.X, end.X);
+		double top = Math.Min (start.Y, end.Y);
+		double right = Math.Max (start.X, end.X);
+		double bottom = Math.Max (start.Y, end.Y);
 		return SelectRectangle (
-			new PointI ((int) Math.Round (start.X), (int) Math.Round (start.Y)),
-			new PointI ((int) Math.Round (end.X), (int) Math.Round (end.Y)), imageSize);
+			new PointI ((int) Math.Floor (left), (int) Math.Floor (top)),
+			new PointI ((int) Math.Ceiling (right), (int) Math.Ceiling (bottom)), imageSize);
 	}
 
 	public void CancelSelection () => dragStart = dragEnd = null;
