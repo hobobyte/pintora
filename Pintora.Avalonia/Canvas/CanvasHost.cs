@@ -596,6 +596,7 @@ public sealed class CanvasHost : Control
 			throw new ArgumentOutOfRangeException (nameof (width), "Image dimensions must be positive.");
 		session.Resize (new Pinta.Core.Size (width, height));
 		ClearHistory ();
+		MarkCanvasChanged ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
@@ -605,6 +606,7 @@ public sealed class CanvasHost : Control
 	{
 		session.Crop (left, top, width, height);
 		ClearHistory ();
+		MarkCanvasChanged ();
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
