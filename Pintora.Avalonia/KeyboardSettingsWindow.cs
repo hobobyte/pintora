@@ -27,9 +27,18 @@ public sealed class KeyboardSettingsWindow : Window
 		rows.Children.Add (CreateRow ("Fill", PintoraKeyCommands.Fill, settings));
 		rows.Children.Add (CreateRow ("Color picker", PintoraKeyCommands.ColorPicker, settings));
 		rows.Children.Add (CreateRow ("Zoom", PintoraKeyCommands.Zoom, settings));
+		rows.Children.Add (CreateRow ("Fit canvas", PintoraKeyCommands.FitCanvas, settings));
+		rows.Children.Add (CreateRow ("Actual size", PintoraKeyCommands.ActualSize, settings));
+		rows.Children.Add (CreateRow ("Clear layer", PintoraKeyCommands.ClearLayer, settings));
+		rows.Children.Add (CreateRow ("Copy selection", PintoraKeyCommands.Copy, settings));
+		rows.Children.Add (CreateRow ("Paste selection", PintoraKeyCommands.Paste, settings));
+		rows.Children.Add (CreateRow ("Select all", PintoraKeyCommands.SelectAll, settings));
+		rows.Children.Add (CreateRow ("Deselect", PintoraKeyCommands.Deselect, settings));
+		rows.Children.Add (CreateRow ("Duplicate layer", PintoraKeyCommands.DuplicateLayer, settings));
+		rows.Children.Add (CreateRow ("Clear history", PintoraKeyCommands.ClearHistory, settings));
 		Content = new Border {
 			Padding = new global::Avalonia.Thickness (20),
-			Child = rows
+			Child = new ScrollViewer { Content = rows }
 		};
 	}
 
