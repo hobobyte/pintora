@@ -73,9 +73,20 @@ public sealed class CanvasHost : Control
 	private readonly Stack<string> redo_history_stack = new ();
 	private readonly Stack<LayerStackSnapshot> layer_undo_stack = new ();
 	private readonly Stack<LayerStackSnapshot> layer_redo_stack = new ();
+	private enum HistoryKind { Raster, Layer }
+	private readonly Stack<HistoryKind> history_kinds = new ();
+	private readonly Stack<HistoryKind> redo_history_kinds = new ();
 	private sealed record RasterSnapshot (AvaloniaLayer Layer, ColorBgra[] Pixels, ShapeTool.ShapeSnapshot? Shape);
 	private sealed record LayerSnapshot (AvaloniaLayer Layer, string Name, bool IsVisible, bool IsLocked, double Opacity, ColorBgra[] Pixels);
 	private sealed record LayerStackSnapshot (List<LayerSnapshot> Layers, int ActiveIndex);
+
+	private void RecordLayerUndo ()
+	{
+		layer_undo_stack.Push (CaptureLayerStack ());
+		layer_redo_stack.Clear ();
+		history_kinds.Push (HistoryKind.Layer);
+		redo_history_kinds.Clear ();
+	}
 
 	public CanvasHost () : this (new Pinta.Core.Size (800, 600))
 	{
@@ -316,8 +327,7 @@ public sealed class CanvasHost : Control
 			return;
 		double clamped = Math.Clamp (opacity, 0, 1);
 		if (session.ActiveLayer.Opacity == clamped) return;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		session.ActiveLayer.Opacity = clamped;
 		bitmap = null;
 		InvalidateVisual ();
@@ -339,8 +349,7 @@ public sealed class CanvasHost : Control
 		if ((uint) index >= Layers.Count)
 			return;
 		if (Layers[index].IsVisible == isVisible) return;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		Layers[index].IsVisible = isVisible;
 		bitmap = null;
 		InvalidateVisual ();
@@ -350,16 +359,14 @@ public sealed class CanvasHost : Control
 	{
 		if ((uint) index >= Layers.Count || Layers[index].IsLocked == isLocked)
 			return;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		Layers[index].IsLocked = isLocked;
 		InvalidateVisual ();
 	}
 
 	public void AddLayer ()
 	{
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		session.AddLayer ($"Layer {session.Layers.Count}");
 		bitmap = null;
 		InvalidateVisual ();
@@ -368,8 +375,7 @@ public sealed class CanvasHost : Control
 	public bool DuplicateActiveLayer ()
 	{
 		AvaloniaLayer source = Layers[ActiveLayerIndex];
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		AvaloniaLayer duplicate = session.AddLayer ($"{source.Name} copy");
 		source.Surface.GetReadOnlyPixelData ().CopyTo (duplicate.Surface.GetPixelData ());
 		duplicate.IsVisible = source.IsVisible;
@@ -390,8 +396,7 @@ public sealed class CanvasHost : Control
 	public void RemoveLayer ()
 	{
 		if (Layers.Count <= 1) return;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		if (session.RemoveActiveLayer ()) {
 			bitmap = null;
 			InvalidateVisual ();
@@ -402,8 +407,7 @@ public sealed class CanvasHost : Control
 	{
 		int target = ActiveLayerIndex + Math.Sign (direction);
 		if ((uint) target >= (uint) Layers.Count) return;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		if (session.MoveActiveLayer (direction)) {
 			bitmap = null;
 			InvalidateVisual ();
@@ -413,8 +417,7 @@ public sealed class CanvasHost : Control
 	public bool MoveLayerTo (int index)
 	{
 		if ((uint) index >= (uint) Layers.Count || index == ActiveLayerIndex) return false;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		bool moved = session.MoveLayerTo (ActiveLayerIndex, index);
 		if (moved) {
 			bitmap = null;
@@ -427,8 +430,7 @@ public sealed class CanvasHost : Control
 	{
 		if ((uint) from >= (uint) Layers.Count || (uint) to >= (uint) Layers.Count || from == to)
 			return false;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		bool moved = session.MoveLayerTo (from, to);
 		if (moved) {
 			bitmap = null;
@@ -441,8 +443,7 @@ public sealed class CanvasHost : Control
 	{
 		if (ActiveLayerIndex <= 0 || Layers.Count < 2 || IsActiveLayerLocked || Layers[ActiveLayerIndex - 1].IsLocked)
 			return false;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		AvaloniaLayer upper = Layers[ActiveLayerIndex];
 		AvaloniaLayer lower = Layers[ActiveLayerIndex - 1];
 		Span<ColorBgra> destination = lower.Surface.GetPixelData ();
@@ -467,17 +468,31 @@ public sealed class CanvasHost : Control
 	public bool CanRedoLayerOperation => layer_redo_stack.Count > 0;
 
 	public void UndoLayerOperation ()
+		=> UndoLayerOperationCore (false);
+
+	private void UndoLayerOperationCore (bool fromUnifiedHistory)
 	{
 		if (!CanUndoLayerOperation) return;
 		layer_redo_stack.Push (CaptureLayerStack ());
 		RestoreLayerStack (layer_undo_stack.Pop ());
+		if (fromUnifiedHistory && history_kinds.Count > 0 && history_kinds.Peek () == HistoryKind.Layer)
+			history_kinds.Pop ();
+		if (fromUnifiedHistory)
+			redo_history_kinds.Push (HistoryKind.Layer);
 	}
 
 	public void RedoLayerOperation ()
+		=> RedoLayerOperationCore (false);
+
+	private void RedoLayerOperationCore (bool fromUnifiedHistory)
 	{
 		if (!CanRedoLayerOperation) return;
 		layer_undo_stack.Push (CaptureLayerStack ());
 		RestoreLayerStack (layer_redo_stack.Pop ());
+		if (fromUnifiedHistory && redo_history_kinds.Count > 0 && redo_history_kinds.Peek () == HistoryKind.Layer)
+			redo_history_kinds.Pop ();
+		if (fromUnifiedHistory)
+			history_kinds.Push (HistoryKind.Layer);
 	}
 
 	private LayerStackSnapshot CaptureLayerStack ()
@@ -504,8 +519,7 @@ public sealed class CanvasHost : Control
 	{
 		if (string.Equals (Layers[ActiveLayerIndex].Name, name, StringComparison.Ordinal))
 			return;
-		layer_undo_stack.Push (CaptureLayerStack ());
-		layer_redo_stack.Clear ();
+		RecordLayerUndo ();
 		session.RenameActiveLayer (name);
 		InvalidateVisual ();
 	}
@@ -917,6 +931,8 @@ public sealed class CanvasHost : Control
 		redo_history_stack.Clear ();
 		layer_undo_stack.Clear ();
 		layer_redo_stack.Clear ();
+		history_kinds.Clear ();
+		redo_history_kinds.Clear ();
 		has_current_stroke = false;
 		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
@@ -929,6 +945,8 @@ public sealed class CanvasHost : Control
 		undo_stack.Push (new RasterSnapshot (session.ActiveLayer!, Surface.GetReadOnlyPixelData ().ToArray (), shape_tool.CaptureState ()));
 		redo_stack.Clear ();
 		redo_history_stack.Clear ();
+		history_kinds.Push (HistoryKind.Raster);
+		redo_history_kinds.Clear ();
 		history_stack.Push ("Raster operation");
 		has_current_stroke = true;
 		HistoryChanged?.Invoke (this, EventArgs.Empty);
@@ -981,6 +999,10 @@ public sealed class CanvasHost : Control
 	public void UndoLastStroke ()
 	{
 		if (undo_stack.Count == 0 || !Layers.Contains (undo_stack.Peek ().Layer)) {
+			if (history_kinds.Count > 0 && history_kinds.Peek () == HistoryKind.Layer) {
+				UndoLayerOperationCore (true);
+				return;
+			}
 			UndoLayerOperation ();
 			return;
 		}
@@ -993,6 +1015,9 @@ public sealed class CanvasHost : Control
 		snapshot.Pixels.AsSpan ().CopyTo (layer.Surface.GetPixelData ());
 		shape_tool.RestoreState (snapshot.Shape);
 		redo_history_stack.Push (history_stack.Pop ());
+		if (history_kinds.Count > 0)
+			history_kinds.Pop ();
+		redo_history_kinds.Push (HistoryKind.Raster);
 		bitmap = null;
 		InvalidateVisual ();
 		HistoryChanged?.Invoke (this, EventArgs.Empty);
@@ -1001,6 +1026,10 @@ public sealed class CanvasHost : Control
 	public void RedoLastStroke ()
 	{
 		if (redo_stack.Count == 0 || !Layers.Contains (redo_stack.Peek ().Layer)) {
+			if (redo_history_kinds.Count > 0 && redo_history_kinds.Peek () == HistoryKind.Layer) {
+				RedoLayerOperationCore (true);
+				return;
+			}
 			RedoLayerOperation ();
 			return;
 		}
@@ -1013,6 +1042,9 @@ public sealed class CanvasHost : Control
 		snapshot.Pixels.AsSpan ().CopyTo (layer.Surface.GetPixelData ());
 		shape_tool.RestoreState (snapshot.Shape);
 		history_stack.Push (redo_history_stack.Pop ());
+		if (redo_history_kinds.Count > 0)
+			redo_history_kinds.Pop ();
+		history_kinds.Push (HistoryKind.Raster);
 		bitmap = null;
 		InvalidateVisual ();
 		HistoryChanged?.Invoke (this, EventArgs.Empty);
