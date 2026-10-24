@@ -15,12 +15,14 @@ public sealed class HistoryWindow : Window
 		Height = 420;
 		var refresh = new Button { Content = "Refresh", HorizontalAlignment = HorizontalAlignment.Left };
 		refresh.Click += (_, _) => Refresh (canvas);
+		var clear = new Button { Content = "Clear history", HorizontalAlignment = HorizontalAlignment.Left };
+		clear.Click += (_, _) => canvas.ClearHistory ();
 		canvas.HistoryChanged += (_, _) => Refresh (canvas);
 		Content = new StackPanel {
 			Spacing = 8,
 			Margin = new global::Avalonia.Thickness (12),
 			Children = {
-			new TextBlock { Text = "Actions", FontSize = 17 }, entries, refresh
+				new TextBlock { Text = "Actions", FontSize = 17 }, entries, refresh, clear
 		}
 		};
 		Refresh (canvas);

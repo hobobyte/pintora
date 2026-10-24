@@ -1008,6 +1008,22 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void ClearHistoryRemovesUndoAndRedoEntries ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.BeginStroke ();
+		canvas.PaintCanvasPoint (new PointD (0, 0), ColorBgra.Red);
+		canvas.CommitStroke ();
+
+		canvas.ClearHistory ();
+
+		Assert.That (canvas.History, Is.Empty);
+		Assert.That (canvas.CanUndoStroke, Is.False);
+		Assert.That (canvas.CanRedoStroke, Is.False);
+	}
+
+	[Test]
 	public void SelectAllAndDeselectUseDocumentBounds ()
 	{
 		using MemoryImageSurface surface = new (4, 3);
