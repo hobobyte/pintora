@@ -340,6 +340,13 @@ public sealed class CanvasHost : Control
 		ColorsChanged?.Invoke (this, EventArgs.Empty);
 	}
 
+	public void ResetColors ()
+	{
+		BrushColor = ColorBgra.Black;
+		SecondaryBrushColor = ColorBgra.White;
+		ColorsChanged?.Invoke (this, EventArgs.Empty);
+	}
+
 	public void SetActiveLayerVisibility (bool isVisible)
 	{
 		SetLayerVisibility (ActiveLayerIndex, isVisible);

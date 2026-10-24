@@ -533,6 +533,10 @@ public sealed class MainWindow : Window
 			canvas.SwapColors ();
 			SaveColors ();
 		});
+		var reset = CreateBrushButton ("Reset", () => {
+			canvas.ResetColors ();
+			SaveColors ();
+		});
 		var colors = new WrapPanel { Width = 225, ItemWidth = 28, ItemHeight = 28 };
 		string[] palette = {
 			"#000000", "#404040", "#808080", "#BFBFBF", "#FFFFFF",
@@ -562,7 +566,7 @@ public sealed class MainWindow : Window
 			Spacing = 5,
 			Children = {
 				new TextBlock { Text = "Colors", FontSize = 15 },
-				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Children = { primary, secondary, swap } },
+				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Children = { primary, secondary, swap, reset } },
 				colors,
 				picker,
 				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5, Children = { custom, customSecondary } }

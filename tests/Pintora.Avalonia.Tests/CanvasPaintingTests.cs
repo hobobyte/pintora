@@ -120,6 +120,22 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void ResetColorsRestoresPrimaryAndSecondaryDefaults ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (2, 2));
+		canvas.BrushColor = ColorBgra.Red;
+		canvas.SecondaryBrushColor = ColorBgra.Blue;
+		int notifications = 0;
+		canvas.ColorsChanged += (_, _) => notifications++;
+
+		canvas.ResetColors ();
+
+		Assert.That (canvas.BrushColor, Is.EqualTo (ColorBgra.Black));
+		Assert.That (canvas.SecondaryBrushColor, Is.EqualTo (ColorBgra.White));
+		Assert.That (notifications, Is.EqualTo (1));
+	}
+
+	[Test]
 	public void NewDocumentClearsLayerUndoAndHistory ()
 	{
 		using MemoryImageSurface surface = new (2, 1);
