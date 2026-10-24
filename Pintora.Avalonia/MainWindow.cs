@@ -158,6 +158,14 @@ public sealed class MainWindow : Window
 	{
 		var preferences = new MenuItem { Header = "Preferences" };
 		preferences.Click += (_, _) => new SettingsWindow (canvas, settings, keyboard).Show (this);
+		MenuItem undo = CreateMenuItem ("_Undo", canvas.UndoLastStroke, keyboard, PintoraKeyCommands.Undo);
+		MenuItem redo = CreateMenuItem ("_Redo", canvas.RedoLastStroke, keyboard, PintoraKeyCommands.Redo);
+		void RefreshHistoryCommands () {
+			undo.IsEnabled = canvas.CanUndoStroke;
+			redo.IsEnabled = canvas.CanRedoStroke;
+		}
+		canvas.HistoryChanged += (_, _) => RefreshHistoryCommands ();
+		RefreshHistoryCommands ();
 		var menu = new Menu {
 			Items = {
 				new MenuItem { Header = "_File", Items = {
@@ -173,8 +181,8 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("Save _ORA", () => _ = SaveOraAsync (canvas))
 				} },
 				new MenuItem { Header = "_Edit", Items = {
-					CreateMenuItem ("_Undo", canvas.UndoLastStroke, keyboard, PintoraKeyCommands.Undo),
-					CreateMenuItem ("_Redo", canvas.RedoLastStroke, keyboard, PintoraKeyCommands.Redo),
+					undo,
+					redo,
 					CreateMenuItem ("Clear history", canvas.ClearHistory),
 					CreateMenuItem ("Undo layer", () => { canvas.UndoLayerOperation (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Redo layer", () => { canvas.RedoLayerOperation (); refresh_layers?.Invoke (); }),
