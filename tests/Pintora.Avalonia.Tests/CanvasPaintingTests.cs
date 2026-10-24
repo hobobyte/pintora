@@ -1036,6 +1036,28 @@ internal sealed class CanvasPaintingTests
 		Assert.That (canvas.Layers[0].Name, Is.EqualTo ("Artwork"));
 	}
 
+	[Test]
+	public void DuplicateLayerCopiesPixelsAndMetadata ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.SetActiveLayerOpacity (0.5);
+		canvas.SetActiveLayerVisibility (false);
+
+		Assert.That (canvas.DuplicateActiveLayer (), Is.True);
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
+		Assert.That (canvas.Layers[1].Name, Is.EqualTo ("Background copy"));
+		Assert.That (canvas.Layers[1].Opacity, Is.EqualTo (0.5));
+		Assert.That (canvas.Layers[1].IsVisible, Is.False);
+		Assert.That (canvas.Layers[1].Surface.GetReadOnlyPixelData ()[0], Is.EqualTo (ColorBgra.Red));
+
+		canvas.UndoLayerOperation ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
+		canvas.RedoLayerOperation ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
+	}
+
 
 	[Test]
 	public void CancelCurrentStrokeRestoresSnapshot ()
