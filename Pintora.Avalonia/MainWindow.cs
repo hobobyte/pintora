@@ -175,6 +175,7 @@ public sealed class MainWindow : Window
 				new MenuItem { Header = "_Edit", Items = {
 					CreateMenuItem ("_Undo", canvas.UndoLastStroke, keyboard, PintoraKeyCommands.Undo),
 					CreateMenuItem ("_Redo", canvas.RedoLastStroke, keyboard, PintoraKeyCommands.Redo),
+					CreateMenuItem ("Clear history", canvas.ClearHistory),
 					CreateMenuItem ("Undo layer", () => { canvas.UndoLayerOperation (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Redo layer", () => { canvas.RedoLayerOperation (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Clear layer", () => canvas.ClearActiveLayer (), keyboard, PintoraKeyCommands.ClearLayer),
