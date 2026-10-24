@@ -6,12 +6,14 @@ set -euo pipefail
 PUBLISH_DIR="$1"
 VERSION="$2"
 OUTPUT_DIR="$3"
+mkdir -p "$OUTPUT_DIR"
+OUTPUT_DIR="$(realpath "$OUTPUT_DIR")"
 STAGING="$(mktemp -d "${TMPDIR:-/tmp}/pintora-deb.XXXXXX")"
 trap 'rm -rf "$STAGING"' EXIT
 
 mkdir -p "$STAGING/usr/lib/pintora" "$STAGING/usr/bin" \
     "$STAGING/usr/share/applications" "$STAGING/usr/share/icons/hicolor/96x96/apps" \
-    "$STAGING/usr/share/doc/pintora" "$STAGING/DEBIAN" "$OUTPUT_DIR"
+    "$STAGING/usr/share/doc/pintora" "$STAGING/DEBIAN"
 cp -R "$PUBLISH_DIR"/. "$STAGING/usr/lib/pintora/"
 chmod +x "$STAGING/usr/lib/pintora/Pintora"
 ln -s /usr/lib/pintora/Pintora "$STAGING/usr/bin/pintora"
