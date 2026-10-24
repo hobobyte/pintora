@@ -364,6 +364,21 @@ public sealed class CanvasHost : Control
 		InvalidateVisual ();
 	}
 
+	public bool DuplicateActiveLayer ()
+	{
+		AvaloniaLayer source = Layers[ActiveLayerIndex];
+		layer_undo_stack.Push (CaptureLayerStack ());
+		layer_redo_stack.Clear ();
+		AvaloniaLayer duplicate = session.AddLayer ($"{source.Name} copy");
+		source.Surface.GetReadOnlyPixelData ().CopyTo (duplicate.Surface.GetPixelData ());
+		duplicate.IsVisible = source.IsVisible;
+		duplicate.IsLocked = source.IsLocked;
+		duplicate.Opacity = source.Opacity;
+		bitmap = null;
+		InvalidateVisual ();
+		return true;
+	}
+
 	public void SelectLayer (int index)
 	{
 		session.SelectLayer (index);
