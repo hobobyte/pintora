@@ -2,12 +2,31 @@ using System.Linq;
 
 namespace Pintora.Avalonia.Canvas;
 
-internal static class CanvasToolFactory
+public static class CanvasToolFactory
 {
-	public static CanvasToolSet CreateTools ()
+	public static ToolDescriptor[] Descriptors { get; } = [
+		new (CanvasHost.CanvasTool.Selection, "tool.selection", "Selection", "Select"),
+		new (CanvasHost.CanvasTool.Text, "tool.text", "Text", "Draw"),
+		new (CanvasHost.CanvasTool.Brush, "tool.brush", "Brush", "Paint"),
+		new (CanvasHost.CanvasTool.Pencil, "tool.pencil", "Pencil", "Paint"),
+		new (CanvasHost.CanvasTool.Shapes, "tool.shapes", "Shapes", "Draw"),
+		new (CanvasHost.CanvasTool.Gradient, "tool.gradient", "Gradient", "Fill"),
+		new (CanvasHost.CanvasTool.Fill, "tool.fill", "Fill", "Fill"),
+		new (CanvasHost.CanvasTool.ColorPicker, "tool.color-picker", "Color Picker", "Colors"),
+		new (CanvasHost.CanvasTool.Zoom, "tool.zoom", "Zoom", "View", false),
+		new (CanvasHost.CanvasTool.Eraser, "tool.eraser", "Eraser", "Paint"),
+		new (CanvasHost.CanvasTool.Blur, "tool.blur", "Blur", "Effects"),
+		new (CanvasHost.CanvasTool.Pixelate, "tool.pixelate", "Pixelate", "Effects"),
+		new (CanvasHost.CanvasTool.Highlight, "tool.highlight", "Highlight", "Effects"),
+		new (CanvasHost.CanvasTool.Magnify, "tool.magnify", "Magnify", "Effects"),
+		new (CanvasHost.CanvasTool.Spotlight, "tool.spotlight", "Spotlight", "Effects")
+	];
+
+	internal static CanvasToolSet CreateTools ()
 	{
 		ICanvasTool[] tools = [
 			new SelectionTool (),
+			new TextTool (),
 			new BrushTool (CanvasHost.CanvasTool.Brush),
 			new BrushTool (CanvasHost.CanvasTool.Pencil),
 			new ShapeTool (),
@@ -15,7 +34,12 @@ internal static class CanvasToolFactory
 			new FillTool (),
 			new ColorPickerTool (),
 			new ZoomTool (),
-			new BrushTool (CanvasHost.CanvasTool.Eraser)
+			new BrushTool (CanvasHost.CanvasTool.Eraser),
+			new EffectTool (CanvasHost.CanvasTool.Blur),
+			new EffectTool (CanvasHost.CanvasTool.Pixelate),
+			new EffectTool (CanvasHost.CanvasTool.Highlight),
+			new EffectTool (CanvasHost.CanvasTool.Magnify),
+			new EffectTool (CanvasHost.CanvasTool.Spotlight)
 		];
 		return new CanvasToolSet (tools);
 	}
