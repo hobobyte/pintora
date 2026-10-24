@@ -17,9 +17,9 @@ macOS (Intel and Apple silicon):
 - Linux AppImage, Debian package (`.deb`), and portable `.tar.gz`;
 - macOS disk images (`.dmg`) and portable `.tar.gz` for both architectures.
 
-The workflow creates a **draft** prerelease after all builds pass. It must be reviewed and published
-before it appears as a downloadable release. Packages are unsigned; macOS builds are not notarized
-and may display a security warning on first launch.
+After a successful push to `master`, the workflow publishes a prerelease with all platform packages
+attached. Packages are unsigned; macOS builds are not notarized and may display a security warning
+on first launch.
 
 See the [Pintora changelog](CHANGELOG.md) for the fork baseline, alpha contents, and known limitations.
 

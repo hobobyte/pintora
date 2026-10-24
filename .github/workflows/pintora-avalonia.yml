@@ -3,7 +3,6 @@ name: Pintora Avalonia
 on:
   push:
     branches: [ master ]
-    tags: [ 'v0.0.1-alpha' ]
   pull_request:
     branches: [ master ]
 
@@ -25,13 +24,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Verify release tag matches app version
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        shell: bash
-        run: |
-          version="$(sed -n 's/^[[:space:]]*<Version>\(.*\)<\/Version>[[:space:]]*$/\1/p' Pintora.Avalonia/Pintora.Avalonia.csproj | head -n 1)"
-          test "v$version" = "$GITHUB_REF_NAME"
 
       - name: Set up .NET 10
         uses: actions/setup-dotnet@v4
@@ -56,7 +48,7 @@ jobs:
 
   package:
     name: Package (${{ matrix.rid }})
-    if: github.event_name == 'push' && github.ref == 'refs/tags/v0.0.1-alpha'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: verify
     runs-on: ${{ matrix.os }}
     strategy:
@@ -182,8 +174,8 @@ jobs:
           retention-days: 7
 
   draft-release:
-    name: Create draft alpha release
-    if: github.event_name == 'push' && github.ref == 'refs/tags/v0.0.1-alpha'
+    name: Publish alpha release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: package
     runs-on: ubuntu-latest
     permissions:
@@ -192,6 +184,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          version="$(sed -n 's/^[[:space:]]*<Version>\(.*\)<\/Version>[[:space:]]*$/\1/p' Pintora.Avalonia/Pintora.Avalonia.csproj | head -n 1)"
+          echo "app-version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Download platform packages
         uses: actions/download-artifact@v4
         with:
@@ -199,12 +198,29 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Create draft GitHub release
+      - name: Publish GitHub release with packages
         uses: softprops/action-gh-release@v2
         with:
-          name: Pintora ${{ github.ref_name }}
+          name: Pintora v${{ steps.version.outputs.app-version }}
+          tag_name: v${{ steps.version.outputs.app-version }}
+          target_commitish: ${{ github.sha }}
           body_path: CHANGELOG.md
           draft: true
           prerelease: true
           files: release-assets/*
           fail_on_unmatched_files: true
+
+      - name: Publish release after all assets are attached
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: v${{ steps.version.outputs.app-version }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const releases = await github.paginate(github.rest.repos.listReleases, { owner, repo, per_page: 100 });
+            const release = releases.find((item) => item.tag_name === process.env.RELEASE_TAG && item.draft);
+            if (!release) {
+              throw new Error(`Draft release ${process.env.RELEASE_TAG} was not found after uploading assets.`);
+            }
+            await github.rest.repos.updateRelease({ owner, repo, release_id: release.id, draft: false });
+            core.info(`Published ${release.html_url}`);
