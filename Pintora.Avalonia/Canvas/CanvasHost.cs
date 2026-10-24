@@ -733,6 +733,29 @@ public sealed class CanvasHost : Control
 		SaveBitmap (path, PngBitmapEncoderOptions.Default);
 	}
 
+	public void SaveImage (string path)
+	{
+		switch (Path.GetExtension (path).ToLowerInvariant ()) {
+			case ".jpg":
+			case ".jpeg":
+				SaveJpeg (path);
+				break;
+			case ".webp":
+				SaveWebp (path);
+				break;
+			case ".tif":
+			case ".tiff":
+				SaveTiff (path);
+				break;
+			case ".ora":
+				SaveOra (path);
+				break;
+			default:
+				SavePng (path);
+				break;
+		}
+	}
+
 	public void SaveJpeg (string path, int quality = 95)
 	{
 		SaveBitmap (path, new JpegBitmapEncoderOptions { Quality = Math.Clamp (quality, 1, 100) });

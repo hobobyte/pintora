@@ -1149,6 +1149,21 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void SaveImageUsesExtensionToSelectEncoder ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		surface.GetPixelData ()[0] = ColorBgra.Red;
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		string path = Path.Combine (Path.GetTempPath (), $"pintora-save-{Guid.NewGuid ():N}.png");
+		try {
+			canvas.SaveImage (path);
+			Assert.That (File.ReadAllBytes (path).AsSpan (1, 3).ToArray (), Is.EqualTo (new byte[] { (byte) 'P', (byte) 'N', (byte) 'G' }));
+		} finally {
+			File.Delete (path);
+		}
+	}
+
+	[Test]
 	public void SaveWebp_WritesWebpSignature ()
 	{
 		using var surface = new MemoryImageSurface (2, 2);
