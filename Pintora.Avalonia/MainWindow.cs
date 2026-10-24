@@ -173,14 +173,14 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("Save _ORA", () => _ = SaveOraAsync (canvas))
 				} },
 				new MenuItem { Header = "_Edit", Items = {
-					CreateMenuItem ("_Undo", canvas.UndoLastStroke),
-					CreateMenuItem ("_Redo", canvas.RedoLastStroke),
+					CreateMenuItem ("_Undo", canvas.UndoLastStroke, keyboard, PintoraKeyCommands.Undo),
+					CreateMenuItem ("_Redo", canvas.RedoLastStroke, keyboard, PintoraKeyCommands.Redo),
 					CreateMenuItem ("Undo layer", () => { canvas.UndoLayerOperation (); refresh_layers?.Invoke (); }),
 					CreateMenuItem ("Redo layer", () => { canvas.RedoLayerOperation (); refresh_layers?.Invoke (); }),
-					CreateMenuItem ("Clear layer", () => canvas.ClearActiveLayer ()),
+					CreateMenuItem ("Clear layer", () => canvas.ClearActiveLayer (), keyboard, PintoraKeyCommands.ClearLayer),
 					new Separator (),
-					CreateMenuItem ("Copy selection", () => canvas.CopySelection ()),
-					CreateMenuItem ("Paste selection", () => canvas.PasteSelection ()),
+					CreateMenuItem ("Copy selection", () => canvas.CopySelection (), keyboard, PintoraKeyCommands.Copy),
+					CreateMenuItem ("Paste selection", () => canvas.PasteSelection (), keyboard, PintoraKeyCommands.Paste),
 					CreateMenuItem ("Flip selection horizontally", () => canvas.FlipSelectionHorizontal ()),
 					CreateMenuItem ("Flip selection vertically", () => canvas.FlipSelectionVertical ()),
 					CreateMenuItem ("Rotate selection 90° clockwise", () => canvas.RotateSelectionClockwise ()),
@@ -188,8 +188,8 @@ public sealed class MainWindow : Window
 					preferences
 				} },
 				new MenuItem { Header = "_View", Items = {
-					CreateMenuItem ("Fit canvas", canvas.FitToWindow),
-					CreateMenuItem ("100%", canvas.SetActualSize),
+					CreateMenuItem ("Fit canvas", canvas.FitToWindow, keyboard, PintoraKeyCommands.FitCanvas),
+					CreateMenuItem ("100%", canvas.SetActualSize, keyboard, PintoraKeyCommands.ActualSize),
 					new Separator (),
 					CreateMenuItem ("Light theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Light)),
 					CreateMenuItem ("Dark theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Dark)),
@@ -259,6 +259,13 @@ public sealed class MainWindow : Window
 	{
 		var item = new MenuItem { Header = header };
 		item.Click += (_, _) => action ();
+		return item;
+	}
+
+	private static MenuItem CreateMenuItem (string header, Action action, PintoraKeyboardSettings keyboard, PintoraKeyCommand command)
+	{
+		MenuItem item = CreateMenuItem (header, action);
+		item.InputGesture = keyboard.GestureFor (command);
 		return item;
 	}
 
