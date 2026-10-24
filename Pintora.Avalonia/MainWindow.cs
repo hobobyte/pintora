@@ -115,7 +115,7 @@ public sealed class MainWindow : Window
 		return toolbar;
 	}
 
-	private static Button CreateColorSwatch (string color, Action action)
+	private static Button CreateColorSwatch (string color, Action primaryAction, Action? secondaryAction = null)
 	{
 		var button = new Button {
 			Content = "",
@@ -124,7 +124,13 @@ public sealed class MainWindow : Window
 			Background = new SolidColorBrush (Color.Parse (color)),
 			Padding = new global::Avalonia.Thickness (0)
 		};
-		button.Click += (_, _) => action ();
+		button.Click += (_, _) => primaryAction ();
+		button.PointerPressed += (_, args) => {
+			if (secondaryAction is not null && args.GetCurrentPoint (button).Properties.PointerUpdateKind == PointerUpdateKind.RightButtonPressed) {
+				secondaryAction ();
+				args.Handled = true;
+			}
+		};
 		return button;
 	}
 
@@ -546,7 +552,9 @@ public sealed class MainWindow : Window
 		};
 		foreach (string hex in palette) {
 			ColorBgra color = ToColorBgra (Color.Parse (hex));
-			colors.Children.Add (CreateColorSwatch (hex, () => { canvas.BrushColor = color; SaveColors (); }));
+			colors.Children.Add (CreateColorSwatch (hex,
+				() => { canvas.BrushColor = color; SaveColors (); },
+				() => { canvas.SecondaryBrushColor = color; SaveColors (); }));
 		}
 		var picker = new Button { Content = "Color Picker" };
 		picker.Click += (_, _) => canvas.ActiveTool = CanvasHost.CanvasTool.ColorPicker;
