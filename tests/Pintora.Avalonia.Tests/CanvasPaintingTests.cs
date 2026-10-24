@@ -980,6 +980,20 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void StandardUndoAndRedoAlsoHandleLayerOperations ()
+	{
+		using MemoryImageSurface surface = new (1, 1);
+		CanvasHost canvas = new (new Pinta.Core.Size (1, 1), surface);
+		canvas.AddLayer ();
+
+		canvas.UndoLastStroke ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (1));
+
+		canvas.RedoLastStroke ();
+		Assert.That (canvas.Layers, Has.Count.EqualTo (2));
+	}
+
+	[Test]
 	public void LayerMetadataChangesCanBeUndone ()
 	{
 		using MemoryImageSurface surface = new (1, 1);
