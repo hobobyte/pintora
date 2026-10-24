@@ -994,6 +994,18 @@ internal sealed class CanvasPaintingTests
 	}
 
 	[Test]
+	public void SelectAllAndDeselectUseDocumentBounds ()
+	{
+		using MemoryImageSurface surface = new (4, 3);
+		CanvasHost canvas = new (new Pinta.Core.Size (4, 3), surface);
+
+		Assert.That (canvas.SelectAll (), Is.True);
+		Assert.That (canvas.Selection, Is.EqualTo (new RectangleI (0, 0, 4, 3)));
+		canvas.ClearSelection ();
+		Assert.That (canvas.Selection, Is.Null);
+	}
+
+	[Test]
 	public void LayerMetadataChangesCanBeUndone ()
 	{
 		using MemoryImageSurface surface = new (1, 1);

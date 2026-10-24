@@ -181,6 +181,8 @@ public sealed class MainWindow : Window
 					new Separator (),
 					CreateMenuItem ("Copy selection", () => canvas.CopySelection (), keyboard, PintoraKeyCommands.Copy),
 					CreateMenuItem ("Paste selection", () => canvas.PasteSelection (), keyboard, PintoraKeyCommands.Paste),
+					CreateMenuItem ("Select _all", canvas.SelectAll, keyboard, PintoraKeyCommands.SelectAll),
+					CreateMenuItem ("Deselect", canvas.ClearSelection, keyboard, PintoraKeyCommands.Deselect),
 					CreateMenuItem ("Flip selection horizontally", () => canvas.FlipSelectionHorizontal ()),
 					CreateMenuItem ("Flip selection vertically", () => canvas.FlipSelectionVertical ()),
 					CreateMenuItem ("Rotate selection 90° clockwise", () => canvas.RotateSelectionClockwise ()),

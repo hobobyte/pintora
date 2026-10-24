@@ -28,8 +28,10 @@ public static class PintoraKeyCommands
 	public static readonly PintoraKeyCommand SwapColors = new ("colors.swap", "X");
 	public static readonly PintoraKeyCommand Copy = new ("edit.copy", "Ctrl+C");
 	public static readonly PintoraKeyCommand Paste = new ("edit.paste", "Ctrl+V");
+	public static readonly PintoraKeyCommand SelectAll = new ("edit.select-all", "Ctrl+A");
+	public static readonly PintoraKeyCommand Deselect = new ("edit.deselect", "Ctrl+Shift+A");
 
-	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, Paste];
+	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, Paste, SelectAll, Deselect];
 }
 
 public sealed class PintoraKeyboardSettings

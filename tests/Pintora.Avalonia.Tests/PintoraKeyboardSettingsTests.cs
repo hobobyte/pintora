@@ -17,6 +17,7 @@ internal sealed class PintoraKeyboardSettingsTests
 		Assert.That (settings.GestureTextFor (PintoraKeyCommands.ClearLayer), Is.EqualTo ("Delete"));
 		Assert.That (settings.GestureTextFor (PintoraKeyCommands.ActualSize), Is.EqualTo ("1"));
 		Assert.That (settings.GestureTextFor (PintoraKeyCommands.Copy), Is.EqualTo ("Ctrl+C"));
+		Assert.That (settings.GestureTextFor (PintoraKeyCommands.SelectAll), Is.EqualTo ("Ctrl+A"));
 	}
 
 	[Test]
