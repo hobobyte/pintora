@@ -19,6 +19,7 @@ internal sealed class PintoraKeyboardSettingsTests
 		Assert.That (settings.GestureTextFor (PintoraKeyCommands.Copy), Is.EqualTo ("Ctrl+C"));
 		Assert.That (settings.GestureTextFor (PintoraKeyCommands.SelectAll), Is.EqualTo ("Ctrl+A"));
 		Assert.That (settings.GestureTextFor (PintoraKeyCommands.DuplicateLayer), Is.EqualTo ("Ctrl+Shift+D"));
+		Assert.That (settings.GestureTextFor (PintoraKeyCommands.ClearHistory), Is.EqualTo ("Ctrl+Shift+Delete"));
 	}
 
 	[Test]
