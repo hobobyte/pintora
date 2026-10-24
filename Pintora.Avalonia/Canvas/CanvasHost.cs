@@ -858,8 +858,8 @@ public sealed class CanvasHost : Control
 		InvalidateVisual ();
 	}
 
-	public bool CanUndoStroke => undo_stack.Count > 0 && Layers.Contains (undo_stack.Peek ().Layer);
-	public bool CanRedoStroke => redo_stack.Count > 0 && Layers.Contains (redo_stack.Peek ().Layer);
+	public bool CanUndoStroke => (undo_stack.Count > 0 && Layers.Contains (undo_stack.Peek ().Layer)) || CanUndoLayerOperation;
+	public bool CanRedoStroke => (redo_stack.Count > 0 && Layers.Contains (redo_stack.Peek ().Layer)) || CanRedoLayerOperation;
 	public IReadOnlyList<string> History => history_stack.ToArray ();
 	public event EventHandler? HistoryChanged;
 
@@ -934,6 +934,10 @@ public sealed class CanvasHost : Control
 
 	public void UndoLastStroke ()
 	{
+		if (undo_stack.Count == 0 || !Layers.Contains (undo_stack.Peek ().Layer)) {
+			UndoLayerOperation ();
+			return;
+		}
 		if (!CanUndoStroke)
 			return;
 
@@ -950,6 +954,10 @@ public sealed class CanvasHost : Control
 
 	public void RedoLastStroke ()
 	{
+		if (redo_stack.Count == 0 || !Layers.Contains (redo_stack.Peek ().Layer)) {
+			RedoLayerOperation ();
+			return;
+		}
 		if (!CanRedoStroke)
 			return;
 
