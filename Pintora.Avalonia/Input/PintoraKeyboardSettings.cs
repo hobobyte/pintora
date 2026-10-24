@@ -39,8 +39,12 @@ public static class PintoraKeyCommands
 	public static readonly PintoraKeyCommand DuplicateLayer = new ("layer.duplicate", "Ctrl+Shift+D");
 	public static readonly PintoraKeyCommand DuplicateAnnotation = new ("annotation.duplicate", "Ctrl+D");
 	public static readonly PintoraKeyCommand ClearHistory = new ("edit.clear-history", "Ctrl+Shift+Delete");
+	public static readonly PintoraKeyCommand Save = new ("file.save", "Ctrl+S");
+	public static readonly PintoraKeyCommand SaveAll = new ("file.save-all", "Ctrl+Shift+S");
+	public static readonly PintoraKeyCommand CloseDocument = new ("file.close", "Ctrl+W");
+	public static readonly PintoraKeyCommand Exit = new ("app.exit", "Ctrl+Q");
 
-	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Text, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, CopyImage, CopySelectionImage, Paste, PasteImageAsLayer, PasteImageAnnotation, SelectAll, Deselect, DuplicateLayer, DuplicateAnnotation, ClearHistory];
+	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Text, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, CopyImage, CopySelectionImage, Paste, PasteImageAsLayer, PasteImageAnnotation, SelectAll, Deselect, DuplicateLayer, DuplicateAnnotation, ClearHistory, Save, SaveAll, CloseDocument, Exit];
 }
 
 public sealed class PintoraKeyboardSettings

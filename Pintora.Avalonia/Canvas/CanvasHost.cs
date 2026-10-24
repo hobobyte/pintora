@@ -107,7 +107,7 @@ public sealed class CanvasHost : Control, IDisposable
 	private readonly EditorHistory<HistoryKind> redo_history_kinds = new ();
 	private sealed record RasterSnapshot (AvaloniaLayer Layer, ColorBgra[] Pixels, ShapeTool.ShapeSnapshot? Shape, List<Annotation> Annotations);
 	private sealed record LayerSnapshot (AvaloniaLayer Layer, string Name, bool IsVisible, bool IsLocked, double Opacity, ColorBgra[] Pixels, List<Annotation> Annotations);
-	private sealed record LayerStackSnapshot (List<LayerSnapshot> Layers, int ActiveIndex);
+	private sealed record LayerStackSnapshot (List<LayerSnapshot> Layers, int ActiveIndex, Pinta.Core.Size ImageSize);
 	private static RasterSnapshot CaptureRasterSnapshot (AvaloniaLayer layer, ShapeTool.ShapeSnapshot? shape)
 		=> new (layer, layer.Surface.GetReadOnlyPixelData ().ToArray (), shape, layer.Annotations.Items.ToList ());
 
@@ -1136,7 +1136,7 @@ public sealed class CanvasHost : Control, IDisposable
 	}
 
 	private LayerStackSnapshot CaptureLayerStack ()
-		=> new (Layers.Select (layer => new LayerSnapshot (layer, layer.Name, layer.IsVisible, layer.IsLocked, layer.Opacity, layer.Surface.GetReadOnlyPixelData ().ToArray (), layer.Annotations.Items.ToList ())).ToList (), ActiveLayerIndex);
+		=> new (Layers.Select (layer => new LayerSnapshot (layer, layer.Name, layer.IsVisible, layer.IsLocked, layer.Opacity, layer.Surface.GetReadOnlyPixelData ().ToArray (), layer.Annotations.Items.ToList ())).ToList (), ActiveLayerIndex, ImageSize);
 
 	private void RestoreLayerStack (LayerStackSnapshot snapshot)
 	{
@@ -1158,6 +1158,10 @@ public sealed class CanvasHost : Control, IDisposable
 		}
 		AttachSession (session);
 		session.SelectLayer (Math.Min (snapshot.ActiveIndex, Layers.Count - 1));
+		// Canvas size is part of the undoable state: ResizeCanvas, RotateImage
+		// and TransformImage change the viewport size, so restoring the layer
+		// stack alone would leave the new dimensions in place.
+		session.Viewport.ImageSize = snapshot.ImageSize;
 		bitmap = null; InvalidateVisual ();
 		foreach (AvaloniaLayer layer in Layers)
 			RaiseLayerContentChanged (layer);
@@ -1256,6 +1260,135 @@ public sealed class CanvasHost : Control, IDisposable
 		viewport_offset = Vector.Zero;
 		bitmap = null;
 		InvalidateVisual ();
+	}
+
+	/// <summary>
+	/// Resizes the canvas without scaling the existing pixels. The image is
+	/// anchored at the top-left corner; new area is transparent. Unlike
+	/// <see cref="ResizeImage"/> this is an undoable layer operation.
+	/// </summary>
+	public void ResizeCanvas (int width, int height)
+	{
+		if (width <= 0 || height <= 0)
+			throw new ArgumentOutOfRangeException (nameof (width), "Canvas dimensions must be positive.");
+		if (width == ImageSize.Width && height == ImageSize.Height)
+			return;
+		RecordLayerUndo ();
+		session.Resize (new Pinta.Core.Size (width, height));
+		MarkCanvasChanged (true);
+		viewport_offset = Vector.Zero;
+		bitmap = null;
+		InvalidateVisual ();
+	}
+
+	public void FlipImageHorizontal ()
+		=> TransformImage ((x, y, width, height) => (width - 1 - x, y));
+
+	public void FlipImageVertical ()
+		=> TransformImage ((x, y, width, height) => (x, height - 1 - y));
+
+	public void RotateImageClockwise ()
+		=> RotateImage (clockwise: true);
+
+	public void RotateImageCounterClockwise ()
+		=> RotateImage (clockwise: false);
+
+	public void RotateImage180 ()
+		=> TransformImage ((x, y, width, height) => (width - 1 - x, height - 1 - y));
+
+	private void RotateImage (bool clockwise)
+	{
+		if (Surface is null)
+			return;
+		int width = ImageSize.Width;
+		int height = ImageSize.Height;
+		RecordLayerUndo ();
+		var rotated = new List<AvaloniaLayer> (Layers.Count);
+		foreach (AvaloniaLayer layer in Layers) {
+			var target = new MemoryImageSurface (height, width);
+			ReadOnlySpan<ColorBgra> source = layer.Surface.GetReadOnlyPixelData ();
+			Span<ColorBgra> destination = target.GetPixelData ();
+			for (int y = 0; y < height; y++)
+				for (int x = 0; x < width; x++) {
+					int targetX = clockwise ? height - 1 - y : y;
+					int targetY = clockwise ? x : width - 1 - x;
+					destination[targetY * height + targetX] = source[y * width + x];
+				}
+			var copy = new AvaloniaLayer (layer.Name, target) { IsVisible = layer.IsVisible, IsLocked = layer.IsLocked, Opacity = layer.Opacity };
+			copy.Annotations.AddRange (layer.Annotations.Items);
+			rotated.Add (copy);
+		}
+		ReplaceLayers (rotated, new Pinta.Core.Size (height, width));
+	}
+
+	private void TransformImage (Func<int, int, int, int, (int X, int Y)> transform)
+	{
+		if (Surface is null)
+			return;
+		int width = ImageSize.Width;
+		int height = ImageSize.Height;
+		RecordLayerUndo ();
+		var transformed = new List<AvaloniaLayer> (Layers.Count);
+		foreach (AvaloniaLayer layer in Layers) {
+			var target = new MemoryImageSurface (width, height);
+			ReadOnlySpan<ColorBgra> source = layer.Surface.GetReadOnlyPixelData ();
+			Span<ColorBgra> destination = target.GetPixelData ();
+			for (int y = 0; y < height; y++)
+				for (int x = 0; x < width; x++) {
+					(int targetX, int targetY) = transform (x, y, width, height);
+					destination[targetY * width + targetX] = source[y * width + x];
+				}
+			var copy = new AvaloniaLayer (layer.Name, target) { IsVisible = layer.IsVisible, IsLocked = layer.IsLocked, Opacity = layer.Opacity };
+			copy.Annotations.AddRange (layer.Annotations.Items);
+			transformed.Add (copy);
+		}
+		ReplaceLayers (transformed, new Pinta.Core.Size (width, height));
+	}
+
+	private void ReplaceLayers (List<AvaloniaLayer> layers, Pinta.Core.Size imageSize)
+	{
+		ClearAnnotationSelection ();
+		shape_tool.ClearSelectedShape ();
+		DetachSession ();
+		session.Layers.Clear ();
+		foreach (AvaloniaLayer layer in layers) {
+			SubscribeToLayer (layer);
+			session.Layers.Add (layer);
+		}
+		AttachSession (session);
+		session.SelectLayer (Math.Min (ActiveLayerIndex, Layers.Count - 1));
+		session.Viewport.ImageSize = imageSize;
+		MarkCanvasChanged (true);
+		viewport_offset = Vector.Zero;
+		bitmap = null;
+		InvalidateVisual ();
+	}
+
+	/// <summary>
+	/// Merges every visible layer into a single opaque layer, discarding
+	/// hidden layers and per-layer annotations. The result is undoable.
+	/// </summary>
+	public bool FlattenImage ()
+	{
+		if (Surface is null || Layers.Count == 0)
+			return false;
+		RecordLayerUndo ();
+		using MemoryImageSurface composite = CreateCompositeSurface ();
+		var flattened = new MemoryImageSurface (ImageSize.Width, ImageSize.Height);
+		composite.GetReadOnlyPixelData ().CopyTo (flattened.GetPixelData ());
+		var layer = new AvaloniaLayer ("Background", flattened);
+		ClearAnnotationSelection ();
+		shape_tool.ClearSelectedShape ();
+		DetachSession ();
+		session.Layers.Clear ();
+		SubscribeToLayer (layer);
+		session.Layers.Add (layer);
+		AttachSession (session);
+		session.SelectLayer (0);
+		MarkCanvasChanged (true);
+		bitmap = null;
+		InvalidateVisual ();
+		return true;
 	}
 
 	public void OpenPng (string path)

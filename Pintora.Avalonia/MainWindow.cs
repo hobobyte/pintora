@@ -41,6 +41,7 @@ public sealed class MainWindow : Window
 	private StackPanel? tool_options;
 	private readonly EditorCommandRegistry commands = new ();
 	private readonly DocumentTabManager tab_manager;
+	private readonly DocumentCloseCoordinator close_coordinator;
 	private readonly DocumentTabStrip tab_strip = new ();
 	private readonly ContentControl canvas_host = new ();
 	private bool closing_after_confirmation;
@@ -73,6 +74,7 @@ public sealed class MainWindow : Window
 		// Close prompts perform the save asynchronously before asking the manager
 		// to remove the tab; the synchronous delegate is therefore a final guard.
 		tab_manager = new DocumentTabManager (_ => true, tab => tab.Canvas.Dispose ());
+		close_coordinator = new DocumentCloseCoordinator (tab_manager, PromptCloseDecisionAsync, SaveTabAsync);
 		tab_manager.AddTab (canvas, canvas.DocumentSession);
 		tab_manager.ActiveTabChanged += (_, _) => {
 			CanvasHost active = ActiveCanvas;
@@ -119,6 +121,10 @@ public sealed class MainWindow : Window
 		commands.Register (PintoraKeyCommands.Undo, canvas.UndoLastStroke, () => canvas.CanUndoStroke);
 		commands.Register (PintoraKeyCommands.Redo, canvas.RedoLastStroke, () => canvas.CanRedoStroke);
 		commands.Register (PintoraKeyCommands.ClearHistory, canvas.ClearHistory);
+		commands.Register (PintoraKeyCommands.Save, () => _ = SaveActiveTabAsync ());
+		commands.Register (PintoraKeyCommands.SaveAll, () => _ = SaveAllDocumentsAsync ());
+		commands.Register (PintoraKeyCommands.CloseDocument, () => _ = CloseActiveTabAsync ());
+		commands.Register (PintoraKeyCommands.Exit, () => _ = ExitAsync ());
 		string saved_tool_name = settings.GetSetting ("Pintora.Tool", "Brush");
 		if (Enum.TryParse (saved_tool_name, out CanvasHost.ShapeKind legacy_shape)) {
 			canvas.SelectedShape = legacy_shape;
@@ -319,12 +325,19 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("Import image as layer", () => _ = ImportImageLayerAsync (ActiveCanvas)),
 					CreateMenuItem ("Insert image annotation", () => _ = InsertImageAnnotationAsync (ActiveCanvas)),
 					new Separator (),
+					CreateMenuItem ("_Save", () => _ = SaveActiveTabAsync (), keyboard, PintoraKeyCommands.Save),
+					CreateMenuItem ("Save _All", () => _ = SaveAllDocumentsAsync (), keyboard, PintoraKeyCommands.SaveAll),
+					CreateMenuItem ("_Close", () => _ = CloseActiveTabAsync (), keyboard, PintoraKeyCommands.CloseDocument),
+					CreateMenuItem ("Close _All", () => _ = CloseAllDocumentsAsync ()),
+					new Separator (),
 					CreateMenuItem ("Save _As", () => _ = SaveAsAsync (ActiveCanvas)),
 					CreateMenuItem ("Save _PNG", () => _ = SavePngAsync (ActiveCanvas)),
 					CreateMenuItem ("Save _JPEG", () => _ = SaveJpegAsync (ActiveCanvas)),
 					CreateMenuItem ("Save _WebP", () => _ = SaveWebpAsync (ActiveCanvas)),
 					CreateMenuItem ("Save _TIFF", () => _ = SaveTiffAsync (ActiveCanvas)),
-					CreateMenuItem ("Save _ORA", () => _ = SaveOraAsync (ActiveCanvas))
+					CreateMenuItem ("Save _ORA", () => _ = SaveOraAsync (ActiveCanvas)),
+					new Separator (),
+					CreateMenuItem ("E_xit", () => _ = ExitAsync (), keyboard, PintoraKeyCommands.Exit)
 				} },
 				new MenuItem { Header = "_Edit", Items = {
 					undo,
@@ -369,7 +382,17 @@ public sealed class MainWindow : Window
 				} },
 				new MenuItem { Header = "_Image", Items = {
 					CreateMenuItem ("Resize image", () => new ResizeImageWindow (ActiveCanvas).Show (this)),
-					CreateMenuItem ("Crop image", () => new CropImageWindow (ActiveCanvas).Show (this))
+					CreateMenuItem ("Resize canvas", () => new ResizeCanvasWindow (ActiveCanvas).Show (this)),
+					CreateMenuItem ("Crop image", () => new CropImageWindow (ActiveCanvas).Show (this)),
+					new Separator (),
+					CreateMenuItem ("Flip image horizontally", () => ActiveCanvas.FlipImageHorizontal ()),
+					CreateMenuItem ("Flip image vertically", () => ActiveCanvas.FlipImageVertical ()),
+					new Separator (),
+					CreateMenuItem ("Rotate image 90° clockwise", () => ActiveCanvas.RotateImageClockwise ()),
+					CreateMenuItem ("Rotate image 90° counter-clockwise", () => ActiveCanvas.RotateImageCounterClockwise ()),
+					CreateMenuItem ("Rotate image 180°", () => ActiveCanvas.RotateImage180 ()),
+					new Separator (),
+					CreateMenuItem ("Flatten image", () => ActiveCanvas.FlattenImage ())
 				} },
 				new MenuItem { Header = "_Layers", Items = {
 					CreateMenuItem ("Add layer", () => ActiveCanvas.AddLayer ()),
@@ -1167,6 +1190,33 @@ public sealed class MainWindow : Window
 		return decision;
 	}
 
+	private async Task SaveActiveTabAsync ()
+	{
+		DocumentTab? tab = tab_manager.ActiveTab;
+		if (tab is null)
+			return;
+		await SaveTabAsync (tab);
+	}
+
+	private async Task SaveAllDocumentsAsync ()
+		=> await close_coordinator.SaveAllAsync ();
+
+	private async Task CloseActiveTabAsync ()
+	{
+		DocumentTab? tab = tab_manager.ActiveTab;
+		if (tab is not null)
+			await close_coordinator.CloseTabAsync (tab);
+	}
+
+	private async Task CloseAllDocumentsAsync ()
+		=> await close_coordinator.CloseAllAsync ();
+
+	private async Task ExitAsync ()
+	{
+		if (await close_coordinator.TryExitAsync ())
+			Close ();
+	}
+
 	private async Task<bool> SaveTabAsync (DocumentTab tab)
 	{
 		string? path = tab.Session.FilePath;
@@ -1228,16 +1278,8 @@ public sealed class MainWindow : Window
 		e.Cancel = true;
 		close_in_progress = true;
 		try {
-			foreach (DocumentTab tab in tab_manager.Tabs.ToArray ()) {
-				CloseDecision decision = await PromptCloseDecisionAsync (tab);
-				if (decision == CloseDecision.Cancel)
-					return;
-				if (decision == CloseDecision.Save && !await SaveTabAsync (tab))
-					return;
-				int index = tab_manager.Tabs.IndexOf (tab);
-				if (index >= 0 && !tab_manager.CloseTab (index, decision == CloseDecision.Save ? CloseDecision.Discard : decision))
-					return;
-			}
+			if (!await close_coordinator.TryExitAsync ())
+				return;
 			closing_after_confirmation = true;
 			Close ();
 		} catch (Exception exception) {
