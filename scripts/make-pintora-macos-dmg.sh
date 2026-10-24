@@ -10,7 +10,7 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir "$STAGE/Pintora"
 ditto "$APP" "$STAGE/Pintora/Pintora.app"
 ln -s /Applications "$STAGE/Pintora/Applications"
-cp license-mit.txt license-pdn.txt Pintora.Avalonia/RELEASE-NOTES-0.0.1-alpha.md \
+cp license-mit.txt license-pdn.txt CHANGELOG.md \
     Pinta.Resources/icons/pinta-icons.md "$STAGE/Pintora/"
 hdiutil create -quiet -volname "Pintora" -srcfolder "$STAGE/Pintora" -fs HFS+ -format UDZO "$OUTPUT"
 hdiutil verify -quiet "$OUTPUT"

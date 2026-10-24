@@ -21,6 +21,8 @@ The workflow creates a **draft** prerelease after all builds pass. It must be re
 before it appears as a downloadable release. Packages are unsigned; macOS builds are not notarized
 and may display a security warning on first launch.
 
+See the [Pintora changelog](CHANGELOG.md) for the fork baseline, alpha contents, and known limitations.
+
 ## Build and run
 
 Install the .NET 10 SDK. From the repository root:
