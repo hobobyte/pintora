@@ -579,6 +579,15 @@ public sealed class CanvasHost : Control
 		InvalidateVisual ();
 	}
 
+	public void OpenImage (string path)
+	{
+		if (string.Equals (Path.GetExtension (path), ".ora", StringComparison.OrdinalIgnoreCase)) {
+			OpenOra (path);
+			return;
+		}
+		OpenPng (path);
+	}
+
 	public void ImportPngAsLayer (string path)
 		=> ImportImageAsLayer (path);
 
