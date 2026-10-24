@@ -96,9 +96,9 @@ public sealed class MainWindow : Window
 
 	private Control CreateToolbar (CanvasHost canvas)
 	{
-		tool_options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+		tool_options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
 		var toolbar = new Border {
-			Padding = new global::Avalonia.Thickness (16, 10),
+			Padding = new global::Avalonia.Thickness (10, 6),
 			Child = new StackPanel {
 				Orientation = Orientation.Horizontal,
 				Spacing = 8,
@@ -438,7 +438,7 @@ public sealed class MainWindow : Window
 	private Control CreateWorkspace (CanvasHost canvas)
 	{
 		var workspace = new Grid {
-			ColumnDefinitions = new ColumnDefinitions ("220,*,280"),
+			ColumnDefinitions = new ColumnDefinitions ("210,*,270"),
 			Children = {
 				CreateToolPanel (canvas),
 				CreateCanvasPlaceholder (canvas),
@@ -496,13 +496,12 @@ public sealed class MainWindow : Window
 				RefreshToolOptions (canvas);
 		};
 		var panel = new Border {
-			Padding = new global::Avalonia.Thickness (16),
+			Padding = new global::Avalonia.Thickness (8),
 			Child = new StackPanel {
 				Spacing = 8,
 				Children = {
 				new TextBlock { Text = "Tools", FontSize = 15 },
 				tools,
-				CreatePalette (canvas),
 				new Separator ()
 			}
 			}
@@ -742,7 +741,7 @@ public sealed class MainWindow : Window
 	private static Control CreateCanvasPlaceholder (CanvasHost canvas)
 	{
 		var canvas_panel = new Border {
-			Margin = new global::Avalonia.Thickness (16),
+			Margin = new global::Avalonia.Thickness (8),
 			Child = canvas
 		};
 		canvas_panel.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Canvas.Background"));
@@ -804,6 +803,8 @@ public sealed class MainWindow : Window
 		var controls = new StackPanel {
 			Spacing = 8,
 			Children = {
+			CreatePalette (canvas),
+			new Separator (),
 			new TextBlock { Text = "Layers", FontSize = 15 },
 			layers,
 			new TextBlock { Text = "Opacity" },
@@ -824,7 +825,7 @@ public sealed class MainWindow : Window
 		RebuildLayers ();
 		refresh_layers = RebuildLayers;
 		var panel = new Border {
-			Padding = new global::Avalonia.Thickness (16),
+			Padding = new global::Avalonia.Thickness (8),
 			Child = controls
 		};
 		panel.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Panel.Background"));
