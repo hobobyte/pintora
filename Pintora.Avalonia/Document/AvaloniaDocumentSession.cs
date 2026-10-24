@@ -113,7 +113,7 @@ public sealed class AvaloniaDocumentSession
 			Span<ColorBgra> destination = target.GetPixelData ();
 			for (int y = 0; y < height; y++)
 				source.Slice (y * layer.Surface.Width, width).CopyTo (destination.Slice (y * target.Width, width));
-			var copy = new AvaloniaLayer (layer.Name, target) { IsVisible = layer.IsVisible, Opacity = layer.Opacity };
+			var copy = new AvaloniaLayer (layer.Name, target) { IsVisible = layer.IsVisible, IsLocked = layer.IsLocked, Opacity = layer.Opacity };
 			copy.Annotations.AddRange (layer.Annotations.Items);
 			resized.Add (copy);
 		}
@@ -135,7 +135,7 @@ public sealed class AvaloniaDocumentSession
 			Span<ColorBgra> destination = target.GetPixelData ();
 			for (int y = 0; y < height; y++)
 				source.Slice ((top + y) * layer.Surface.Width + left, width).CopyTo (destination.Slice (y * width, width));
-			cropped.Add (new AvaloniaLayer (layer.Name, target) { IsVisible = layer.IsVisible, Opacity = layer.Opacity });
+			cropped.Add (new AvaloniaLayer (layer.Name, target) { IsVisible = layer.IsVisible, IsLocked = layer.IsLocked, Opacity = layer.Opacity });
 		}
 		Layers.Clear ();
 		foreach (AvaloniaLayer layer in cropped)
