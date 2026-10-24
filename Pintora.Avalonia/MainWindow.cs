@@ -162,7 +162,7 @@ public sealed class MainWindow : Window
 		MenuItem redo = CreateMenuItem ("_Redo", canvas.RedoLastStroke, keyboard, PintoraKeyCommands.Redo);
 		MenuItem layer_undo = CreateMenuItem ("Undo layer", () => { canvas.UndoLayerOperation (); refresh_layers?.Invoke (); });
 		MenuItem layer_redo = CreateMenuItem ("Redo layer", () => { canvas.RedoLayerOperation (); refresh_layers?.Invoke (); });
-		MenuItem clear_history = CreateMenuItem ("Clear history", canvas.ClearHistory);
+		MenuItem clear_history = CreateMenuItem ("Clear history", canvas.ClearHistory, keyboard, PintoraKeyCommands.ClearHistory);
 		void RefreshHistoryCommands () {
 			undo.IsEnabled = canvas.CanUndoStroke;
 			redo.IsEnabled = canvas.CanRedoStroke;

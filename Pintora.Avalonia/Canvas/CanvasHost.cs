@@ -1327,6 +1327,9 @@ public sealed class CanvasHost : Control
 		} else if (keyboard.Matches (e, PintoraKeyCommands.ClearLayer)) {
 			ClearActiveLayer ();
 			e.Handled = true;
+		} else if (keyboard.Matches (e, PintoraKeyCommands.ClearHistory)) {
+			ClearHistory ();
+			e.Handled = true;
 		} else if (keyboard.Matches (e, PintoraKeyCommands.Copy)) {
 			CopySelection ();
 			e.Handled = true;

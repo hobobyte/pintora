@@ -31,8 +31,9 @@ public static class PintoraKeyCommands
 	public static readonly PintoraKeyCommand SelectAll = new ("edit.select-all", "Ctrl+A");
 	public static readonly PintoraKeyCommand Deselect = new ("edit.deselect", "Ctrl+Shift+A");
 	public static readonly PintoraKeyCommand DuplicateLayer = new ("layer.duplicate", "Ctrl+Shift+D");
+	public static readonly PintoraKeyCommand ClearHistory = new ("edit.clear-history", "Ctrl+Shift+Delete");
 
-	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, Paste, SelectAll, Deselect, DuplicateLayer];
+	public static IReadOnlyList<PintoraKeyCommand> All { get; } = [Undo, Redo, DecreaseBrush, IncreaseBrush, ToggleEraser, Brush, Pencil, Shapes, Line, Rectangle, Fill, ColorPicker, Zoom, FitCanvas, ActualSize, ClearLayer, SwapColors, Copy, Paste, SelectAll, Deselect, DuplicateLayer, ClearHistory];
 }
 
 public sealed class PintoraKeyboardSettings
