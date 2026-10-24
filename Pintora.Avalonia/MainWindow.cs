@@ -688,6 +688,7 @@ public sealed class MainWindow : Window
 	private Control CreateLayersPanel (CanvasHost canvas)
 	{
 		var layers = new StackPanel { Spacing = 6 };
+		Slider? opacity_slider = null;
 		void RebuildLayers ()
 		{
 			int? drag_source = null;
@@ -723,14 +724,17 @@ public sealed class MainWindow : Window
 				button.Click += (_, _) => { canvas.SelectLayer (index); RebuildLayers (); };
 				layers.Children.Add (button);
 			}
+			if (opacity_slider is not null && canvas.Layers.Count > 0)
+				opacity_slider.Value = canvas.Layers[canvas.ActiveLayerIndex].Opacity;
 		}
+		opacity_slider = CreateOpacitySlider (canvas);
 		var controls = new StackPanel {
 			Spacing = 8,
 			Children = {
 			new TextBlock { Text = "Layers", FontSize = 15 },
 			layers,
 			new TextBlock { Text = "Opacity" },
-			CreateOpacitySlider (canvas),
+			opacity_slider,
 			new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = {
 				CreateBrushButton ("↑", () => { canvas.MoveLayer (1); RebuildLayers (); }),
 				CreateBrushButton ("↓", () => { canvas.MoveLayer (-1); RebuildLayers (); }),
