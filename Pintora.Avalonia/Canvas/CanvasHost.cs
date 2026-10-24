@@ -926,7 +926,7 @@ public sealed class CanvasHost : Control
 	public IReadOnlyList<string> History => history_kinds.Select (kind => kind == HistoryKind.Layer ? "Layer operation" : "Raster operation").ToArray ();
 	public event EventHandler? HistoryChanged;
 
-	private void ClearHistory ()
+	public void ClearHistory ()
 	{
 		undo_stack.Clear ();
 		redo_stack.Clear ();
