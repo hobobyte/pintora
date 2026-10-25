@@ -54,6 +54,24 @@ internal sealed class PintoraViewSettingsTests
 	}
 
 	[Test]
+	public void ChromeTogglesPersistIndependentlyOfGrid ()
+	{
+		var stored = new MemorySettings ();
+		PintoraViewSettings first = new (stored) { ShowGrid = true, ShowToolbox = false, ShowImageTabs = false };
+		first.Save ();
+
+		PintoraViewSettings reloaded = new (stored);
+
+		Assert.That (reloaded.ShowGrid, Is.True);
+		Assert.That (reloaded.ShowToolbox, Is.False);
+		Assert.That (reloaded.ShowImageTabs, Is.False);
+		Assert.That (reloaded.ShowToolbar, Is.True);
+		Assert.That (reloaded.ShowStatusBar, Is.True);
+		Assert.That (reloaded.ShowToolWindows, Is.True);
+		Assert.That (reloaded.ShowRulers, Is.False);
+	}
+
+	[Test]
 	public void GridSizeIsClampedOnLoad ()
 	{
 		var stored = new MemorySettings ();
@@ -112,6 +130,25 @@ internal sealed class PintoraViewSettingsTests
 		reloaded.Save ();
 
 		Assert.That (new PintoraViewSettings (stored).ShowGrid, Is.False);
+	}
+
+	[Test]
+	public void RulersToggleRoundTripsAndAppliesToCanvas ()
+	{
+		var stored = new MemorySettings ();
+		PintoraViewSettings settings = new (stored);
+		settings.ShowRulers = !settings.ShowRulers;
+		settings.Save ();
+
+		PintoraViewSettings reloaded = new (stored);
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		Assert.That (canvas.ShowRulers, Is.False);
+		canvas.ShowRulers = reloaded.ShowRulers;
+
+		Assert.That (reloaded.ShowRulers, Is.True);
+		Assert.That (reloaded.ShowGrid, Is.False);
+		Assert.That (canvas.ShowRulers, Is.True);
+		Assert.That (canvas.ShowGrid, Is.False);
 	}
 
 	[Test]

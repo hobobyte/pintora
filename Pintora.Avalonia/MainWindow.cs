@@ -45,6 +45,13 @@ public sealed class MainWindow : Window
 	private readonly DocumentCloseCoordinator close_coordinator;
 	private readonly DocumentTabStrip tab_strip = new ();
 	private readonly ContentControl canvas_host = new ();
+	private Control? toolbar_control;
+	private Control? toolbox_control;
+	private Control? status_bar_control;
+	private Control? palette_control;
+	private Control? layers_control;
+	private Control? tab_strip_host;
+	private Border? canvas_panel_control;
 	private bool closing_after_confirmation;
 	private bool close_in_progress;
 	private CanvasHost? subscribed_canvas;
@@ -81,6 +88,7 @@ public sealed class MainWindow : Window
 		tab_manager.ActiveTabChanged += (_, _) => {
 			CanvasHost active = ActiveCanvas;
 			ApplyGridViewSettings (active);
+			active.ShowRulers = view_settings.ShowRulers;
 			active.ActiveTool = active_tool;
 			if (tool_buttons is not null)
 				UpdateToolButtons (tool_buttons, active_tool);
@@ -187,6 +195,7 @@ public sealed class MainWindow : Window
 				CreateStatusBar (canvas)
 			}
 		};
+		ApplyChromeViewSettings ();
 	}
 
 	private Control CreateCommandBar (CanvasHost canvas)
@@ -235,6 +244,7 @@ public sealed class MainWindow : Window
 		RefreshToolOptions (canvas);
 		toolbar.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Toolbar.Background"));
 		Grid.SetRow (toolbar, 2);
+		toolbar_control = toolbar;
 		return toolbar;
 	}
 
@@ -298,6 +308,7 @@ public sealed class MainWindow : Window
 		status.Bind (Border.BorderBrushProperty, new DynamicResourceExtension ("Pintora.Control.Border"));
 		status.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Status.Background"));
 		Grid.SetRow (status, 4);
+		status_bar_control = status;
 		return status;
 	}
 
@@ -380,6 +391,13 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("100%", () => ActiveCanvas.SetActualSize (), keyboard, PintoraKeyCommands.ActualSize),
 					new Separator (),
 					CreateViewGridToggle (),
+					CreateViewRulersToggle (),
+					new Separator (),
+					CreateViewToggle ("Show tool_bar", () => view_settings.ShowToolbar, value => view_settings.ShowToolbar = value),
+					CreateViewToggle ("Show _toolbox", () => view_settings.ShowToolbox, value => view_settings.ShowToolbox = value),
+					CreateViewToggle ("Show _status bar", () => view_settings.ShowStatusBar, value => view_settings.ShowStatusBar = value),
+					CreateViewToggle ("Show tool _windows", () => view_settings.ShowToolWindows, value => view_settings.ShowToolWindows = value),
+					CreateViewToggle ("Show image _tabs", () => view_settings.ShowImageTabs, value => view_settings.ShowImageTabs = value),
 					new Separator (),
 					CreateMenuItem ("Light theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Light)),
 					CreateMenuItem ("Dark theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Dark)),
@@ -439,6 +457,58 @@ public sealed class MainWindow : Window
 			ApplyGridViewSettingsToAllTabs ();
 		};
 		return item;
+	}
+
+	private MenuItem CreateViewRulersToggle ()
+	{
+		var item = new MenuItem {
+			Header = "Show _rulers",
+			ToggleType = MenuItemToggleType.CheckBox,
+			IsChecked = view_settings.ShowRulers
+		};
+		item.Click += (_, _) => {
+			view_settings.ShowRulers = item.IsChecked == true;
+			view_settings.Save ();
+			foreach (DocumentTab tab in tab_manager.Tabs)
+				tab.Canvas.ShowRulers = view_settings.ShowRulers;
+		};
+		return item;
+	}
+
+	private MenuItem CreateViewToggle (string header, Func<bool> get, Action<bool> set)
+	{
+		var item = new MenuItem {
+			Header = header,
+			ToggleType = MenuItemToggleType.CheckBox,
+			IsChecked = get ()
+		};
+		item.Click += (_, _) => {
+			set (item.IsChecked == true);
+			view_settings.Save ();
+			ApplyChromeViewSettings ();
+		};
+		return item;
+	}
+
+	/// <summary>
+	/// Shows or hides the existing chrome elements according to the persisted
+	/// view settings. Hiding never touches documents, tabs or canvas state.
+	/// </summary>
+	private void ApplyChromeViewSettings ()
+	{
+		if (toolbar_control is not null) toolbar_control.IsVisible = view_settings.ShowToolbar;
+		if (toolbox_control is not null) toolbox_control.IsVisible = view_settings.ShowToolbox;
+		if (status_bar_control is not null) status_bar_control.IsVisible = view_settings.ShowStatusBar;
+		if (palette_control is not null) palette_control.IsVisible = view_settings.ShowToolWindows;
+		if (layers_control is not null) layers_control.IsVisible = view_settings.ShowToolWindows;
+		if (tab_strip_host is not null) tab_strip_host.IsVisible = view_settings.ShowImageTabs;
+		if (canvas_panel_control is not null) {
+			canvas_panel_control.Margin = new global::Avalonia.Thickness (
+				view_settings.ShowToolbox ? 96 : 10,
+				10,
+				view_settings.ShowToolWindows ? 252 : 10,
+				view_settings.ShowToolWindows ? 190 : 10);
+		}
 	}
 
 	/// <summary>
@@ -693,9 +763,9 @@ public sealed class MainWindow : Window
 		var workspace = new Grid {
 			Children = {
 				CreateCanvasPlaceholder (canvas),
-				CreateToolPanel (canvas),
-				CreatePalette (canvas),
-				CreateLayersPanel ()
+				(toolbox_control = CreateToolPanel (canvas)),
+				(palette_control = CreatePalette (canvas)),
+				(layers_control = CreateLayersPanel ())
 			}
 		};
 		workspace.Bind (Grid.BackgroundProperty, new DynamicResourceExtension ("Pintora.Workspace.Background"));
@@ -1329,18 +1399,21 @@ public sealed class MainWindow : Window
 	private Control CreateCanvasPlaceholder (CanvasHost canvas)
 	{
 		tab_strip.AttachAsync (tab_manager, RequestCloseDecisionAsync);
+		var tabs_host = new Border {
+			Child = tab_strip
+		};
+		tab_strip_host = tabs_host;
 		var canvas_panel = new Border {
 			Margin = new global::Avalonia.Thickness (96, 10, 252, 190),
 			Child = new DockPanel {
 				Children = {
-					new Border {
-						Child = tab_strip
-					},
+					tabs_host,
 					canvas_host
 				}
 			}
 		};
-		DockPanel.SetDock ((Border) ((DockPanel) canvas_panel.Child).Children[0], Dock.Top);
+		DockPanel.SetDock (tabs_host, Dock.Top);
+		canvas_panel_control = canvas_panel;
 		return canvas_panel;
 	}
 
@@ -1447,6 +1520,7 @@ public sealed class MainWindow : Window
 
 		CanvasHost canvas = new (new Pinta.Core.Size (surface.Width, surface.Height), surface, keyboard);
 		ApplyGridViewSettings (canvas);
+		canvas.ShowRulers = view_settings.ShowRulers;
 		return canvas;
 	}
 
