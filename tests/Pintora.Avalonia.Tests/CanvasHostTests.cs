@@ -12,6 +12,7 @@ using Avalonia;
 using Avalonia.Media;
 using Pinta.Core;
 using Pintora.Avalonia.Imaging;
+using Pintora.Avalonia.Input;
 
 namespace Pintora.Avalonia.Tests;
 
@@ -64,6 +65,43 @@ internal sealed class CanvasHostTests
 
 		Assert.That (canvas.ViewSize, Is.EqualTo (new Pinta.Core.Size (400, 300)));
 		Assert.That (canvas.Scale, Is.EqualTo (0.5));
+	}
+
+	[Test]
+	public void GridIsHiddenByDefaultAndToggles ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+
+		Assert.That (canvas.ShowGrid, Is.False);
+		Assert.That (canvas.GridSize, Is.EqualTo (Pintora.Avalonia.Input.PintoraViewSettings.DefaultGridSize));
+
+		canvas.ShowGrid = true;
+		Assert.That (canvas.ShowGrid, Is.True);
+	}
+
+	[Test]
+	public void GridSizeIsClamped ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+
+		canvas.GridSize = 0;
+		Assert.That (canvas.GridSize, Is.EqualTo (Pintora.Avalonia.Input.PintoraViewSettings.MinGridSize));
+
+		canvas.GridSize = 100000;
+		Assert.That (canvas.GridSize, Is.EqualTo (Pintora.Avalonia.Input.PintoraViewSettings.MaxGridSize));
+	}
+
+	[Test]
+	public void ViewSettingsGridValuesCanBeAppliedToCanvasHost ()
+	{
+		CanvasHost canvas = new (new Pinta.Core.Size (100, 100));
+		PintoraViewSettings settings = new () { ShowGrid = true, GridSize = 64 };
+
+		canvas.ShowGrid = settings.ShowGrid;
+		canvas.GridSize = settings.GridSize;
+
+		Assert.That (canvas.ShowGrid, Is.True);
+		Assert.That (canvas.GridSize, Is.EqualTo (64));
 	}
 
 	[Test]
