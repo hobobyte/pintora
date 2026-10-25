@@ -33,6 +33,8 @@ namespace Pintora.Avalonia.Canvas;
 /// </summary>
 public sealed class CanvasHost : Control, IDisposable
 {
+	private static readonly Pen grid_pen = new (new SolidColorBrush (Color.FromArgb (90, 80, 80, 80)), 1);
+	private static readonly Pen ruler_pen = new (Brushes.DimGray, 1);
 	private bool disposed;
 	public enum CanvasTool
 	{
@@ -87,6 +89,7 @@ public sealed class CanvasHost : Control, IDisposable
 	public TextToolOptions GetTextToolOptions () => text_tool.Options;
 	private readonly PintoraKeyboardSettings keyboard;
 	private bool show_grid;
+	private bool show_rulers;
 	private int grid_size = PintoraViewSettings.DefaultGridSize;
 	private WriteableBitmap? bitmap;
 	private bool is_painting;
@@ -258,6 +261,17 @@ public sealed class CanvasHost : Control, IDisposable
 			if (show_grid == value)
 				return;
 			show_grid = value;
+			InvalidateVisual ();
+		}
+	}
+
+	/// <summary>Whether the canvas draws light ruler ticks along its top and left edges.</summary>
+	public bool ShowRulers {
+		get => show_rulers;
+		set {
+			if (show_rulers == value)
+				return;
+			show_rulers = value;
 			InvalidateVisual ();
 		}
 	}
@@ -2132,6 +2146,8 @@ public sealed class CanvasHost : Control, IDisposable
 		context.DrawRectangle (new Pen (Brushes.Gray, 1), new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height)));
 		if (show_grid)
 			DrawGridOverlay (context, origin);
+		if (show_rulers)
+			DrawRulers (context, origin);
 		if (ActiveTool == CanvasTool.Gradient && is_painting)
 			gradient_tool.DrawGuide (context, origin, Scale, Math.Max (1, BrushSize * Scale));
 		if (Selection is RectangleI selected) {
@@ -2207,6 +2223,23 @@ public sealed class CanvasHost : Control, IDisposable
 		return corners;
 	}
 
+	private void DrawRulers (DrawingContext context, Point origin)
+	{
+		// Pick a tick step (in image pixels) that keeps ticks at least ~8 view pixels apart.
+		int step = 1;
+		while (step * Scale < 8)
+			step *= 10;
+		int major = step * 10;
+		for (int i = 0; i <= ImageSize.Width; i += step) {
+			double x = origin.X + i * Scale;
+			context.DrawLine (ruler_pen, new Point (x, origin.Y - (i % major == 0 ? 8 : 4)), new Point (x, origin.Y));
+		}
+		for (int i = 0; i <= ImageSize.Height; i += step) {
+			double y = origin.Y + i * Scale;
+			context.DrawLine (ruler_pen, new Point (origin.X - (i % major == 0 ? 8 : 4), y), new Point (origin.X, y));
+		}
+	}
+
 	private void DrawGridOverlay (DrawingContext context, Point origin)
 	{
 		int step = Math.Max (PintoraViewSettings.MinGridSize, grid_size);
@@ -2215,14 +2248,13 @@ public sealed class CanvasHost : Control, IDisposable
 			return;
 
 		Pinta.Core.Size viewSize = ViewSize;
-		var pen = new Pen (new SolidColorBrush (Color.FromArgb (90, 80, 80, 80)), 1);
 		for (double x = step; x < ImageSize.Width; x += step) {
 			double viewX = origin.X + x * Scale;
-			context.DrawLine (pen, new Point (viewX, origin.Y), new Point (viewX, origin.Y + viewSize.Height));
+			context.DrawLine (grid_pen, new Point (viewX, origin.Y), new Point (viewX, origin.Y + viewSize.Height));
 		}
 		for (double y = step; y < ImageSize.Height; y += step) {
 			double viewY = origin.Y + y * Scale;
-			context.DrawLine (pen, new Point (origin.X, viewY), new Point (origin.X + viewSize.Width, viewY));
+			context.DrawLine (grid_pen, new Point (origin.X, viewY), new Point (origin.X + viewSize.Width, viewY));
 		}
 	}
 
