@@ -29,6 +29,7 @@ public sealed class MainWindow : Window
 {
 	private readonly PintoraKeyboardSettings keyboard;
 	private readonly SettingsManager settings;
+	private readonly PintoraViewSettings view_settings;
 	private readonly string version;
 	private readonly IImageSourceProvider image_source_provider;
 	private readonly IClipboardService? clipboard_service;
@@ -70,6 +71,7 @@ public sealed class MainWindow : Window
 		settings = new SettingsManager ();
 		App.InitializeTheme (settings);
 		keyboard = new PintoraKeyboardSettings (settings);
+		view_settings = new PintoraViewSettings (settings);
 		CanvasHost canvas = CreateCanvasHost (keyboard);
 		// Close prompts perform the save asynchronously before asking the manager
 		// to remove the tab; the synchronous delegate is therefore a final guard.
@@ -78,6 +80,7 @@ public sealed class MainWindow : Window
 		tab_manager.AddTab (canvas, canvas.DocumentSession);
 		tab_manager.ActiveTabChanged += (_, _) => {
 			CanvasHost active = ActiveCanvas;
+			ApplyGridViewSettings (active);
 			active.ActiveTool = active_tool;
 			if (tool_buttons is not null)
 				UpdateToolButtons (tool_buttons, active_tool);
@@ -376,6 +379,8 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("Fit canvas", () => ActiveCanvas.FitToWindow (), keyboard, PintoraKeyCommands.FitCanvas),
 					CreateMenuItem ("100%", () => ActiveCanvas.SetActualSize (), keyboard, PintoraKeyCommands.ActualSize),
 					new Separator (),
+					CreateViewGridToggle (),
+					new Separator (),
 					CreateMenuItem ("Light theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Light)),
 					CreateMenuItem ("Dark theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Dark)),
 					CreateMenuItem ("System theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Default))
@@ -420,6 +425,38 @@ public sealed class MainWindow : Window
 	}
 
 	private CanvasHost ActiveCanvas => tab_manager.ActiveTab?.Canvas ?? throw new InvalidOperationException ("No active document tab.");
+
+	private MenuItem CreateViewGridToggle ()
+	{
+		var item = new MenuItem {
+			Header = "Show _grid",
+			ToggleType = MenuItemToggleType.CheckBox,
+			IsChecked = view_settings.ShowGrid
+		};
+		item.Click += (_, _) => {
+			view_settings.ShowGrid = item.IsChecked == true;
+			view_settings.Save ();
+			ApplyGridViewSettingsToAllTabs ();
+		};
+		return item;
+	}
+
+	/// <summary>
+	/// Applies the persisted grid settings to a single canvas. Called for the
+	/// initial document and whenever a tab becomes active so every canvas
+	/// reflects the shared view settings.
+	/// </summary>
+	private void ApplyGridViewSettings (CanvasHost canvas)
+	{
+		canvas.GridSize = view_settings.GridSize;
+		canvas.ShowGrid = view_settings.ShowGrid;
+	}
+
+	private void ApplyGridViewSettingsToAllTabs ()
+	{
+		foreach (DocumentTab tab in tab_manager.Tabs)
+			ApplyGridViewSettings (tab.Canvas);
+	}
 
 	private void UpdateDocumentTitle (CanvasHost canvas, string version)
 	{
@@ -1403,12 +1440,14 @@ public sealed class MainWindow : Window
 	private void OnActiveCanvasLayersChanged (object? sender, EventArgs e)
 		=> refresh_layers?.Invoke ();
 
-	private static CanvasHost CreateCanvasHost (PintoraKeyboardSettings keyboard)
+	private CanvasHost CreateCanvasHost (PintoraKeyboardSettings keyboard)
 	{
 		MemoryImageSurface surface = new (800, 600);
 		surface.Fill (ColorBgra.White);
 
-		return new CanvasHost (new Pinta.Core.Size (surface.Width, surface.Height), surface, keyboard);
+		CanvasHost canvas = new (new Pinta.Core.Size (surface.Width, surface.Height), surface, keyboard);
+		ApplyGridViewSettings (canvas);
+		return canvas;
 	}
 
 	private Control CreateLayersPanel ()

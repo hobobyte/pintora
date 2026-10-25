@@ -86,6 +86,8 @@ public sealed class CanvasHost : Control, IDisposable
 		=> tool_set.Get<EffectTool> (tool).Options;
 	public TextToolOptions GetTextToolOptions () => text_tool.Options;
 	private readonly PintoraKeyboardSettings keyboard;
+	private bool show_grid;
+	private int grid_size = PintoraViewSettings.DefaultGridSize;
 	private WriteableBitmap? bitmap;
 	private bool is_painting;
 	private CanvasTool? pointer_action_tool;
@@ -248,6 +250,30 @@ public sealed class CanvasHost : Control, IDisposable
 	}
 
 	public double Scale => session.Scale;
+
+	/// <summary>Whether the canvas draws a grid overlay.</summary>
+	public bool ShowGrid {
+		get => show_grid;
+		set {
+			if (show_grid == value)
+				return;
+			show_grid = value;
+			InvalidateVisual ();
+		}
+	}
+
+	/// <summary>Spacing of the grid overlay in image pixels.</summary>
+	public int GridSize {
+		get => grid_size;
+		set {
+			int next = Math.Clamp (value, PintoraViewSettings.MinGridSize, PintoraViewSettings.MaxGridSize);
+			if (grid_size == next)
+				return;
+			grid_size = next;
+			if (show_grid)
+				InvalidateVisual ();
+		}
+	}
 
 	/// <summary>Registers a decoded source used by image and cursor annotations during compositing.</summary>
 	public void RegisterAnnotationSource (string sourceId, IImageSurface source)
@@ -2104,6 +2130,8 @@ public sealed class CanvasHost : Control, IDisposable
 		} else
 			context.FillRectangle (Brushes.White, new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height)));
 		context.DrawRectangle (new Pen (Brushes.Gray, 1), new Rect (origin, new global::Avalonia.Size (viewSize.Width, viewSize.Height)));
+		if (show_grid)
+			DrawGridOverlay (context, origin);
 		if (ActiveTool == CanvasTool.Gradient && is_painting)
 			gradient_tool.DrawGuide (context, origin, Scale, Math.Max (1, BrushSize * Scale));
 		if (Selection is RectangleI selected) {
@@ -2177,6 +2205,25 @@ public sealed class CanvasHost : Control, IDisposable
 			corners[i] = new Point (center.X + dx * cosine - dy * sine, center.Y + dx * sine + dy * cosine);
 		}
 		return corners;
+	}
+
+	private void DrawGridOverlay (DrawingContext context, Point origin)
+	{
+		int step = Math.Max (PintoraViewSettings.MinGridSize, grid_size);
+		double scaled = step * Scale;
+		if (scaled < 4)
+			return;
+
+		Pinta.Core.Size viewSize = ViewSize;
+		var pen = new Pen (new SolidColorBrush (Color.FromArgb (90, 80, 80, 80)), 1);
+		for (double x = step; x < ImageSize.Width; x += step) {
+			double viewX = origin.X + x * Scale;
+			context.DrawLine (pen, new Point (viewX, origin.Y), new Point (viewX, origin.Y + viewSize.Height));
+		}
+		for (double y = step; y < ImageSize.Height; y += step) {
+			double viewY = origin.Y + y * Scale;
+			context.DrawLine (pen, new Point (origin.X, viewY), new Point (origin.X + viewSize.Width, viewY));
+		}
 	}
 
 	private static void DrawTransparencyGrid (DrawingContext context, Rect canvasRect)
