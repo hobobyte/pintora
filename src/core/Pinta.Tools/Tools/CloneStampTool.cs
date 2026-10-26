@@ -69,10 +69,11 @@ public sealed class CloneStampTool : BaseBrushTool
 	public override Cursor DefaultCursor {
 		get {
 			double scale = workspace.GetScale ();
-			var icon = GdkExtensions.CreateIconWithShape ("Cursor.CloneStamp.png",
-							CursorShape.Ellipse, scale, BrushWidth, 16, 26,
-							out var iconOffsetX, out var iconOffsetY);
-			return Gdk.Cursor.NewFromTexture (icon, iconOffsetX, iconOffsetY, null);
+			return (Gdk.Cursor?) CursorService.CreateShapedCursor (
+				new CursorDescriptor ("Cursor.CloneStamp.png", 16, 26),
+				CursorShape.Ellipse,
+				scale,
+				BrushWidth)!;
 		}
 	}
 
