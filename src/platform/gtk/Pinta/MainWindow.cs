@@ -374,6 +374,7 @@ internal sealed class MainWindow
 			async uri => await Gtk.UriLauncher.New (uri).LaunchAsync (window_shell.Window));
 		PintaCore.Chrome.InitializeWindowBusy (busy => window_shell.Window.Cursor = Gdk.Cursor.NewFromName (
 			busy ? Resources.StandardCursors.Progress : Resources.StandardCursors.Default, null));
+		PintaCore.Chrome.InitializeTextContext (() => window_shell.Window.GetPangoContext ());
 		PintaCore.Chrome.InitializeApplicationCommandSink (app.AddCommand);
 		PintaCore.Chrome.InitializeApplicationQuit (app.Quit);
 	}
