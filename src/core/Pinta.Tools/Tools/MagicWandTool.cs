@@ -62,13 +62,13 @@ public sealed class MagicWandTool : FloodTool
 	public override int Priority => 19;
 	public override bool IsSelectionTool => true;
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
+		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
 
 		tb.Append (SelectionSeparator);
 
-		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb, workspace.SelectionHandler, Settings);
+		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb.NativeToolbar, workspace.SelectionHandler, Settings);
 	}
 
 

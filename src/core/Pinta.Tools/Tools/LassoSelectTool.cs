@@ -66,14 +66,14 @@ public sealed class LassoSelectTool : BaseTool
 	private bool IsPolygonMode => LassoModeButtom.SelectedItem.GetTagOrDefault (false);
 	private bool IsFreeformMode => !IsPolygonMode;
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
-		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb, workspace.SelectionHandler, Settings);
+		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
+		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb.NativeToolbar, workspace.SelectionHandler, Settings);
 
 		tb.Append (Separator);
 		tb.Append (LassoModeLabel);
-		tb.Append ((Gtk.Widget) LassoModeButtom.NativeWidget);
+		tb.Append (LassoModeButtom.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
