@@ -84,6 +84,7 @@ internal sealed class MainWindow
 
 		PintaCore.Initialize ();
 		PintaCore.Services.AddService<IToolOptionViewFactory> (new GtkToolOptionViewFactory ());
+		PintaCore.Services.AddService<ICursorService> (new GtkCursorService ());
 
 		// Initialize extensions
 		string addins_dir = System.IO.Path.Combine (PintaCore.Settings.GetUserSettingsDirectory (), "addins");
