@@ -53,7 +53,7 @@ internal sealed partial class AddinInfoView
 	public event EventHandler? OnAddinChanged;
 
 	private SystemManager system = null!; // NRT - set by factory method.
-	private IChromeService chrome = null!;
+	private ChromeManager chrome = null!;
 
 	partial void Initialize ()
 	{
@@ -68,7 +68,7 @@ internal sealed partial class AddinInfoView
 		};
 	}
 
-	internal void Configure (SystemManager system, IChromeService chrome)
+	internal void Configure (SystemManager system, ChromeManager chrome)
 	{
 		this.system = system;
 		this.chrome = chrome;
