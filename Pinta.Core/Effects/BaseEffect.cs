@@ -114,6 +114,18 @@ public abstract class BaseEffect
 	#region Overridable Render Methods
 
 	/// <summary>
+	/// Renders through the platform-neutral surface contract. The current implementation
+	/// delegates to the legacy Cairo path while renderer-specific effects are migrated.
+	/// </summary>
+	public void Render (IImageSurface src, IImageSurface dst, ReadOnlySpan<RectangleI> rois)
+	{
+		if (src is not CairoImageSurface cairoSource || dst is not CairoImageSurface cairoDestination)
+			throw new NotSupportedException ($"{GetType ().Name} currently requires a Cairo-backed surface.");
+
+		Render (cairoSource.NativeSurface, cairoDestination.NativeSurface, rois);
+	}
+
+	/// <summary>
 	/// Performs the actual work of rendering an effect. Do not call base.Render ().
 	/// </summary>
 	/// <param name="src">The source surface. DO NOT MODIFY.</param>
