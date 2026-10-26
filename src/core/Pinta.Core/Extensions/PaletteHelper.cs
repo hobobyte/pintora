@@ -64,6 +64,13 @@ public static class PaletteHelper
 		palette.Load (paletteFormats, stream, file.DisplayName);
 	}
 
+	/// <summary>Loads a palette using only neutral stream contracts.</summary>
+	public static void LoadNeutral (this Palette palette, PaletteFormatManager paletteFormats, IFileReference file)
+	{
+		using Stream stream = file.OpenRead ();
+		palette.Load (paletteFormats, stream, file.DisplayName);
+	}
+
 	private static List<Color> LoadColorsFromFile (PaletteFormatManager paletteFormats, Gio.File file)
 	{
 		var loader = paletteFormats.GetFormatByFilename (file.GetDisplayName ())?.Loader;
