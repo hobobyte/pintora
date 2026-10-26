@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Text;
 using Cairo;
-using Gtk;
 
 namespace Pinta.Core;
 
@@ -125,13 +124,6 @@ public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter, IImag
 
 		static string RepresentColorComponent (byte component)
 			=> component.ToString ().PadLeft (3, ' ');
-	}
-
-	public void Export (Document document, Gio.File file, Window parent)
-	{
-		using ImageSurface flattenedImage = document.GetFlattenedImage ();
-		using GioStream outputStream = new (file.Replace ());
-		Export (flattenedImage, outputStream);
 	}
 
 	/// <summary>Exports a document through the neutral file-reference boundary.</summary>
