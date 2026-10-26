@@ -39,6 +39,7 @@ public sealed class ActionManager
 	public WindowActions Window { get; }
 	public HelpActions Help { get; }
 	public AddinActions Addins { get; }
+	public OS OperatingSystem => system.OperatingSystem;
 
 	private readonly SystemManager system;
 	private readonly ChromeManager chrome;
