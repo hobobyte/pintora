@@ -10,13 +10,13 @@ internal sealed class BackendDependencyBoundaryTests
 	[Test]
 	public void SkiaBackendDoesNotCarryGtkRuntimeDependencies ()
 	{
-		Assert.That (ReadDependencies ("src/graphics/Pinta.Graphics.Skia/bin/Debug/net10.0/Pinta.Graphics.Skia.deps.json"), Does.Not.Contain ("GirCore."));
+		Assert.That (ReadDependencies ("src/graphics/Pinta.Graphics.Skia/bin/Release/net10.0/Pinta.Graphics.Skia.deps.json"), Does.Not.Contain ("GirCore."));
 	}
 
 	[Test]
 	public void CodecBackendDoesNotCarryGtkRuntimeDependencies ()
 	{
-		Assert.That (ReadDependencies ("src/codecs/Pinta.Codecs/bin/Debug/net10.0/Pinta.Codecs.deps.json"), Does.Not.Contain ("GirCore."));
+		Assert.That (ReadDependencies ("src/codecs/Pinta.Codecs/bin/Release/net10.0/Pinta.Codecs.deps.json"), Does.Not.Contain ("GirCore."));
 	}
 
 	private static string ReadDependencies (string relativePath)
