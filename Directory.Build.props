@@ -18,4 +18,8 @@
     <!-- Add an absolute path to a local GirCore source directory to use it instead of the NuGet package -->
     <GirCoreSource />
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectName)' != 'Pinta.Core.Neutral'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/core/Pinta.Core.Neutral/Pinta.Core.Neutral.csproj" />
+  </ItemGroup>
 </Project>

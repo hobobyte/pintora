@@ -1,0 +1,130 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:fluent="clr-namespace:Avalonia.Themes.Fluent;assembly=Avalonia.Themes.Fluent"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Pintora.Avalonia.App">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="Pintora.Window.Background" Color="#FFFDF8" />
+          <SolidColorBrush x:Key="Pintora.Text.Primary" Color="#2F343B" />
+          <SolidColorBrush x:Key="Pintora.Text.Secondary" Color="#676C74" />
+          <SolidColorBrush x:Key="Pintora.Control.Background" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="Pintora.Control.Hover" Color="#E8F1FF" />
+          <SolidColorBrush x:Key="Pintora.Control.Border" Color="#D8DEE8" />
+          <SolidColorBrush x:Key="Pintora.Accent" Color="#3B8CFF" />
+          <SolidColorBrush x:Key="Pintora.Tool.Icon" Color="#1F2937" />
+          <SolidColorBrush x:Key="Pintora.Tool.IconActive" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="Pintora.Menu.Background" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="Pintora.Menu.Hover" Color="#E8F1FF" />
+          <SolidColorBrush x:Key="Pintora.Toolbar.Background" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="Pintora.Panel.Background" Color="#F3F0EA" />
+          <SolidColorBrush x:Key="Pintora.Workspace.Background" Color="#D9DEE4" />
+          <SolidColorBrush x:Key="Pintora.Canvas.Background" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="Pintora.Status.Background" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="MenuFlyoutItemForeground" Color="#2F343B" />
+          <SolidColorBrush x:Key="MenuFlyoutItemForegroundPointerOver" Color="#2F343B" />
+          <SolidColorBrush x:Key="MenuFlyoutItemForegroundPressed" Color="#2F343B" />
+          <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="#E8F1FF" />
+          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="#CFE3FF" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="Pintora.Window.Background" Color="#1F252E" />
+          <SolidColorBrush x:Key="Pintora.Text.Primary" Color="#F3F5F7" />
+          <SolidColorBrush x:Key="Pintora.Text.Secondary" Color="#B8C0CC" />
+          <SolidColorBrush x:Key="Pintora.Control.Background" Color="#2B333E" />
+          <SolidColorBrush x:Key="Pintora.Control.Hover" Color="#35475E" />
+          <SolidColorBrush x:Key="Pintora.Control.Border" Color="#4A5665" />
+          <SolidColorBrush x:Key="Pintora.Accent" Color="#61A5FF" />
+          <SolidColorBrush x:Key="Pintora.Tool.Icon" Color="#F3F5F7" />
+          <SolidColorBrush x:Key="Pintora.Tool.IconActive" Color="#142033" />
+          <SolidColorBrush x:Key="Pintora.Menu.Background" Color="#2B333E" />
+          <SolidColorBrush x:Key="Pintora.Menu.Hover" Color="#35475E" />
+          <SolidColorBrush x:Key="Pintora.Toolbar.Background" Color="#2B333E" />
+          <SolidColorBrush x:Key="Pintora.Panel.Background" Color="#252C35" />
+          <SolidColorBrush x:Key="Pintora.Workspace.Background" Color="#1B2028" />
+          <SolidColorBrush x:Key="Pintora.Canvas.Background" Color="#151A21" />
+          <SolidColorBrush x:Key="Pintora.Status.Background" Color="#252C35" />
+          <SolidColorBrush x:Key="MenuFlyoutItemForeground" Color="#F3F5F7" />
+          <SolidColorBrush x:Key="MenuFlyoutItemForegroundPointerOver" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="MenuFlyoutItemForegroundPressed" Color="#FFFFFF" />
+          <SolidColorBrush x:Key="MenuFlyoutPresenterBackground" Color="#2B333E" />
+          <SolidColorBrush x:Key="MenuFlyoutItemBackground" Color="#2B333E" />
+          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPointerOver" Color="#35475E" />
+          <SolidColorBrush x:Key="MenuFlyoutItemBackgroundPressed" Color="#405875" />
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <fluent:FluentTheme />
+
+    <Style Selector="Window">
+      <Setter Property="Background" Value="{DynamicResource Pintora.Window.Background}" />
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Text.Primary}" />
+    </Style>
+    <Style Selector="TextBlock">
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Text.Primary}" />
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="Background" Value="{DynamicResource Pintora.Control.Background}" />
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Text.Primary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Pintora.Control.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Padding" Value="10,6" />
+    </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Pintora.Control.Hover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Pintora.Accent}" />
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Text.Primary}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button:pressed">
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Text.Primary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Pintora.Accent}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Tool.Icon}" />
+    </Style>
+    <Style Selector="Button.tool-button">
+      <Setter Property="Background" Value="{DynamicResource Pintora.Control.Background}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Pintora.Control.Border}" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.tool-button:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Pintora.Control.Hover}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Pintora.Accent}" />
+    </Style>
+    <Style Selector="Button.tool-button.active">
+      <Setter Property="Background" Value="{DynamicResource Pintora.Accent}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Pintora.Accent}" />
+    </Style>
+    <Style Selector="Button.tool-button.active PathIcon">
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Tool.IconActive}" />
+    </Style>
+    <Style Selector="Menu">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Text.Primary}" />
+      <Setter Property="Height" Value="34" />
+    </Style>
+    <Style Selector="MenuItem">
+      <Setter Property="Padding" Value="12,6" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="{DynamicResource Pintora.Control.Background}" />
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Text.Primary}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Pintora.Control.Border}" />
+      <Setter Property="Padding" Value="8,5" />
+    </Style>
+    <Style Selector="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Text.Primary}" />
+    </Style>
+    <Style Selector="Slider">
+      <Setter Property="Foreground" Value="{DynamicResource Pintora.Accent}" />
+    </Style>
+  </Application.Styles>
+</Application>

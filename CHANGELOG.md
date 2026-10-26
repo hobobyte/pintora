@@ -5,9 +5,21 @@ baseline; later entries track Pintora-specific work.
 
 ## Unreleased
 
+No changes yet.
+
+## 0.0.2-alpha
+
 ### Added
 
-- Nothing yet.
+- Unified Open and Save As workflows for PNG, JPEG, WebP, TIFF, BMP, GIF, SVG layers, and ORA.
+- Layer duplication, ordering, merge, opacity controls, and history management.
+- Selection commands and configurable shortcuts for Select All, Deselect, and layer duplication.
+- Avalonia About window and History window controls.
+
+### Fixed
+
+- Debian package creation now writes artifacts to the intended output directory.
+- Layer opacity controls and standard undo behavior remain synchronized when changing layers.
 
 ## 0.0.1-alpha
 

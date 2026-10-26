@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using Cairo;
 using NUnit.Framework;
 
@@ -13,7 +14,9 @@ internal sealed class FileFormatTests
 	{
 		string path1 = Utilities.GetAssetPath (file1);
 		string path2 = Utilities.GetAssetPath (file2);
-		Assert.That (Utilities.AreFilesEqual (path1, path2), Is.False);
+		using FileStream first = File.OpenRead (path1);
+		using FileStream second = File.OpenRead (path2);
+		Assert.That (Utilities.AreStreamsEqual (first, second), Is.False);
 	}
 
 	[TestCaseSource (nameof (netpbm_pixmap_text_cases))]

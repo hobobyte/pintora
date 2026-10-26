@@ -1,5 +1,4 @@
 using System;
-using Cairo;
 using NUnit.Framework;
 
 namespace Pinta.Core.Tests;
@@ -13,11 +12,11 @@ internal sealed class SurfaceDifferenceTests
 		string pathA = Utilities.GetAssetPath (a);
 		string pathB = Utilities.GetAssetPath (b);
 
-		using ImageSurface originalA = Utilities.LoadImage (pathA);
-		using ImageSurface originalB = Utilities.LoadImage (pathB);
+		using ArrayImageSurface originalA = Utilities.LoadNeutralImage (pathA);
+		using ArrayImageSurface originalB = Utilities.LoadNeutralImage (pathB);
 
 		// Cloning "B". Can't use the "Clone" extension method because it depends on PintaCore
-		using ImageSurface modifiable = new ImageSurface (Format.Argb32, originalA.Width, originalA.Height);
+		using ArrayImageSurface modifiable = new (originalA.Width, originalA.Height);
 		ReadOnlySpan<ColorBgra> originalBData = originalB.GetReadOnlyPixelData ();
 		Span<ColorBgra> modifiableData = modifiable.GetPixelData ();
 		originalBData.CopyTo (modifiableData);
@@ -37,7 +36,7 @@ internal sealed class SurfaceDifferenceTests
 	public void Returning_Null_If_Same_Surfaces (string fileName)
 	{
 		string path = Utilities.GetAssetPath (fileName);
-		using ImageSurface image = Utilities.LoadImage (path);
+		using ArrayImageSurface image = Utilities.LoadNeutralImage (path);
 		SurfaceDiff? difference = SurfaceDiff.Create (image, image);
 		Assert.That (difference, Is.Null);
 	}
@@ -47,8 +46,8 @@ internal sealed class SurfaceDifferenceTests
 	{
 		string pathA = Utilities.GetAssetPath (a);
 		string pathB = Utilities.GetAssetPath (b);
-		using ImageSurface imageA = Utilities.LoadImage (pathA);
-		using ImageSurface imageB = Utilities.LoadImage (pathB);
+		using ArrayImageSurface imageA = Utilities.LoadNeutralImage (pathA);
+		using ArrayImageSurface imageB = Utilities.LoadNeutralImage (pathB);
 		SurfaceDiff? difference = SurfaceDiff.Create (imageA, imageB);
 		Assert.That (difference, Is.Not.Null);
 	}
@@ -56,12 +55,9 @@ internal sealed class SurfaceDifferenceTests
 	[Test]
 	public void Returning_Null_If_Savings_Too_Small ()
 	{
-		ImageSurface empty = new (Format.Argb32, 16, 16);
-		ImageSurface withChanges = new (Format.Argb32, 16, 16);
-		using Context context = new (withChanges);
-		context.SetSourceColor (Color.Blue);
-		context.Rectangle (0, 0, 16, 15); // Savings are 16, which is ~6.3% of 256
-		context.Fill ();
+		using ArrayImageSurface empty = new (16, 16);
+		using ArrayImageSurface withChanges = new (16, 16);
+		withChanges.GetPixelData ()[..(16 * 15)].Fill (ColorBgra.Blue); // Savings are 16, ~6.3%
 		SurfaceDiff? difference = SurfaceDiff.Create (empty, withChanges, force: false);
 		Assert.That (difference, Is.Null);
 	}
@@ -69,12 +65,9 @@ internal sealed class SurfaceDifferenceTests
 	[Test]
 	public void Returning_Non_Null_If_Savings_Big_Enough ()
 	{
-		ImageSurface empty = new (Format.Argb32, 16, 16);
-		ImageSurface withChanges = new (Format.Argb32, 16, 16);
-		using Context context = new (withChanges);
-		context.SetSourceColor (Color.Blue);
-		context.Rectangle (0, 0, 2, 2); // Savings are 252, which is ~98.4% of 256
-		context.Fill ();
+		using ArrayImageSurface empty = new (16, 16);
+		using ArrayImageSurface withChanges = new (16, 16);
+		withChanges.GetPixelData ()[..4].Fill (ColorBgra.Blue); // Savings are 252, ~98.4%
 		SurfaceDiff? difference = SurfaceDiff.Create (empty, withChanges, force: false);
 		Assert.That (difference, Is.Not.Null);
 	}
@@ -82,14 +75,10 @@ internal sealed class SurfaceDifferenceTests
 	[Test]
 	public void Interface_Overload_Uses_Image_Surface_Contract ()
 	{
-		using ImageSurface original = new (Format.Argb32, 16, 16);
-		using ImageSurface updated = new (Format.Argb32, 16, 16);
-		using IImageSurface originalAdapter = new CairoImageSurface (original);
-		using IImageSurface updatedAdapter = new CairoImageSurface (updated);
+		using IImageSurface originalAdapter = new ArrayImageSurface (16, 16);
+		using IImageSurface updatedAdapter = new ArrayImageSurface (16, 16);
 
 		updatedAdapter.GetPixelData ()[0] = ColorBgra.Red;
-		updated.MarkDirty ();
-
 		SurfaceDiff? difference = SurfaceDiff.Create (originalAdapter, updatedAdapter);
 
 		Assert.That (difference, Is.Not.Null);
