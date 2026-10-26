@@ -61,8 +61,23 @@ public sealed class Document
 	private static int name_counter = 1;
 
 	public Document (ActionManager actions, ToolManager tools, WorkspaceManager workspace, Size size)
-		: this (actions, tools, workspace, size, null, null)
+		: this (actions, tools, workspace, size, (Gio.File?) null, null)
 	{ }
+
+	/// <summary>
+	/// Creates a document using the platform-neutral file reference contract.
+	/// </summary>
+	public Document (
+		ActionManager actions,
+		ToolManager tools,
+		WorkspaceManager workspace,
+		Size size,
+		IFileReference fileReference,
+		string fileType)
+		: this (actions, tools, workspace, size, (Gio.File?) null, fileType)
+	{
+		FileReference = fileReference ?? throw new ArgumentNullException (nameof (fileReference));
+	}
 
 	private readonly ActionManager actions;
 	private readonly ToolManager tools;
