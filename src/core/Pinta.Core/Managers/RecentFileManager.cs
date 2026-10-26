@@ -25,20 +25,20 @@
 // THE SOFTWARE.
 
 using System;
-using Gtk;
+using System.IO;
 
 namespace Pinta.Core;
 
 public sealed class RecentFileManager
 {
-	private Gio.File? last_dialog_directory;
+	private IFileReference? last_dialog_directory;
 
 	public RecentFileManager ()
 	{
 		last_dialog_directory = DefaultDialogDirectory;
 	}
 
-	public Gio.File? LastDialogDirectory {
+	public IFileReference? LastDialogDirectory {
 		get => last_dialog_directory;
 		set {
 			// The file chooser dialog may return null for the current folder in certain cases,
@@ -48,10 +48,10 @@ public sealed class RecentFileManager
 		}
 	}
 
-	public Gio.File? DefaultDialogDirectory {
+	public IFileReference? DefaultDialogDirectory {
 		get {
 			string path = System.Environment.GetFolderPath (Environment.SpecialFolder.MyPictures);
-			return !string.IsNullOrEmpty (path) ? Gio.FileHelper.NewForPath (path) : null;
+			return !string.IsNullOrEmpty (path) && Directory.Exists (path) ? new PathFileReference (path) : null;
 		}
 	}
 
@@ -59,16 +59,13 @@ public sealed class RecentFileManager
 	/// Returns a directory for use in a dialog. The last dialog directory is
 	/// returned if it exists, otherwise the default directory is used.
 	/// </summary>
-	public Gio.File? GetDialogDirectory ()
+	public IFileReference? GetDialogDirectory ()
 	{
-		return (last_dialog_directory != null && last_dialog_directory.QueryExists (null)) ? last_dialog_directory : DefaultDialogDirectory;
+		return last_dialog_directory is PathFileReference path && Directory.Exists (path.Path) ? path : DefaultDialogDirectory;
 	}
 
 	/// <summary>
 	/// Add a file to the list of recently-used files.
 	/// </summary>
-	public void AddFile (Gio.File file)
-	{
-		RecentManager.GetDefault ().AddItem (file.GetUri ());
-	}
+	public void AddFile (IFileReference file) { }
 }

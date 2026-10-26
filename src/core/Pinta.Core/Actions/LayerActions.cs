@@ -214,7 +214,7 @@ public sealed class LayerActions
 		IFileReference? choice = await FileDialogs.OpenFileAsync (new FileDialogOptions (
 			Translations.GetString ("Open Image File"),
 			[CreateImagesFileFilter ()],
-			recent_files.GetDialogDirectory () is Gio.File dir ? new PathFileReference (dir.GetParseName ()) : null));
+			recent_files.GetDialogDirectory () is PathFileReference dir ? dir : null));
 
 		if (choice is null) return;
 
