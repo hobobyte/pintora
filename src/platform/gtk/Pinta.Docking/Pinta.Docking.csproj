@@ -6,6 +6,6 @@
   <Import Project="../../../properties/ReferenceGirCoreAdw1.props" />
 
   <ItemGroup>
-    <ProjectReference Include="..\..\core\Pinta.Core\Pinta.Core.csproj" />
+    <ProjectReference Include="..\..\..\core\Pinta.Core\Pinta.Core.csproj" />
   </ItemGroup>
 </Project>
