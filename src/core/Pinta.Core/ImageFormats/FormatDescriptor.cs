@@ -47,6 +47,7 @@ public sealed class FormatDescriptor
 	/// A list of supported MIME types (for example, "image/jpg" and "image/png").
 	/// </summary>
 	public ImmutableArray<string> Mimes { get; }
+	public ImageFormatMetadata Metadata { get; }
 
 	/// <summary>
 	/// The importer for this file format. This may be null if only exporting
@@ -95,6 +96,7 @@ public sealed class FormatDescriptor
 		Importer = importer;
 		Exporter = exporter;
 		SupportsLayers = supportsLayers;
+		Metadata = new ImageFormatMetadata (Extensions, Mimes, SupportsLayers);
 
 		Gtk.FileFilter ff = Gtk.FileFilter.New ();
 		StringBuilder formatNames = new ();
