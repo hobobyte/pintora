@@ -151,7 +151,7 @@ public sealed class PaletteManager : IPaletteService
 	{
 		string paletteFile = System.IO.Path.Combine (settings.GetUserSettingsDirectory (), PALETTE_FILE);
 		if (!System.IO.File.Exists (paletteFile)) return;
-		CurrentPalette.Load (paletteFormats, Gio.FileHelper.NewForPath (paletteFile));
+		CurrentPalette.LoadNeutral (paletteFormats, new PathFileReference (paletteFile));
 	}
 
 	private void PopulateRecentlyUsedColors ()
@@ -195,7 +195,7 @@ public sealed class PaletteManager : IPaletteService
 		string palette_file = System.IO.Path.Combine (settings.GetUserSettingsDirectory (), PALETTE_FILE);
 		var palette_saver = palette_formats.Formats.FirstOrDefault (p => p.Extensions.Contains ("txt"))?.Saver;
 		if (palette_saver is not null)
-			CurrentPalette.Save (Gio.FileHelper.NewForPath (palette_file), palette_saver);
+			CurrentPalette.Save (new PathFileReference (palette_file), palette_saver);
 	}
 
 	private void SaveRecentlyUsedColors ()
