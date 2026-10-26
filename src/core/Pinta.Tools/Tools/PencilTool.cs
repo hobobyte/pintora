@@ -50,7 +50,8 @@ public sealed class PencilTool : BaseTool
 	public override string StatusBarText => Translations.GetString (
 		"Left click to draw freeform one-pixel wide lines with the primary color." +
 		"\nRight click to use the secondary color.");
-	public override Gdk.Cursor DefaultCursor => Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.Pencil.png"), 7, 24, null);
+	public override Gdk.Cursor DefaultCursor
+		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Pencil.png", 7, 24))!;
 	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_P);
 	public override int Priority => 25;
 	protected override bool ShowAlphaBlendingButton => true;
