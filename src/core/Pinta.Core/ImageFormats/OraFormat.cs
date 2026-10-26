@@ -35,13 +35,16 @@ using GdkPixbuf;
 
 namespace Pinta.Core;
 
-public sealed class OraFormat : IImageImporter, IImageExporter
+public sealed class OraFormat : IImageImporter, IImageExporter, IImageFileImporter, IImageFileExporter
 {
 	private const int THUMB_MAX_SIZE = 256;
 
 	public Document Import (Gio.File file)
+		=> Import (new PathFileReference (file.GetParseName ()));
+
+	public Document Import (IFileReference file)
 	{
-		using GioStream stream = new (file.Read (cancellable: null));
+		using Stream stream = file.OpenRead ();
 		using ZipArchive zipfile = new (stream);
 
 		XmlDocument stackXml = new ();
@@ -187,8 +190,11 @@ public sealed class OraFormat : IImageImporter, IImageExporter
 	}
 
 	public void Export (Document document, Gio.File file, Gtk.Window parent)
+		=> Export (document, new PathFileReference (file.GetParseName ()));
+
+	public void Export (Document document, IFileReference file)
 	{
-		using GioStream file_stream = new (file.Replace ());
+		using Stream file_stream = file.OpenWrite ();
 		using ZipArchive archive = new (file_stream, ZipArchiveMode.Create);
 		using Pixbuf flattened = document.GetFlattenedImage ().ToPixbuf ();
 		AddMimeEntry (archive);
