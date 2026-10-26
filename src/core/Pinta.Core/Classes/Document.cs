@@ -77,6 +77,9 @@ public sealed class Document
 		: this (actions, tools, workspace, size, (Gio.File?) null, fileType)
 	{
 		FileReference = fileReference ?? throw new ArgumentNullException (nameof (fileReference));
+		if (string.IsNullOrEmpty (fileType))
+			throw new ArgumentNullException (nameof (fileType));
+		FileType = fileType;
 	}
 
 	private readonly ActionManager actions;
