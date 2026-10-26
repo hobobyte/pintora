@@ -25,6 +25,7 @@
 // THE SOFTWARE.
 
 using System.Collections.Generic;
+using System.IO;
 using Cairo;
 
 namespace Pinta.Core;
@@ -33,4 +34,5 @@ namespace Pinta.Core;
 public interface IPaletteSaver
 {
 	void Save (IReadOnlyList<Color> colors, Gio.File file);
+	void Save (IReadOnlyList<Color> colors, Stream stream);
 }

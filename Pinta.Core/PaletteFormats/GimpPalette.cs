@@ -29,17 +29,23 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using Cairo;
 
 namespace Pinta.Core;
 
-public sealed class GimpPalette : IPaletteLoader, IPaletteSaver
+public sealed class GimpPalette : IPaletteLoader, IPaletteSaver, IPaletteStreamLoader, IPaletteStreamSaver
 {
 	public List<Color> Load (Gio.File file)
 	{
-		List<Color> colors = [];
 		using GioStream stream = new (file.Read (null));
-		using StreamReader reader = new (stream);
+		return Load (stream);
+	}
+
+	public List<Color> Load (Stream stream)
+	{
+		List<Color> colors = [];
+		using StreamReader reader = new (stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
 		string? line = reader.ReadLine ();
 
 		if (line is null || !line.StartsWith ("GIMP"))
@@ -73,7 +79,12 @@ public sealed class GimpPalette : IPaletteLoader, IPaletteSaver
 	public void Save (IReadOnlyList<Color> colors, Gio.File file)
 	{
 		using GioStream stream = new (file.Replace ());
-		using StreamWriter writer = new (stream);
+		Save (colors, stream);
+	}
+
+	public void Save (IReadOnlyList<Color> colors, Stream stream)
+	{
+		using StreamWriter writer = new (stream, Encoding.UTF8, bufferSize: 1024, leaveOpen: true);
 
 		writer.WriteLine ("GIMP Palette");
 		writer.WriteLine ("Name: Pinta Created {0}", DateTime.Now.ToString (DateTimeFormatInfo.InvariantInfo.RFC1123Pattern));
@@ -82,7 +93,7 @@ public sealed class GimpPalette : IPaletteLoader, IPaletteSaver
 		for (var i = 0; i < colors.Count; i++)
 			writer.WriteLine (RepresentColor (colors[i], $"Untitled_{i}"));
 
-		writer.Close ();
+		writer.Flush ();
 	}
 
 	private static string RepresentColor (Color color, string colorName)

@@ -114,7 +114,11 @@ partial class CairoExtensions
 		ResamplingMode resamplingMode)
 	{
 		SurfacePattern src_pattern = new (surface) {
-			Filter = resamplingMode.ToCairoFilter (),
+			Filter = resamplingMode switch {
+				ResamplingMode.Bilinear => Filter.Bilinear,
+				ResamplingMode.NearestNeighbor => Filter.Nearest,
+				_ => throw new ArgumentOutOfRangeException (nameof (resamplingMode))
+			},
 		};
 
 		g.SetSource (src_pattern);
