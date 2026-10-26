@@ -63,7 +63,8 @@ public sealed class GradientTool : BaseTool
 									"\nRight click to reverse." +
 									"\nClick on a control point and drag to move it.");
 	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_G);
-	public override Gdk.Cursor DefaultCursor => Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.Gradient.png"), 9, 18, null);
+	public override Gdk.Cursor DefaultCursor
+		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Gradient.png", 9, 18))!;
 	public override int Priority => 31;
 	protected override bool ShowAlphaBlendingButton => true;
 	private GradientType SelectedGradientType => GradientDropDown.SelectedItem.GetTagOrDefault (GradientType.Linear);
