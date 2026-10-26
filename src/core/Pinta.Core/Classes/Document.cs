@@ -114,7 +114,7 @@ public sealed class Document
 			if (string.IsNullOrEmpty (fileType))
 				throw new ArgumentNullException ($"nameof{fileType} must contain value.");
 
-			File = file;
+			FileReference = new PathFileReference (file.GetParseName ());
 			FileType = fileType;
 		} else
 			DisplayName = Translations.GetString ("Unsaved Image {0}", name_counter++);
@@ -147,17 +147,7 @@ public sealed class Document
 	/// <summary>
 	/// Identifier for the file location on disk.
 	/// </summary>
-	public Gio.File? File {
-		get => file_reference is PathFileReference path ? Gio.FileHelper.NewForPath (path.Path) : null;
-		set {
-			file_reference = value is null ? null : new PathFileReference (value.GetParseName ());
-			DisplayName = file_reference?.DisplayName ?? string.Empty;
-		}
-	}
-
-	/// <summary>
-	/// Platform-neutral file reference. This is the migration path away from Gio.File.
-	/// </summary>
+	/// <summary>Platform-neutral file reference for the document location.</summary>
 	public IFileReference? FileReference {
 		get => file_reference;
 		set {
@@ -226,7 +216,7 @@ public sealed class Document
 	public void ClearFileReference ()
 	{
 		string name = DisplayName;
-		File = null;
+		FileReference = null;
 		FileType = null;
 		DisplayName = name;
 	}

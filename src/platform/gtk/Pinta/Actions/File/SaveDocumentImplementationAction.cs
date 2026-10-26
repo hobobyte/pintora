@@ -96,7 +96,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			Translations.GetString ("Cancel"));
 
 		if (document.HasFile)
-			fcd.SetFile (document.File!);
+			fcd.SetFile (ToGioFile (document.FileReference));
 		else {
 			if (recent_files.GetDialogDirectory () is PathFileReference dir)
 				fcd.SetCurrentFolder (Gio.FileHelper.NewForPath (dir.Path));
@@ -177,7 +177,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			recent_files.AddFile (new PathFileReference (file.GetParseName ()));
 			image_formats.SetDefaultFormat (format.Extensions.First ());
 
-			document.File = file;
+			document.FileReference = new PathFileReference (file.GetParseName ());
 			document.FileType = format.Extensions.First ();
 			return true;
 		}
@@ -187,7 +187,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 
 	private async Task<bool> SaveFile (Document document, Gio.File? file, FormatDescriptor? format, Gtk.Window parent)
 	{
-		file ??= document.File;
+		file ??= ToGioFile (document.FileReference);
 
 		if (file is null)
 			throw new ArgumentException ("Attempted to save a document with no associated file", nameof (file));
@@ -250,7 +250,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			return false;
 		}
 
-		document.File = file;
+		document.FileReference = new PathFileReference (file.GetParseName ());
 		document.FileType = format.Extensions.First ();
 
 		tools.DoAfterSave (document);
@@ -293,5 +293,12 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			image.Flatten.Activate ();
 		}
 		return true;
+	}
+
+	private static Gio.File ToGioFile (IFileReference? reference)
+	{
+		if (reference is not PathFileReference path)
+			throw new InvalidOperationException ("The document file is not path-backed.");
+		return Gio.FileHelper.NewForPath (path.Path);
 	}
 }
