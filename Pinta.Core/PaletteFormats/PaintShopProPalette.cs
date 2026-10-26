@@ -26,16 +26,22 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Cairo;
 
 namespace Pinta.Core;
 
-public sealed class PaintShopProPalette : IPaletteLoader, IPaletteSaver
+public sealed class PaintShopProPalette : IPaletteLoader, IPaletteSaver, IPaletteStreamLoader, IPaletteStreamSaver
 {
 	public List<Color> Load (Gio.File file)
 	{
 		using GioStream stream = new (file.Read (null));
-		using StreamReader reader = new (stream);
+		return Load (stream);
+	}
+
+	public List<Color> Load (Stream stream)
+	{
+		using StreamReader reader = new (stream, Encoding.UTF8, true, 1024, true);
 
 		string? headerLine = reader.ReadLine ();
 		if (headerLine is null || !headerLine.StartsWith ("JASC-PAL"))
@@ -44,9 +50,8 @@ public sealed class PaintShopProPalette : IPaletteLoader, IPaletteSaver
 		string? versionLine = reader.ReadLine ();
 
 		int numberOfColors = int.Parse (reader.ReadLine ()!); // NRT - Assumes valid formatted file
-		PintaCore.Palette.CurrentPalette.Resize (numberOfColors);
 
-		List<Color> colors = [];
+		List<Color> colors = new (numberOfColors);
 
 		while (!reader.EndOfStream) {
 
@@ -68,7 +73,12 @@ public sealed class PaintShopProPalette : IPaletteLoader, IPaletteSaver
 	public void Save (IReadOnlyList<Color> colors, Gio.File file)
 	{
 		using GioStream stream = new (file.Replace ());
-		using StreamWriter writer = new (stream);
+		Save (colors, stream);
+	}
+
+	public void Save (IReadOnlyList<Color> colors, Stream stream)
+	{
+		using StreamWriter writer = new (stream, Encoding.UTF8, 1024, true);
 
 		writer.WriteLine ("JASC-PAL");
 		writer.WriteLine ("0100");
@@ -77,7 +87,7 @@ public sealed class PaintShopProPalette : IPaletteLoader, IPaletteSaver
 		foreach (Color color in colors)
 			writer.WriteLine ("{0} {1} {2}", (int) (color.R * 255), (int) (color.G * 255), (int) (color.B * 255));
 
-		writer.Close ();
+		writer.Flush ();
 	}
 }
 

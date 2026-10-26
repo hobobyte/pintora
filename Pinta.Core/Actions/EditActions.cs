@@ -560,8 +560,7 @@ public sealed class EditActions
 			if (format.IsReadOnly ())
 				continue;
 
-			Gtk.FileFilter fileFilter = format.Filter;
-			fcd.AddFilter (fileFilter);
+			fcd.AddFilter (format.GetGtkFilter ());
 		}
 
 		if (last_palette_dir != null)
@@ -582,7 +581,7 @@ public sealed class EditActions
 			string basename = file.GetParent ()!.GetRelativePath (file)!;
 			string extension = System.IO.Path.GetExtension (basename);
 			if (string.IsNullOrEmpty (extension)) {
-				var currentFormat = palette_formats.Formats.First (f => f.Filter == fcd.Filter);
+				var currentFormat = palette_formats.Formats.First (f => f.GetGtkFilter () == fcd.Filter);
 				basename += "." + currentFormat.Extensions.First ();
 				file = file.GetParent ()!.GetChild (basename);
 			}

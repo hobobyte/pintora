@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Text;
 using Cairo;
 
@@ -18,6 +19,12 @@ public static class PaletteHelper
 		saver.Save (palette.Colors, file);
 	}
 
+	public static void Save (this Palette palette, Stream stream, IPaletteSaver saver)
+	{
+		saver.Save (palette.Colors, stream);
+	}
+
+
 	public static void LoadDefault (this Palette palette)
 	{
 		palette.Load (EnumerateDefaultColors ());
@@ -27,6 +34,17 @@ public static class PaletteHelper
 	{
 		List<Color> loadedColors = LoadColorsFromFile (paletteFormats, file);
 		palette.Load (loadedColors);
+	}
+
+	public static void Load (this Palette palette, PaletteFormatManager paletteFormats, Stream stream, string fileName)
+	{
+		var format = paletteFormats.GetFormatByFilename (fileName);
+		if (format?.Loader is not null) {
+			palette.Load (format.Loader.Load (stream));
+			return;
+		}
+
+		throw new PaletteLoadException (fileName, $"No palette format is registered for '{fileName}'.");
 	}
 
 	private static List<Color> LoadColorsFromFile (PaletteFormatManager paletteFormats, Gio.File file)
@@ -46,7 +64,7 @@ public static class PaletteHelper
 					return loaded_colors;
 			} catch (Exception e) {
 				// Record errors in case none of the formats work.
-				errors.AppendLine ($"Failed to load palette as {format.Filter.Name}:");
+				errors.AppendLine ($"Failed to load palette as {format.DisplayName}:");
 				errors.Append (e.ToString ());
 				errors.AppendLine ();
 			}

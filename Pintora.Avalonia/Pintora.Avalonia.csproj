@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Pinta.Resources.Neutral\Pinta.Resources.Neutral.csproj" />
     <ProjectReference Include="..\Pinta.Core\Pinta.Core.csproj" />
   </ItemGroup>
 

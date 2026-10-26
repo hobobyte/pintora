@@ -26,42 +26,62 @@
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Text;
 using Gtk;
 
 namespace Pinta.Core;
 
-public sealed class PaletteDescriptor
+public sealed class PaletteDescriptor : IPaletteFormatDescriptor
 {
 	public ImmutableArray<string> Extensions { get; }
+	public string DisplayName { get; }
+	public ImmutableArray<string> Patterns { get; }
 
 	public IPaletteLoader Loader { get; }
 
 	public IPaletteSaver Saver { get; }
+	public IPaletteStreamLoader? StreamLoader => Loader as IPaletteStreamLoader;
+	public IPaletteStreamSaver? StreamSaver => Saver as IPaletteStreamSaver;
 
-	public FileFilter Filter { get; }
+	public FileFilter? Filter => filter;
+	private FileFilter? filter;
+	private readonly string display_prefix;
 
-	public PaletteDescriptor (string displayPrefix, IEnumerable<string> extensions, IPaletteLoader loader, IPaletteSaver saver)
+	public PaletteDescriptor (string displayPrefix, IEnumerable<string> extensions, IPaletteLoader loader, IPaletteSaver saver, bool createGtkFilter = true)
 	{
+		display_prefix = displayPrefix;
 		Extensions = [.. extensions];
+		Patterns = [.. Extensions.Select (ext => $"*.{ext}")];
+		DisplayName = $"{displayPrefix} palette ({string.Join (", ", Patterns)})";
 		Loader = loader;
 		Saver = saver;
 
+		if (createGtkFilter)
+			filter = CreateGtkFilter (displayPrefix);
+	}
+
+	public FileFilter GetGtkFilter ()
+	{
+		return filter ??= CreateGtkFilter (display_prefix);
+	}
+
+	private FileFilter CreateGtkFilter (string displayPrefix)
+	{
 		var ff = FileFilter.New ();
 		StringBuilder formatNames = new StringBuilder ();
 
-		foreach (string ext in Extensions) {
+		foreach (string wildcard in Patterns) {
 			if (formatNames.Length > 0)
 				formatNames.Append (", ");
 
-			string wildcard = $"*.{ext}";
 			ff.AddPattern (wildcard);
 			formatNames.Append (wildcard);
 		}
 
 		// Translators: {0} is the palette format (e.g. "GIMP") and {1} is a list of file extensions.
 		ff.Name = Translations.GetString ("{0} palette ({1})", displayPrefix, formatNames);
-		Filter = ff;
+		return ff;
 	}
 
 	public bool IsReadOnly ()

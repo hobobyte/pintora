@@ -29,11 +29,13 @@ using System.Linq;
 
 namespace Pinta.Core;
 
-public sealed class PaletteFormatManager
+public sealed class PaletteFormatManager : IPaletteFormatCatalog
 {
 	public IReadOnlyList<PaletteDescriptor> Formats { get; }
+	public IReadOnlyList<IPaletteFormatDescriptor> NeutralFormats { get; }
+	IReadOnlyList<IPaletteFormatDescriptor> IPaletteFormatCatalog.Formats => NeutralFormats;
 
-	public PaletteFormatManager ()
+	public PaletteFormatManager (bool createGtkFilters = false)
 	{
 		PaintDotNetPalette pdnHandler = new ();
 		GimpPalette gimpHandler = new ();
@@ -44,18 +46,22 @@ public sealed class PaletteFormatManager
 				"Paint.NET",
 				["txt", "TXT"],
 				pdnHandler,
-				pdnHandler),
+				pdnHandler,
+				createGtkFilters),
 			new PaletteDescriptor (
 				"GIMP",
 				["gpl", "GPL"],
 				gimpHandler,
-				gimpHandler),
+				gimpHandler,
+				createGtkFilters),
 			new PaletteDescriptor (
 				"PaintShop Pro",
 				["pal", "PAL"],
 				pspHandler,
-				pspHandler),
+				pspHandler,
+				createGtkFilters),
 		];
+		NeutralFormats = Formats.Cast<IPaletteFormatDescriptor> ().ToArray ();
 	}
 
 	public PaletteDescriptor? GetFormatByFilename (string fileName)

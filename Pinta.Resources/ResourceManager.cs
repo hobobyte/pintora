@@ -130,22 +130,8 @@ public static class ResourceLoader
 
 	private static Bytes? GetBytesFromAssembly (Assembly assembly, string name)
 	{
-		if (!HasResource (assembly, name))
-			return null;
-
-		using Stream stream = assembly.GetManifestResourceStream (name)!;
-		byte[] buffer = new byte[stream.Length];
-		stream.ReadExactly (buffer);
-
-		return Bytes.New (buffer);
-	}
-
-	private static bool HasResource (Assembly assembly, string name)
-	{
-		return
-			assembly
-			.GetManifestResourceNames ()
-			.Any (n => n == name);
+		byte[]? bytes = EmbeddedResourceReader.Read (assembly, name);
+		return bytes is null ? null : Bytes.New (bytes);
 	}
 
 	// From MonoDevelop:

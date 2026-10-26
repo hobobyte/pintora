@@ -28,17 +28,23 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using Cairo;
 
 namespace Pinta.Core;
 
-public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver
+public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver, IPaletteStreamLoader, IPaletteStreamSaver
 {
 	public List<Color> Load (Gio.File file)
 	{
-		List<Color> colors = [];
 		using var stream = new GioStream (file.Read (null));
-		using var reader = new StreamReader (stream);
+		return Load (stream);
+	}
+
+	public List<Color> Load (Stream stream)
+	{
+		List<Color> colors = [];
+		using var reader = new StreamReader (stream, Encoding.UTF8, true, 1024, true);
 
 		string? line = reader.ReadLine ();
 		do {
@@ -65,14 +71,19 @@ public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver
 	public void Save (IReadOnlyList<Color> colors, Gio.File file)
 	{
 		using var stream = new GioStream (file.Replace ());
-		using StreamWriter writer = new StreamWriter (stream);
+		Save (colors, stream);
+	}
+
+	public void Save (IReadOnlyList<Color> colors, Stream stream)
+	{
+		using StreamWriter writer = new (stream, Encoding.UTF8, 1024, true);
 
 		writer.WriteLine ("; Hexadecimal format: aarrggbb");
 
 		foreach (Color color in colors)
 			writer.WriteLine (RepresentColor (color));
 
-		writer.Close ();
+		writer.Flush ();
 	}
 
 	private static string RepresentColor (Color color)

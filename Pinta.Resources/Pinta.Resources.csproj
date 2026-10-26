@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <ProjectReference Include="../Pinta.Resources.Neutral/Pinta.Resources.Neutral.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="icons/hicolor/*/*/*">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>

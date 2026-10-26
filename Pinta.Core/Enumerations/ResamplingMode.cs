@@ -25,15 +25,4 @@ public static class ResamplingModeExtensions
 		};
 	}
 
-	/// <summary>
-	/// Translates a resampling mode to the equivalent Cairo filter.
-	/// </summary>
-	public static Cairo.Filter ToCairoFilter (this ResamplingMode mode)
-	{
-		return mode switch {
-			ResamplingMode.Bilinear => Cairo.Filter.Bilinear,
-			ResamplingMode.NearestNeighbor => Cairo.Filter.Nearest,
-			_ => throw new ArgumentOutOfRangeException (nameof (mode))
-		};
-	}
 }
