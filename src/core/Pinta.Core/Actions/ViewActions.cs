@@ -199,7 +199,7 @@ public sealed class ViewActions
 
 	public void RegisterActions (Gtk.Application app, Gio.Menu menu)
 	{
-		bool mainToolbarPresent = chrome.MainToolBar is not null;
+		bool mainToolbarPresent = true;
 
 		Gio.Menu zoom_section = Gio.Menu.New ();
 		zoom_section.AppendItem (ActualSize.CreateMenuItem ());

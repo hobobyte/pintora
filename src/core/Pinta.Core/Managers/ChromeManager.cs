@@ -77,11 +77,11 @@ public sealed class ChromeManager : IChromeService
 	private MessageDialogHandler message_dialog_handler = null!;
 	private SimpleEffectDialogHandler simple_effect_dialog_handler = null!;
 
-	public Gtk.Box? MainToolBar { get; private set; }
 	private Action<bool>? set_status_bar_visible;
 	private Action<bool>? set_toolbox_visible;
 	private Action<bool>? set_tool_windows_visible;
 	private Action<bool>? set_image_tabs_visible;
+	private Action<bool>? set_main_toolbar_visible;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
 	public Gio.Menu AdjustmentsMenu { get; private set; } = null!;
@@ -121,13 +121,14 @@ public sealed class ChromeManager : IChromeService
 
 	public void InitializeMainToolBar (Gtk.Box mainToolBar)
 	{
-		MainToolBar = mainToolBar;
+		InitializeMainToolBarVisibility (visible => mainToolBar.Visible = visible);
 	}
 
 	public void InitializeStatusBar (Action<bool> setVisible) => set_status_bar_visible = setVisible;
 	public void InitializeToolBoxVisibility (Action<bool> setVisible) => set_toolbox_visible = setVisible;
 	public void InitializeToolWindowsVisibility (Action<bool> setVisible) => set_tool_windows_visible = setVisible;
 	public void InitializeImageTabsVisibility (Action<bool> setVisible) => set_image_tabs_visible = setVisible;
+	public void InitializeMainToolBarVisibility (Action<bool> setVisible) => set_main_toolbar_visible = setVisible;
 
 	public void InitializeMainMenu (Gio.Menu adj_menu, Gio.Menu effects_menu)
 	{
@@ -183,6 +184,7 @@ public sealed class ChromeManager : IChromeService
 	public void SetToolBoxVisible (bool visible) => set_toolbox_visible?.Invoke (visible);
 	public void SetToolWindowsVisible (bool visible) => set_tool_windows_visible?.Invoke (visible);
 	public void SetImageTabsVisible (bool visible) => set_image_tabs_visible?.Invoke (visible);
+	public void SetMainToolBarVisible (bool visible) => set_main_toolbar_visible?.Invoke (visible);
 
 	public Task<bool> LaunchSimpleEffectDialog (
 		Gtk.Window parent,
