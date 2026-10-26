@@ -70,6 +70,6 @@ internal sealed class ExitProgramAction : IActionHandler
 		// Let everyone know we are quitting
 		actions.App.RaiseBeforeQuit ();
 
-		chrome.Application.Quit ();
+		chrome.QuitApplication ();
 	}
 }

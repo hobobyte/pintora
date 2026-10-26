@@ -367,8 +367,9 @@ internal sealed class MainWindow
 
 		app.AddWindow (window_shell.Window);
 
-		PintaCore.Chrome.InitializeApplication (app);
 		PintaCore.Chrome.InitializeWindowShell (window_shell.Window);
+		PintaCore.Chrome.InitializeApplicationCommandSink (app.AddCommand);
+		PintaCore.Chrome.InitializeApplicationQuit (app.Quit);
 	}
 
 	private bool IsUsingMenuBar ()

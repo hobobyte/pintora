@@ -87,7 +87,7 @@ public sealed class EffectsManager
 
 		action_manager.Adjustments.Actions.Add (action);
 
-		chrome_manager.Application.AddCommand (action);
+		chrome_manager.AddApplicationCommand (action);
 
 		chrome_manager.AdjustmentsMenu.AppendMenuItemSorted (action.CreateMenuItem ());
 
@@ -117,7 +117,7 @@ public sealed class EffectsManager
 			string.Empty,
 			effect.Icon);
 
-		chrome_manager.Application.AddCommand (action);
+		chrome_manager.AddApplicationCommand (action);
 		action.Activated += (o, args) => live_preview_manager.Start (effect);
 
 		action_manager.Effects.AddEffect (effect.EffectMenuCategory, action);
