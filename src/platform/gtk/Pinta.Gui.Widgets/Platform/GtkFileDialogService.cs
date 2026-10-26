@@ -20,7 +20,37 @@ public sealed class GtkFileDialogService (Window parent) : IFileDialogService
 
 	public async Task<IFileReference?> SaveFileAsync (FileDialogOptions options)
 	{
-		await Task.Yield ();
-		throw new NotSupportedException ("The installed GTK binding does not expose Gtk.FileDialog save yet.");
+		ArgumentNullException.ThrowIfNull (options);
+		using FileChooserNative dialog = FileChooserNative.New (
+			options.Title,
+			parent,
+			FileChooserAction.Save,
+			"Save",
+			"Cancel");
+
+		foreach (var filter in options.Filters) {
+			FileFilter gtkFilter = FileFilter.New ();
+			gtkFilter.Name = filter.Name;
+			foreach (string extension in filter.Extensions)
+				gtkFilter.AddPattern (extension.StartsWith (".", StringComparison.Ordinal) ? $"*{extension}" : $"*.{extension}");
+			dialog.AddFilter (gtkFilter);
+		}
+
+		if (options.InitialDirectory is PathFileReference initialDirectory)
+			dialog.SetCurrentFolder (Gio.FileHelper.NewForPath (initialDirectory.Path));
+		if (!string.IsNullOrWhiteSpace (options.SuggestedName))
+			dialog.SetCurrentName (options.SuggestedName);
+
+		var result = new TaskCompletionSource<IFileReference?> (TaskCreationOptions.RunContinuationsAsynchronously);
+		dialog.OnResponse += (_, args) => {
+			if ((ResponseType) args.ResponseId == ResponseType.Accept) {
+				Gio.File? file = dialog.GetFile ();
+				result.TrySetResult (file is null ? null : new PathFileReference (file.GetParseName ()));
+			} else {
+				result.TrySetResult (null);
+			}
+		};
+		dialog.Show ();
+		return await result.Task;
 	}
 }
