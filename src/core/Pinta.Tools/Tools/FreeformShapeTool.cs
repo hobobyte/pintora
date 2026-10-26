@@ -55,7 +55,7 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	protected override void OnBuildToolBar (Box tb)
 	{
 		tb.Append (FillLabel);
-		tb.Append (FillDropDown);
+		tb.Append ((Gtk.Widget) FillDropDown.NativeWidget);
 		tb.Append (Separator);
 		base.OnBuildToolBar (tb);
 
@@ -212,12 +212,12 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	private bool FillShape => FillDropDown.SelectedItem.GetTagOrDefault (0) >= 1;
 
 	private Label? fill_label;
-	private ToolBarDropDownButton? fill_button;
+	private IToolBarDropDownButton? fill_button;
 	private Separator? fill_sep;
 
 	private Separator Separator => fill_sep ??= GtkExtensions.CreateToolBarSeparator ();
 	private Label FillLabel => fill_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Fill Style")));
-	private ToolBarDropDownButton FillDropDown {
+	private IToolBarDropDownButton FillDropDown {
 		get {
 			if (fill_button == null) {
 				fill_button = CreateToolDropDownButton ();

@@ -126,22 +126,22 @@ public sealed class TextTool : BaseTool
 	// NRT - Created by OnBuildToolBar
 	private Gtk.Label font_label = null!;
 	private Gtk.FontDialogButton font_button = null!;
-	private ToolBarDropDownButton variant_btn = null!;
+	private IToolBarDropDownButton variant_btn = null!;
 	private Gtk.SpinButton font_size = null!;
-	private ToolBarDropDownButton weight_btn = null!;
+	private IToolBarDropDownButton weight_btn = null!;
 	private Gtk.ToggleButton italic_btn = null!;
 	private Gtk.ToggleButton underscore_btn = null!;
 	private Gtk.ToggleButton left_alignment_btn = null!;
 	private Gtk.ToggleButton center_alignment_btn = null!;
 	private Gtk.ToggleButton right_alignment_btn = null!;
 	private Gtk.Label fill_label = null!;
-	private ToolBarDropDownButton fill_button = null!;
+	private IToolBarDropDownButton fill_button = null!;
 	private Gtk.Separator fill_sep = null!;
 	private Gtk.Separator outline_sep = null!;
 	private Gtk.SpinButton outline_width = null!;
 	private Gtk.Label outline_width_label = null!;
 	private Gtk.Separator join_sep = null!;
-	private ToolBarDropDownButton join_btn = null!;
+	private IToolBarDropDownButton join_btn = null!;
 
 	protected override void OnBuildToolBar (Gtk.Box tb)
 	{
@@ -226,7 +226,7 @@ public sealed class TextTool : BaseTool
 			variant_btn.SelectedItemChanged += HandleVariantButtonChanged;
 		}
 
-		tb.Append (variant_btn);
+		tb.Append ((Gtk.Widget) variant_btn.NativeWidget);
 
 		tb.Append (GtkExtensions.CreateToolBarSeparator ());
 
@@ -328,7 +328,7 @@ public sealed class TextTool : BaseTool
 			weight_btn.SelectedItemChanged += HandleWeightButtonToggled;
 		}
 
-		tb.Append (weight_btn);
+		tb.Append ((Gtk.Widget) weight_btn.NativeWidget);
 
 		if (italic_btn == null) {
 			italic_btn = Gtk.ToggleButton.New ();
@@ -412,7 +412,7 @@ public sealed class TextTool : BaseTool
 			fill_button.SelectedItemChanged += HandleFillButtonToggled;
 		}
 
-		tb.Append (fill_button);
+		tb.Append ((Gtk.Widget) fill_button.NativeWidget);
 
 		outline_sep ??= GtkExtensions.CreateToolBarSeparator ();
 
@@ -466,7 +466,7 @@ public sealed class TextTool : BaseTool
 			join_btn.SelectedItemChanged += HandleJoinButtonToggled;
 		}
 
-		tb.Append (join_btn);
+		tb.Append ((Gtk.Widget) join_btn.NativeWidget);
 
 		outline_width.Visible = outline_width_label.Visible = outline_sep.Visible = join_btn.Visible = join_sep.Visible = StrokeText;
 

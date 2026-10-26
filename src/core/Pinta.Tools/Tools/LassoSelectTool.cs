@@ -45,7 +45,7 @@ public sealed class LassoSelectTool : BaseTool
 
 	private Separator? mode_sep;
 	private Label? lasso_mode_label;
-	private ToolBarDropDownButton? lasso_mode_buttom;
+	private IToolBarDropDownButton? lasso_mode_buttom;
 
 	public LassoSelectTool (IServiceProvider services) : base (services)
 	{
@@ -73,7 +73,7 @@ public sealed class LassoSelectTool : BaseTool
 
 		tb.Append (Separator);
 		tb.Append (LassoModeLabel);
-		tb.Append (LassoModeButtom);
+		tb.Append ((Gtk.Widget) LassoModeButtom.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -212,7 +212,7 @@ public sealed class LassoSelectTool : BaseTool
 	private Separator Separator => mode_sep ??= GtkExtensions.CreateToolBarSeparator ();
 	private Label LassoModeLabel => lasso_mode_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Lasso Mode")));
 
-	private ToolBarDropDownButton LassoModeButtom {
+	private IToolBarDropDownButton LassoModeButtom {
 		get {
 			if (lasso_mode_buttom is null) {
 				lasso_mode_buttom = CreateToolDropDownButton ();

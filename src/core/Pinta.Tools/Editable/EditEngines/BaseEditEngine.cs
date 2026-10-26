@@ -70,11 +70,11 @@ public abstract class BaseEditEngine
 	}
 
 	// NRT - Created by HandleBuildToolBar
-	protected ToolBarDropDownButton shape_type_button = null!;
+	protected IToolBarDropDownButton shape_type_button = null!;
 	protected Gtk.Label shape_type_label = null!;
 
 	protected Gtk.Label fill_label = null!;
-	protected ToolBarDropDownButton fill_button = null!;
+	protected IToolBarDropDownButton fill_button = null!;
 	protected Gtk.Separator fill_sep = null!;
 
 	protected Gtk.SpinButton outline_width = null!;
@@ -312,7 +312,7 @@ public abstract class BaseEditEngine
 
 		shape_type_button.SelectedItem = shape_type_button.Items[(int) owner.ShapeType];
 
-		tb.Append (shape_type_button);
+		tb.Append ((Gtk.Widget) shape_type_button.NativeWidget);
 
 		BuildShapeToolBar (tb, settings, toolPrefix);
 	}
@@ -343,7 +343,7 @@ public abstract class BaseEditEngine
 			fill_button.SelectedItemChanged += OnFillStyleChanged;
 		}
 
-		tb.Append (fill_button);
+		tb.Append ((Gtk.Widget) fill_button.NativeWidget);
 
 		outline_width_sep ??= GtkExtensions.CreateToolBarSeparator ();
 

@@ -78,13 +78,13 @@ public sealed class ColorPickerTool : BaseTool
 		base.OnBuildToolBar (tb);
 
 		tb.Append (SamplingLabel);
-		tb.Append (SampleSizeDropDown);
-		tb.Append (SampleTypeDropDown);
+		tb.Append ((Gtk.Widget) SampleSizeDropDown.NativeWidget);
+		tb.Append ((Gtk.Widget) SampleTypeDropDown.NativeWidget);
 
 		tb.Append (Separator);
 
 		tb.Append (ToolSelectionLabel);
-		tb.Append (ToolSelectionDropDown);
+		tb.Append ((Gtk.Widget) ToolSelectionDropDown.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -192,18 +192,18 @@ public sealed class ColorPickerTool : BaseTool
 			return document.GetComputedPixel (position);
 	}
 
-	private ToolBarDropDownButton? tool_select;
+	private IToolBarDropDownButton? tool_select;
 	private Label? tool_select_label;
 	private Label? sampling_label;
-	private ToolBarDropDownButton? sample_size;
-	private ToolBarDropDownButton? sample_type;
+	private IToolBarDropDownButton? sample_size;
+	private IToolBarDropDownButton? sample_type;
 	private Separator? sample_sep;
 
 	private Label ToolSelectionLabel => tool_select_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("After select")));
 	private Label SamplingLabel => sampling_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Sampling")));
 	private Separator Separator => sample_sep ??= GtkExtensions.CreateToolBarSeparator ();
 
-	private ToolBarDropDownButton ToolSelectionDropDown {
+	private IToolBarDropDownButton ToolSelectionDropDown {
 		get {
 			if (tool_select is null) {
 				tool_select = CreateToolDropDownButton (true);
@@ -219,7 +219,7 @@ public sealed class ColorPickerTool : BaseTool
 		}
 	}
 
-	private ToolBarDropDownButton SampleSizeDropDown {
+	private IToolBarDropDownButton SampleSizeDropDown {
 		get {
 			if (sample_size is null) {
 				sample_size = CreateToolDropDownButton (true);
@@ -240,7 +240,7 @@ public sealed class ColorPickerTool : BaseTool
 		}
 	}
 
-	private ToolBarDropDownButton SampleTypeDropDown {
+	private IToolBarDropDownButton SampleTypeDropDown {
 		get {
 			if (sample_type is null) {
 				sample_type = CreateToolDropDownButton (true);

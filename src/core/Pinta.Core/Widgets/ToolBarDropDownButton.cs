@@ -7,7 +7,7 @@ using System.Linq;
 namespace Pinta.Core;
 
 [GObject.Subclass<Gtk.DropDown>]
-public sealed partial class ToolBarDropDownButton
+public sealed partial class ToolBarDropDownButton : IToolBarDropDownButton
 {
 	private bool show_label = false;
 
@@ -136,6 +136,9 @@ public sealed partial class ToolBarDropDownButton
 	}
 
 	public event EventHandler? SelectedItemChanged;
+
+	object IToolBarDropDownButton.NativeWidget => this;
+	bool IToolBarDropDownButton.Visible { get => Visible; set => Visible = value; }
 }
 
 [GObject.Subclass<Gtk.Box>]
