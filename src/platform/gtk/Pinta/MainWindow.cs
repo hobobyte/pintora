@@ -627,7 +627,7 @@ internal sealed class MainWindow
 				file = Gio.FileHelper.NewForUri (decodedUri);
 			}
 
-			PintaCore.Workspace.OpenFile (file);
+			PintaCore.Workspace.OpenFile (new GioFileReference (file));
 
 			if (file.GetUriScheme () is string scheme &&
 			   (scheme.StartsWith ("http") || scheme.StartsWith ("ftp"))) {

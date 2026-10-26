@@ -308,16 +308,16 @@ public sealed class WorkspaceManager : IWorkspaceService
 	// TODO: Standardize add to recent files
 	/// <returns>Flag that indicates if file was opened successfully</returns>
 	public bool OpenFile (
-		Gio.File file,
+		IFileReference file,
 		Gtk.Window? parent = null)
 	{
 		parent ??= chrome_manager.MainWindow;
 
 		try {
 			// Open the image and add it to the layers
-			IImageImporter? importer = image_formats.GetImporterByFile (System.IO.Path.GetFileName (file.GetParseName ()));
+			IImageImporter? importer = image_formats.GetImporterByFile (file.DisplayName);
 			if (importer is not null) {
-				Document imported = importer.Import (new PathFileReference (file.GetParseName ()));
+				Document imported = importer.Import (file);
 				ActivateDocument (imported);
 			} else {
 				// Unknown extension, so try every loader.
@@ -325,13 +325,13 @@ public sealed class WorkspaceManager : IWorkspaceService
 				bool loaded = false;
 				foreach (var format in image_formats.Formats.Where (f => f.IsImportAvailable ())) {
 					try {
-						Document imported = format.Importer!.Import (new PathFileReference (file.GetParseName ()));
+						Document imported = format.Importer!.Import (file);
 						ActivateDocument (imported);
 						loaded = true;
 						break;
 					} catch (UnauthorizedAccessException) {
 						// If the file can't be accessed, don't retry for every format.
-						ShowFilePermissionErrorDialog (parent, file.GetParseName ());
+						ShowFilePermissionErrorDialog (parent, file.DisplayName);
 						return false;
 					} catch (Exception e) {
 						// Record errors in case none of the formats work.
@@ -342,7 +342,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 				}
 
 				if (!loaded) {
-					ShowUnsupportedFormatDialog (parent, file.GetParseName (),
+					ShowUnsupportedFormatDialog (parent, file.DisplayName,
 						Translations.GetString ("Unsupported file format"), errors.ToString ());
 					return false;
 				}
@@ -354,9 +354,9 @@ public sealed class WorkspaceManager : IWorkspaceService
 			return true;
 
 		} catch (UnauthorizedAccessException) {
-			ShowFilePermissionErrorDialog (parent, file.GetParseName ());
+			ShowFilePermissionErrorDialog (parent, file.DisplayName);
 		} catch (Exception e) {
-			ShowOpenFileErrorDialog (parent, file.GetParseName (), e.Message, e.ToString ());
+			ShowOpenFileErrorDialog (parent, file.DisplayName, e.Message, e.ToString ());
 		}
 
 		return false;
