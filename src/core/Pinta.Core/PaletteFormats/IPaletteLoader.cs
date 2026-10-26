@@ -33,7 +33,6 @@ namespace Pinta.Core;
 [Mono.Addins.TypeExtensionPoint]
 public interface IPaletteLoader
 {
-	List<Color> Load (Gio.File file);
 	List<Color> Load (IFileReference file);
 	List<Color> Load (Stream stream);
 }
