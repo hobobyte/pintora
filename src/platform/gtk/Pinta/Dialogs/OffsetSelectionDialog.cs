@@ -37,7 +37,7 @@ public sealed partial class OffsetSelectionDialog
 	public int Offset
 		=> offset_spinbox.ValueAsInt;
 
-	public static OffsetSelectionDialog New (IChromeService chrome)
+	public static OffsetSelectionDialog New (ChromeManager chrome)
 	{
 		OffsetSelectionDialog dialog = NewWithProperties ([]);
 		dialog.TransientFor = chrome.MainWindow;
