@@ -42,7 +42,7 @@ using Cairo;
 
 namespace Pinta.Core;
 
-public sealed class TgaExporter : IImageExporter
+public sealed class TgaExporter : IImageExporter, IImageFileExporter
 {
 	private record struct TgaHeader (
 		byte idLength,      // Image ID Field Length
