@@ -20,14 +20,19 @@ public sealed class AlignObjectEffect : BaseEffect
 	public AlignObjectData Data => (AlignObjectData) EffectData!; // NRT - Set in constructor
 
 	private readonly IChromeService chrome;
+	private readonly IEffectConfigurationService? configurationService;
 
 	public AlignObjectEffect (IServiceProvider services)
 	{
 		chrome = services.GetService<IChromeService> ();
+		configurationService = services.GetService<IEffectConfigurationService> ();
 		EffectData = new AlignObjectData ();
 	}
 	public override async Task<bool> LaunchConfiguration ()
 	{
+		if (configurationService is not null)
+			return await configurationService.ConfigureAsync (this);
+
 		using AlignmentDialog dialog = AlignmentDialog.New (chrome);
 
 		// Align to the default position
