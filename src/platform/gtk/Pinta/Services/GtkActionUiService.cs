@@ -52,6 +52,28 @@ internal sealed class GtkActionUiService : IActionUiService
 
 	public void CreateStatusBar (ActionManager actions, WorkspaceManager workspace, object statusbar)
 	{
-		actions.CreateStatusBar ((Gtk.Box) statusbar, workspace);
+		Gtk.Box target = (Gtk.Box) statusbar;
+		target.Append (Gtk.Image.NewFromIconName (Resources.Icons.CursorPosition));
+		Gtk.Label cursor = Gtk.Label.New ("0, 0");
+		cursor.Xalign = 0.0f;
+		cursor.Halign = Gtk.Align.Start;
+		cursor.WidthChars = 11;
+		target.Append (cursor);
+		chrome.LastCanvasCursorPointChanged += (_, _) => {
+			var point = chrome.LastCanvasCursorPoint;
+			cursor.SetText ($"{point.X}, {point.Y}");
+		};
+
+		target.Append (Gtk.Image.NewFromIconName (Resources.Icons.ToolSelectRectangle));
+		Gtk.Label selection = Gtk.Label.New ("0, 0");
+		selection.Xalign = 0.0f;
+		selection.Halign = Gtk.Align.Start;
+		selection.WidthChars = 11;
+		target.Append (selection);
+		workspace.SelectionChanged += (_, _) => {
+			var bounds = workspace.HasOpenDocuments ? workspace.ActiveDocument.Selection.GetBounds () : new RectangleD ();
+			selection.SetText ($"{bounds.Width}, {bounds.Height}");
+		};
+		actions.View.CreateStatusBar (target);
 	}
 }
