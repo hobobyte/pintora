@@ -91,7 +91,7 @@ public sealed partial class LevelsDialog
 	private HistogramWidget histogram_input;
 	private HistogramWidget histogram_output;
 
-	private IChromeService chrome = null!; // NRT - set via factory method
+	private ChromeManager chrome = null!; // NRT - set via factory method
 	private IPaletteService palette = null!;
 	private IWorkspaceService workspace = null!;
 
@@ -314,7 +314,7 @@ public sealed partial class LevelsDialog
 	}
 
 	public static LevelsDialog New (
-		IChromeService chrome,
+		ChromeManager chrome,
 		IPaletteService palette,
 		IWorkspaceService workspace,
 		LevelsData effectData)

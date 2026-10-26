@@ -19,12 +19,12 @@ public sealed class AlignObjectEffect : BaseEffect
 
 	public AlignObjectData Data => (AlignObjectData) EffectData!; // NRT - Set in constructor
 
-	private readonly IChromeService chrome;
+	private readonly ChromeManager chrome;
 	private readonly IEffectConfigurationService? configurationService;
 
 	public AlignObjectEffect (IServiceProvider services)
 	{
-		chrome = services.GetService<IChromeService> ();
+		chrome = (ChromeManager) services.GetService<IChromeService> ();
 		configurationService = services.GetService<IEffectConfigurationService> ();
 		EffectData = new AlignObjectData ();
 	}

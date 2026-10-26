@@ -90,7 +90,7 @@ public sealed partial class AlignmentDialog
 		SetSelectedPosition (AlignPosition.Center); // Set the default selection
 	}
 
-	public static AlignmentDialog New (IChromeService chrome)
+	public static AlignmentDialog New (ChromeManager chrome)
 	{
 		AlignmentDialog dialog = NewWithProperties ([]);
 		dialog.TransientFor = chrome.MainWindow;
