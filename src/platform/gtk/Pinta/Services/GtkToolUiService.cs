@@ -5,6 +5,7 @@ namespace Pinta;
 internal sealed class GtkToolUiService : IToolUiService
 {
 	private readonly ChromeManager chrome;
+	private Gtk.Box tool_bar = null!;
 	private Gtk.Label? tool_label;
 	private Gtk.Image? tool_image;
 	private Gtk.Separator? tool_separator;
@@ -12,21 +13,22 @@ internal sealed class GtkToolUiService : IToolUiService
 	private Gtk.ScrolledWindow? options_scroll;
 
 	public GtkToolUiService (ChromeManager chrome) => this.chrome = chrome;
+	public void InitializeToolBar (object toolbar) => tool_bar = (Gtk.Box) toolbar;
 
 	public void ActivateTool (BaseTool tool)
 	{
 		ToolImage.SetFromIconName (tool.Icon);
-		chrome.ToolToolBar.Append (ToolLabel);
-		chrome.ToolToolBar.Append (ToolImage);
-		chrome.ToolToolBar.Append (ToolSeparator);
-		chrome.ToolToolBar.Append (OptionsScroll);
+		tool_bar.Append (ToolLabel);
+		tool_bar.Append (ToolImage);
+		tool_bar.Append (ToolSeparator);
+		tool_bar.Append (OptionsScroll);
 		tool.DoBuildToolBar (OptionsBox);
 	}
 
 	public void DeactivateTool (BaseTool tool, BaseTool? nextTool)
 	{
 		OptionsBox.RemoveAll ();
-		chrome.ToolToolBar.RemoveAll ();
+		tool_bar.RemoveAll ();
 		tool.DoDeactivated (PintaCore.Workspace.ActiveDocumentOrDefault, nextTool);
 	}
 

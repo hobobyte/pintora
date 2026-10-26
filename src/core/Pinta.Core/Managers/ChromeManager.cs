@@ -79,7 +79,6 @@ public sealed class ChromeManager : IChromeService
 	private SimpleEffectDialogHandler simple_effect_dialog_handler = null!;
 
 	public Gtk.Box? MainToolBar { get; private set; }
-	public Gtk.Box ToolToolBar { get; private set; } = null!;
 	public Gtk.Widget ToolBox { get; private set; } = null!;
 	public Gtk.Box StatusBar { get; private set; } = null!;
 
@@ -117,11 +116,6 @@ public sealed class ChromeManager : IChromeService
 	public void InitializeWindowShell (Gtk.Window shell)
 	{
 		MainWindow = shell;
-	}
-
-	public void InitializeToolToolBar (Gtk.Box toolToolBar)
-	{
-		ToolToolBar = toolToolBar;
 	}
 
 	public void InitializeMainToolBar (Gtk.Box mainToolBar)

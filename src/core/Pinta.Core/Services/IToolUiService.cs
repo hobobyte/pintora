@@ -6,6 +6,7 @@ namespace Pinta.Core;
 /// </summary>
 public interface IToolUiService
 {
+	void InitializeToolBar (object toolbar);
 	void ActivateTool (BaseTool tool);
 	void DeactivateTool (BaseTool tool, BaseTool? nextTool);
 }

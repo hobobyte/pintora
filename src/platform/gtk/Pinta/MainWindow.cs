@@ -493,7 +493,7 @@ internal sealed class MainWindow
 		Gtk.Box tool_toolbar = window_shell.CreateToolBar ("tool_toolbar");
 		tool_toolbar.HeightRequest = 48;
 
-		PintaCore.Chrome.InitializeToolToolBar (tool_toolbar);
+		PintaCore.Services.GetService<IToolUiService> ().InitializeToolBar (tool_toolbar);
 	}
 
 	private void CreateStatusBar ()
