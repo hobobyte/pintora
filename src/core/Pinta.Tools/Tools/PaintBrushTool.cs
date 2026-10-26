@@ -37,6 +37,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 {
 	private readonly IPaintBrushService brushes;
 	private readonly IWorkspaceService workspace;
+	private readonly IToolOptionViewFactory option_view_factory;
 
 	private BasePaintBrush? default_brush;
 	private BasePaintBrush? active_brush;
@@ -48,6 +49,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 	public PaintBrushTool (IServiceProvider services) : base (services)
 	{
 		brushes = services.GetService<IPaintBrushService> ();
+		option_view_factory = services.GetService<IToolOptionViewFactory> ();
 		foreach (BasePaintBrush brush in brushes) {
 			brush.OnCursorChanged += () => SetCursorFromBrush (brush);
 		}
@@ -295,7 +297,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 		brush_specific_options_box.RemoveAll ();
 		if (active_brush is not null) {
 			foreach (var option in active_brush.Options) {
-				brush_specific_options_box.Append (ToolOptionWidgetService.GetWidgetForOption (option));
+				brush_specific_options_box.Append ((Widget) option_view_factory.CreateView (option));
 			}
 		}
 	}

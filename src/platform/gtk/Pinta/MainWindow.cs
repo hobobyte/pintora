@@ -31,6 +31,7 @@ using Pinta.Core;
 using Pinta.Docking;
 using Pinta.Gui.Widgets;
 using Pinta.Resources;
+using Pinta.Tools;
 
 namespace Pinta;
 
@@ -82,6 +83,7 @@ internal sealed class MainWindow
 		PintaCore.Chrome.InitializeSimpleEffectDialog (SimpleEffectDialog.Launch);
 
 		PintaCore.Initialize ();
+		PintaCore.Services.AddService<IToolOptionViewFactory> (new GtkToolOptionViewFactory ());
 
 		// Initialize extensions
 		string addins_dir = System.IO.Path.Combine (PintaCore.Settings.GetUserSettingsDirectory (), "addins");
