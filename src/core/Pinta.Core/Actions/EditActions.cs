@@ -504,10 +504,7 @@ public sealed class EditActions
 
 		} catch (PaletteLoadException ex) {
 
-			var parent = chrome.MainWindow;
-
 			await chrome.ShowUnsupportedFormatDialog (
-				parent,
 				palette_formats.Formats,
 				ex.FileName,
 				Translations.GetString ("Unsupported palette format"),
