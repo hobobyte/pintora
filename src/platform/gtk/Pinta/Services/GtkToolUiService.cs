@@ -24,7 +24,7 @@ internal sealed class GtkToolUiService : IToolUiService
 		tool_bar.Append (ToolImage);
 		tool_bar.Append (ToolSeparator);
 		tool_bar.Append (OptionsScroll);
-		tool.DoBuildToolBar (OptionsBox);
+		tool.DoBuildToolBar (new GtkToolbarSurface (OptionsBox));
 	}
 
 	public void DeactivateTool (BaseTool tool, BaseTool? nextTool)
@@ -76,4 +76,13 @@ internal sealed class GtkToolUiService : IToolUiService
 			return options_scroll;
 		}
 	}
+}
+
+internal sealed class GtkToolbarSurface : IToolbarSurface
+{
+	private readonly Gtk.Box box;
+	public GtkToolbarSurface (Gtk.Box box) => this.box = box;
+	public object NativeToolbar => box;
+	public void Append (object widget) => box.Append ((Gtk.Widget) widget);
+	public void RemoveAll () => box.RemoveAll ();
 }
