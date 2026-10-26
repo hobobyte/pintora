@@ -119,11 +119,6 @@ public sealed class ChromeManager : IChromeService
 		MainWindow = shell;
 	}
 
-	public void InitializeMainToolBar (Gtk.Box mainToolBar)
-	{
-		InitializeMainToolBarVisibility (visible => mainToolBar.Visible = visible);
-	}
-
 	public void InitializeStatusBar (Action<bool> setVisible) => set_status_bar_visible = setVisible;
 	public void InitializeToolBoxVisibility (Action<bool> setVisible) => set_toolbox_visible = setVisible;
 	public void InitializeToolWindowsVisibility (Action<bool> setVisible) => set_tool_windows_visible = setVisible;
