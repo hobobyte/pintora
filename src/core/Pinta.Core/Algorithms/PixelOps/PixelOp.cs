@@ -18,6 +18,39 @@ public abstract class PixelOp //: IPixelOp
 	}
 
 	/// <summary>
+	/// Applies this operation through the platform-neutral surface contract.
+	/// </summary>
+	public void Apply (IImageSurface dst, IImageSurface src, ReadOnlySpan<RectangleI> rois, int startIndex, int length)
+	{
+		for (int i = startIndex; i < startIndex + length; ++i)
+			ApplyBase (dst, rois[i].Location, src, rois[i].Location, rois[i].Size);
+	}
+
+	public void Apply (IImageSurface dst, IImageSurface src, ReadOnlySpan<RectangleI> rois)
+		=> Apply (dst, src, rois, 0, rois.Length);
+
+	public void ApplyBase (IImageSurface dst, PointI dstOffset, IImageSurface src, PointI srcOffset, Size roiSize)
+	{
+		if (roiSize.Width == 0 || roiSize.Height == 0)
+			return;
+
+		RectangleI dstRect = new (dstOffset, roiSize);
+		RectangleI srcRect = new (srcOffset, roiSize);
+		if (RectangleI.Intersect (dstRect, new RectangleI (PointI.Zero, new Size (dst.Width, dst.Height))) != dstRect)
+			throw new ArgumentOutOfRangeException (nameof (roiSize));
+		if (RectangleI.Intersect (srcRect, new RectangleI (PointI.Zero, new Size (src.Width, src.Height))) != srcRect)
+			throw new ArgumentOutOfRangeException (nameof (roiSize));
+
+		ReadOnlySpan<ColorBgra> srcData = src.GetReadOnlyPixelData ();
+		Span<ColorBgra> dstData = dst.GetPixelData ();
+		for (int row = 0; row < roiSize.Height; row++) {
+			ReadOnlySpan<ColorBgra> sourceRow = srcData.Slice ((srcOffset.Y + row) * src.Width + srcOffset.X, roiSize.Width);
+			Span<ColorBgra> destinationRow = dstData.Slice ((dstOffset.Y + row) * dst.Width + dstOffset.X, roiSize.Width);
+			Apply (destinationRow, sourceRow);
+		}
+	}
+
+	/// <summary>
 	/// Computes alpha for r OVER l operation.
 	/// </summary>
 	public static byte ComputeAlpha (byte la, byte ra)
