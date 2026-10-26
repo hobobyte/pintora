@@ -11,6 +11,8 @@ internal sealed class GtkToolUiService : IToolUiService
 	private Gtk.Separator? tool_separator;
 	private Gtk.Box? options_box;
 	private Gtk.ScrolledWindow? options_scroll;
+	private Gtk.Label? selection_label;
+	private ToolBarComboBox? selection_combo_box;
 
 	public GtkToolUiService (ChromeManager chrome) => this.chrome = chrome;
 	public void InitializeToolBar (object toolbar) => tool_bar = (Gtk.Box) toolbar;
@@ -30,6 +32,27 @@ internal sealed class GtkToolUiService : IToolUiService
 		OptionsBox.RemoveAll ();
 		tool_bar.RemoveAll ();
 		tool.DoDeactivated (PintaCore.Workspace.ActiveDocumentOrDefault, nextTool);
+	}
+
+	public void BuildSelectionModeToolbar (object toolbar, SelectionModeHandler handler, ISettingsService settings)
+	{
+		Gtk.Box box = (Gtk.Box) toolbar;
+		selection_label ??= Gtk.Label.New (Translations.GetString (" Selection Mode: "));
+		box.Append (selection_label);
+
+		if (selection_combo_box is null) {
+			selection_combo_box = ToolBarComboBox.New (170, 0, false);
+			selection_combo_box.ComboBox.OnChanged += (_, _) => {
+				string? text = selection_combo_box.ComboBox.GetActiveText ();
+				if (text is not null && handler.CombineModes.TryGetValue (text, out CombineMode mode))
+					handler.SetSelectedMode (mode, (int) selection_combo_box.ComboBox.Active);
+			};
+			foreach (string mode in handler.CombineModes.Keys)
+				selection_combo_box.ComboBox.AppendText (mode);
+			selection_combo_box.ComboBox.Active = settings.GetSetting (SettingNames.SELECTION_COMBINE_MODE, 0);
+		}
+
+		box.Append (selection_combo_box);
 	}
 
 	private Gtk.Label ToolLabel => tool_label ??= Gtk.Label.New ($" {Translations.GetString ("Tool")}:  ");

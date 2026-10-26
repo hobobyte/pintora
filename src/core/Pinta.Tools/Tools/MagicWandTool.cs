@@ -68,7 +68,7 @@ public sealed class MagicWandTool : FloodTool
 
 		tb.Append (SelectionSeparator);
 
-		workspace.SelectionHandler.BuildToolbar (tb, Settings);
+		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb, workspace.SelectionHandler, Settings);
 	}
 
 

@@ -9,4 +9,5 @@ public interface IToolUiService
 	void InitializeToolBar (object toolbar);
 	void ActivateTool (BaseTool tool);
 	void DeactivateTool (BaseTool tool, BaseTool? nextTool);
+	void BuildSelectionModeToolbar (object toolbar, SelectionModeHandler handler, ISettingsService settings);
 }

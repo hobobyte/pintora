@@ -62,7 +62,7 @@ public abstract class SelectTool : BaseTool
 	protected override void OnBuildToolBar (Gtk.Box tb)
 	{
 		base.OnBuildToolBar (tb);
-		workspace.SelectionHandler.BuildToolbar (tb, Settings);
+		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb, workspace.SelectionHandler, Settings);
 
 		tb.Append (Separator);
 
