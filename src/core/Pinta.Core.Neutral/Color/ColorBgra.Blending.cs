@@ -19,10 +19,10 @@ partial struct ColorBgra
 	/// <param name="frac">A value in the range [0, 255].</param>
 	public static ColorBgra Lerp (in ColorBgra from, in ColorBgra to, byte frac)
 		=> FromBgra (
-			b: Mathematics.LerpByte (from.B, to.B, frac),
-			g: Mathematics.LerpByte (from.G, to.G, frac),
-			r: Mathematics.LerpByte (from.R, to.R, frac),
-			a: Mathematics.LerpByte (from.A, to.A, frac));
+			b: ColorMath.LerpByte (from.B, to.B, frac),
+			g: ColorMath.LerpByte (from.G, to.G, frac),
+			r: ColorMath.LerpByte (from.R, to.R, frac),
+			a: ColorMath.LerpByte (from.A, to.A, frac));
 
 	/// <summary>
 	/// Linearly interpolates between two color values with premultiplied alpha.
@@ -32,10 +32,10 @@ partial struct ColorBgra
 	/// <param name="frac">A value in the range [0, 1].</param>
 	public static ColorBgra Lerp (in ColorBgra from, in ColorBgra to, float frac)
 		=> FromBgra (
-			b: Utility.ClampToByte (Mathematics.Lerp (from.B, to.B, frac)),
-			g: Utility.ClampToByte (Mathematics.Lerp (from.G, to.G, frac)),
-			r: Utility.ClampToByte (Mathematics.Lerp (from.R, to.R, frac)),
-			a: Utility.ClampToByte (Mathematics.Lerp (from.A, to.A, frac)));
+			b: ColorMath.ClampToByte (Mathematics.Lerp (from.B, to.B, frac)),
+			g: ColorMath.ClampToByte (Mathematics.Lerp (from.G, to.G, frac)),
+			r: ColorMath.ClampToByte (Mathematics.Lerp (from.R, to.R, frac)),
+			a: ColorMath.ClampToByte (Mathematics.Lerp (from.A, to.A, frac)));
 
 	/// <summary>
 	/// Linearly interpolates between two color values with premultiplied alpha.
@@ -45,10 +45,10 @@ partial struct ColorBgra
 	/// <param name="frac">A value in the range [0, 1].</param>
 	public static ColorBgra Lerp (in ColorBgra from, in ColorBgra to, double frac)
 		=> FromBgra (
-			b: Utility.ClampToByte (Mathematics.Lerp (from.B, to.B, frac)),
-			g: Utility.ClampToByte (Mathematics.Lerp (from.G, to.G, frac)),
-			r: Utility.ClampToByte (Mathematics.Lerp (from.R, to.R, frac)),
-			a: Utility.ClampToByte (Mathematics.Lerp (from.A, to.A, frac)));
+			b: ColorMath.ClampToByte (Mathematics.Lerp (from.B, to.B, frac)),
+			g: ColorMath.ClampToByte (Mathematics.Lerp (from.G, to.G, frac)),
+			r: ColorMath.ClampToByte (Mathematics.Lerp (from.R, to.R, frac)),
+			a: ColorMath.ClampToByte (Mathematics.Lerp (from.A, to.A, frac)));
 
 	/// <summary>
 	/// Blends four premultiplied colors together based on the given weight values.
@@ -180,10 +180,10 @@ partial struct ColorBgra
 		public ColorBgra Clamp ()
 		{
 			return FromBgra (
-				b: Utility.ClampToByte (B),
-				g: Utility.ClampToByte (G),
-				r: Utility.ClampToByte (R),
-				a: Utility.ClampToByte (A));
+				b: ColorMath.ClampToByte (B),
+				g: ColorMath.ClampToByte (G),
+				r: ColorMath.ClampToByte (R),
+				a: ColorMath.ClampToByte (A));
 		}
 
 		public static Aggregate operator + (in Aggregate blender, in ColorBgra color)
@@ -233,10 +233,10 @@ partial struct ColorBgra
 				throw new InvalidOperationException ("No colors to blend");
 
 			return FromBgra (
-				b: Utility.ClampToByte (Aggregate.B / Count),
-				g: Utility.ClampToByte (Aggregate.G / Count),
-				r: Utility.ClampToByte (Aggregate.R / Count),
-				a: Utility.ClampToByte (Aggregate.A / Count));
+				b: ColorMath.ClampToByte (Aggregate.B / Count),
+				g: ColorMath.ClampToByte (Aggregate.G / Count),
+				r: ColorMath.ClampToByte (Aggregate.R / Count),
+				a: ColorMath.ClampToByte (Aggregate.A / Count));
 		}
 	}
 }
