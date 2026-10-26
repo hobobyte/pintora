@@ -87,7 +87,7 @@ internal sealed class OffsetSelectionAction : IActionHandler
 
 	private async Task<int?> PromptOffsetSelection ()
 	{
-		using OffsetSelectionDialog dialog = OffsetSelectionDialog.New (chrome);
+		using OffsetSelectionDialog dialog = OffsetSelectionDialog.New ((ChromeManager) chrome);
 		try {
 			Gtk.ResponseType response = await dialog.RunAsync ();
 			if (response != Gtk.ResponseType.Ok) return null;

@@ -68,7 +68,7 @@ internal sealed class ResizeImageAction : IActionHandler
 
 	private async Task<ResizeImageOptions?> PromptResize ()
 	{
-		using ResizeImageDialog dialog = ResizeImageDialog.New (chrome, workspace, settings);
+		using ResizeImageDialog dialog = ResizeImageDialog.New ((ChromeManager) chrome, workspace, settings);
 		try {
 			Gtk.ResponseType response = await dialog.RunAsync ();
 			if (response != Gtk.ResponseType.Ok) return null;

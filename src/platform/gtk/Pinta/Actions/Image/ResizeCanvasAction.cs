@@ -68,7 +68,7 @@ internal sealed class ResizeCanvasAction : IActionHandler
 
 	private async Task<ResizeCanvasOptions?> PromptResize ()
 	{
-		using ResizeCanvasDialog dialog = ResizeCanvasDialog.New (chrome, workspace, settings);
+		using ResizeCanvasDialog dialog = ResizeCanvasDialog.New ((ChromeManager) chrome, workspace, settings);
 		try {
 			Gtk.ResponseType response = await dialog.RunAsync ();
 			if (response != Gtk.ResponseType.Ok) return null;
