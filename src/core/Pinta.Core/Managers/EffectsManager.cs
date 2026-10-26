@@ -42,7 +42,7 @@ public sealed class EffectsManager
 	private readonly ActionManager action_manager;
 	private readonly ChromeManager chrome_manager;
 	private readonly LivePreviewManager live_preview_manager;
-	internal EffectsManager (
+	public EffectsManager (
 		ActionManager actionManager,
 		ChromeManager chromeManager,
 		LivePreviewManager livePreviewManager)
