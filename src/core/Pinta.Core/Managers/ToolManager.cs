@@ -176,22 +176,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		CurrentTool = tool;
 
 		tool.DoActivated (workspace_manager.ActiveDocumentOrDefault);
-		if (ToolUi is IToolUiService ui) {
-			ui.ActivateTool (tool);
-			workspace_manager.Invalidate ();
-			chrome_manager.SetStatusBarText ($" {tool.Name}: {tool.StatusBarText}");
-			ToolActivated?.Invoke (this, new ToolEventArgs (tool));
-			return;
-		}
-
-		ToolImage.SetFromIconName (tool.Icon);
-
-		chrome_manager.ToolToolBar.Append (ToolLabel);
-		chrome_manager.ToolToolBar.Append (ToolImage);
-		chrome_manager.ToolToolBar.Append (ToolSeparator);
-
-		chrome_manager.ToolToolBar.Append (ToolWidgetsScroll);
-		tool.DoBuildToolBar (ToolWidgetsBox);
+		ToolUi?.ActivateTool (tool);
 
 		workspace_manager.Invalidate ();
 		chrome_manager.SetStatusBarText ($" {tool.Name}: {tool.StatusBarText}");
@@ -245,14 +230,9 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 
 	private void DeactivateTool (BaseTool tool, BaseTool? newTool)
 	{
-		if (ToolUi is IToolUiService ui) {
-			ui.DeactivateTool (tool, newTool);
-			return;
-		}
-		ToolWidgetsBox.RemoveAll ();
-		chrome_manager.ToolToolBar.RemoveAll ();
-
-		tool.DoDeactivated (workspace_manager.ActiveDocumentOrDefault, newTool);
+		ToolUi?.DeactivateTool (tool, newTool);
+		if (ToolUi is null)
+			tool.DoDeactivated (workspace_manager.ActiveDocumentOrDefault, newTool);
 	}
 
 	public void DoMouseDown (Document document, ToolMouseEventArgs args)
@@ -354,32 +334,4 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		}
 	}
 
-	private Gtk.Label? tool_label;
-	private Gtk.Image? tool_image;
-	private Gtk.Separator? tool_sep;
-	private Gtk.Box? tool_widgets_box;
-	private Gtk.ScrolledWindow? tool_widgets_scroll;
-
-	private Gtk.Label ToolLabel => tool_label ??= Gtk.Label.New (string.Format (" {0}:  ", Translations.GetString ("Tool")));
-	private Gtk.Image ToolImage => tool_image ??= Gtk.Image.New ();
-	private Gtk.Separator ToolSeparator => tool_sep ??= GtkExtensions.CreateToolBarSeparator ();
-	private Gtk.Box ToolWidgetsBox => tool_widgets_box ??= Gtk.Box.New (Gtk.Orientation.Horizontal, 0);
-	// Scroll the toolbar contents if they are very long (e.g. the line/curve tool).
-	private Gtk.ScrolledWindow ToolWidgetsScroll {
-		get {
-			if (tool_widgets_scroll == null) {
-				tool_widgets_scroll = Gtk.ScrolledWindow.New ();
-				tool_widgets_scroll.Child = ToolWidgetsBox;
-				tool_widgets_scroll.HscrollbarPolicy = Gtk.PolicyType.Automatic;
-				tool_widgets_scroll.VscrollbarPolicy = Gtk.PolicyType.Never;
-				tool_widgets_scroll.HasFrame = false;
-				tool_widgets_scroll.OverlayScrolling = true;
-				tool_widgets_scroll.WindowPlacement = Gtk.CornerType.BottomRight;
-				tool_widgets_scroll.Hexpand = true;
-				tool_widgets_scroll.Halign = Gtk.Align.Fill;
-			}
-
-			return tool_widgets_scroll;
-		}
-	}
 }
