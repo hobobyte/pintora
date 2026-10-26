@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\core\Pinta.Core\Pinta.Core.csproj" />
+    <ProjectReference Include="..\..\src\codecs\Pinta.Codecs\Pinta.Codecs.csproj" />
   </ItemGroup>
   
   <ItemGroup>
