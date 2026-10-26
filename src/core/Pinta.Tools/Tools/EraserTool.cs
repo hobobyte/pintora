@@ -75,17 +75,11 @@ public sealed class EraserTool : BaseBrushTool
 	public override Gdk.Cursor DefaultCursor {
 		get {
 			double scale = workspace.GetScale ();
-			var icon = GdkExtensions.CreateIconWithShape (
-				"Cursor.Eraser.png",
+			return (Gdk.Cursor?) CursorService.CreateShapedCursor (
+				new CursorDescriptor ("Cursor.Eraser.png", 8, 22),
 				CursorShape.Ellipse,
 				scale,
-				BrushWidth,
-				8,
-				22,
-				out int iconOffsetX,
-				out int iconOffsetY);
-
-			return Gdk.Cursor.NewFromTexture (icon, iconOffsetX, iconOffsetY, null);
+				BrushWidth)!;
 		}
 	}
 
