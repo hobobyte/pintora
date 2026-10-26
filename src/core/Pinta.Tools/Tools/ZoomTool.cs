@@ -32,10 +32,10 @@ namespace Pinta.Tools;
 
 public sealed class ZoomTool : BaseTool
 {
-	private readonly Gdk.Cursor cursor_zoom_in;
-	private readonly Gdk.Cursor cursor_zoom_out;
-	private readonly Gdk.Cursor cursor_zoom;
-	private readonly Gdk.Cursor cursor_zoom_pan;
+	private Gdk.Cursor cursor_zoom_in => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.ZoomIn))!;
+	private Gdk.Cursor cursor_zoom_out => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.ZoomOut))!;
+	private Gdk.Cursor cursor_zoom => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.Icons.ToolZoom))!;
+	private Gdk.Cursor cursor_zoom_pan => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.Icons.ToolPan))!;
 
 	private MouseButton mouse_down;
 	private bool is_drawing;
@@ -47,10 +47,6 @@ public sealed class ZoomTool : BaseTool
 	{
 		mouse_down = MouseButton.None;
 
-		cursor_zoom_in = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.ZoomIn);
-		cursor_zoom_out = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.ZoomOut);
-		cursor_zoom = Gdk.Cursor.NewFromTexture (Resources.GetIcon (Pinta.Resources.Icons.ToolZoom), 0, 0, null);
-		cursor_zoom_pan = Gdk.Cursor.NewFromTexture (Resources.GetIcon (Pinta.Resources.Icons.ToolPan), 0, 0, null);
 	}
 
 	public override string Name => Translations.GetString ("Zoom");
