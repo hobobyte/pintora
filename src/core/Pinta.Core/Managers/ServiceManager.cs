@@ -51,6 +51,7 @@ public static class ServiceProviderExtensions
 public interface IServiceManager : IServiceProvider
 {
 	T AddService<T> (T implementation) where T : class;
+	T ReplaceService<T> (T implementation) where T : class;
 }
 
 public sealed class ServiceManager : IServiceManager
@@ -60,6 +61,12 @@ public sealed class ServiceManager : IServiceManager
 	public T AddService<T> (T implementation) where T : class
 	{
 		services.Add (typeof (T), implementation);
+		return implementation;
+	}
+
+	public T ReplaceService<T> (T implementation) where T : class
+	{
+		services[typeof (T)] = implementation;
 		return implementation;
 	}
 
