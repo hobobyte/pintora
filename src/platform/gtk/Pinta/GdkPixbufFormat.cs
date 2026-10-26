@@ -112,4 +112,11 @@ public class GdkPixbufFormat : IImageImporter, IImageExporter
 		using Pixbuf pb = flattenedImage.ToPixbuf (includeAlpha: supports_alpha);
 		DoSave (pb, file, filetype, parent);
 	}
+
+	public void Export (Document document, IFileReference file)
+	{
+		if (file is not PathFileReference path)
+			throw new InvalidOperationException ("The exported file is not path-backed.");
+		Export (document, Gio.FileHelper.NewForPath (path.Path), PintaCore.Chrome.MainWindow);
+	}
 }
