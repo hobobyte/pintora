@@ -52,7 +52,6 @@ internal sealed class ToolBarToggledAction : IActionHandler
 
 	private void Activated (bool value, bool interactive)
 	{
-		if (chrome.MainToolBar is not null)
-			chrome.MainToolBar.Visible = value;
+		chrome.SetMainToolBarVisible (value);
 	}
 }
