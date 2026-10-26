@@ -26,60 +26,8 @@
 
 namespace Pinta.Core;
 
-public static class GioExtensions
+public static class GioMenuExtensions
 {
-	private const string GIO_LIBRARY_NAME = "Gio";
-
-	static GioExtensions ()
-	{
-		NativeImportResolver.RegisterLibrary (
-			GIO_LIBRARY_NAME,
-			windowsLibraryName: "libgio-2.0-0.dll",
-			linuxLibraryName: "libgio-2.0.so.0",
-			osxLibraryName: "libgio-2.0.0.dylib");
-	}
-
-	/// <summary>
-	/// Return the display name for the file. Note that this can be very different from file.Basename,
-	/// and should only be used for display purposes rather than identifying the file.
-	/// </summary>
-	public static string GetDisplayName (this Gio.File file)
-	{
-		Gio.FileInfo info = file.QueryInfo (
-			Gio.Constants.FILE_ATTRIBUTE_STANDARD_DISPLAY_NAME,
-			Gio.FileQueryInfoFlags.None,
-			cancellable: null);
-
-		return info.GetDisplayName ();
-	}
-
-	/// <summary>
-	/// GetDisplayName() throws errors if e.g. the file doesn't exist.
-	/// In such cases, this version attempts to produce a string that might at least
-	/// be useful for displaying an error message.
-	/// </summary>
-	public static string GetSafeDisplayName (this Gio.File file)
-	{
-		try {
-			return file.GetDisplayName ();
-		} catch (GLib.GException) {
-			return file.GetParent ()?.GetRelativePath (file) ?? string.Empty;
-		}
-	}
-
-	/// <summary>
-	/// Returns an output stream for creating or overwriting the file.
-	/// NOTE: if you don't wrap this in a GLib.GioStream, you must call Close() !
-	/// </summary>
-	public static Gio.OutputStream Replace (this Gio.File file)
-	{
-		return file.Replace (
-			etag: null,
-			makeBackup: false,
-			flags: Gio.FileCreateFlags.None,
-			cancellable: null);
-	}
-
 	public static void Remove (this Gio.Menu menu, Command action)
 	{
 		for (int i = 0; i < menu.GetNItems (); ++i) {
