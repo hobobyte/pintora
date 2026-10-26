@@ -70,7 +70,6 @@ public sealed class ChromeManager : IChromeService
 
 	// NRT - These are all initialized via the Initialize* functions
 	// but it would be nice to rewrite it to provably non-null.
-	public Gtk.Application Application { get; private set; } = null!;
 	public Gtk.Window MainWindow { get; private set; } = null!;
 	private IProgressDialog progress_dialog = null!;
 	private ErrorDialogHandler error_dialog_handler = null!;
@@ -82,6 +81,8 @@ public sealed class ChromeManager : IChromeService
 	private Action<bool>? set_tool_windows_visible;
 	private Action<bool>? set_image_tabs_visible;
 	private Action<bool>? set_main_toolbar_visible;
+	private Action<Command>? add_application_command;
+	private Action? quit_application;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
 	public Gio.Menu AdjustmentsMenu { get; private set; } = null!;
@@ -109,11 +110,6 @@ public sealed class ChromeManager : IChromeService
 		}
 	}
 
-	public void InitializeApplication (Gtk.Application application)
-	{
-		Application = application;
-	}
-
 	public void InitializeWindowShell (Gtk.Window shell)
 	{
 		MainWindow = shell;
@@ -124,6 +120,8 @@ public sealed class ChromeManager : IChromeService
 	public void InitializeToolWindowsVisibility (Action<bool> setVisible) => set_tool_windows_visible = setVisible;
 	public void InitializeImageTabsVisibility (Action<bool> setVisible) => set_image_tabs_visible = setVisible;
 	public void InitializeMainToolBarVisibility (Action<bool> setVisible) => set_main_toolbar_visible = setVisible;
+	public void InitializeApplicationCommandSink (Action<Command> addCommand) => add_application_command = addCommand;
+	public void InitializeApplicationQuit (Action quit) => quit_application = quit;
 
 	public void InitializeMainMenu (Gio.Menu adj_menu, Gio.Menu effects_menu)
 	{
@@ -180,6 +178,8 @@ public sealed class ChromeManager : IChromeService
 	public void SetToolWindowsVisible (bool visible) => set_tool_windows_visible?.Invoke (visible);
 	public void SetImageTabsVisible (bool visible) => set_image_tabs_visible?.Invoke (visible);
 	public void SetMainToolBarVisible (bool visible) => set_main_toolbar_visible?.Invoke (visible);
+	public void AddApplicationCommand (Command command) => add_application_command?.Invoke (command);
+	public void QuitApplication () => quit_application?.Invoke ();
 
 	public Task<bool> LaunchSimpleEffectDialog (
 		Gtk.Window parent,
