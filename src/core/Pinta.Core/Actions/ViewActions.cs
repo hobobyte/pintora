@@ -254,13 +254,6 @@ public sealed class ViewActions
 			app.AddCommand (ToolBar);
 	}
 
-	public void CreateStatusBar (Gtk.Box statusbar)
-	{
-		statusbar.Append (ZoomOut.CreateToolBarItem ());
-		statusbar.Append (ZoomComboBox);
-		statusbar.Append (ZoomIn.CreateToolBarItem ());
-	}
-
 	public void RegisterHandlers ()
 	{
 		ZoomIn.Activated += HandlePintaCoreActionsViewZoomInActivated;
