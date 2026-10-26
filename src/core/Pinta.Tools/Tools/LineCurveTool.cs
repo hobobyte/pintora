@@ -33,7 +33,7 @@ public sealed class LineCurveTool : ShapeTool
 {
 	public LineCurveTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.Line.png"), 9, 18, null);
+		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Line.png", 9, 18))!;
 
 		BaseEditEngine.CorrespondingTools[ShapeType] = this;
 		EditEngine = new LineCurveEditEngine (services, this);

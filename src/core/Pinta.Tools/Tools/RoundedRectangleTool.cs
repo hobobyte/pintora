@@ -33,7 +33,7 @@ public sealed class RoundedRectangleTool : ShapeTool
 {
 	public RoundedRectangleTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.RoundedRectangle.png"), 9, 18, null);
+		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.RoundedRectangle.png", 9, 18))!;
 
 		BaseEditEngine.CorrespondingTools[ShapeType] = this;
 		EditEngine = new RoundedLineEditEngine (services, this);

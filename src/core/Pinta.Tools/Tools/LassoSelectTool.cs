@@ -59,7 +59,7 @@ public sealed class LassoSelectTool : BaseTool
 									"\nPress Enter to finish the selection." +
 									"\nPress Backspace to delete the last point.");
 	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_S);
-	public override Gdk.Cursor DefaultCursor => Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.LassoSelect.png"), 9, 18, null);
+	public override Gdk.Cursor DefaultCursor => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.LassoSelect.png", 9, 18))!;
 	public override int Priority => 17;
 	public override bool IsSelectionTool => true;
 
