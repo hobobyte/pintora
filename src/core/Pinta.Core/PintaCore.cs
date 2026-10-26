@@ -77,7 +77,7 @@ public static class PintaCore
 
 		// --- Services that depend on other services
 
-		ImageConverterManager imageFormats = new (settings);
+		ImageConverterManager imageFormats = new (settings, new GdkPixbufImageFormatProvider ());
 		WorkspaceManager workspace = new (system, chrome, imageFormats);
 		ToolManager tools = new (workspace, chrome);
 		PaletteManager palette = new (settings, paletteFormats);

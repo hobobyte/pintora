@@ -35,10 +35,10 @@ namespace Pinta.Core;
 public sealed class ImageConverterManager
 {
 	private readonly SettingsManager settings_manager;
-	public ImageConverterManager (SettingsManager settingsManager, IImageFormatProvider? platformProvider = null)
+	public ImageConverterManager (SettingsManager settingsManager, IImageFormatProvider platformProvider)
 	{
 		settings_manager = settingsManager;
-		formats = [.. (platformProvider ?? new GdkPixbufImageFormatProvider ()).GetFormats (), .. GetBuiltinFormats ()];
+		formats = [.. platformProvider.GetFormats (), .. GetBuiltinFormats ()];
 	}
 
 	private readonly List<FormatDescriptor> formats;
