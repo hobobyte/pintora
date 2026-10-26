@@ -57,7 +57,8 @@ public sealed class MagicWandTool : FloodTool
 		"Click to select region of similar color." +
 		"\nHold shift to use Global mode."
 	);
-	public override Gdk.Cursor DefaultCursor => Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.MagicWand.png"), 21, 10, null);
+	public override Gdk.Cursor DefaultCursor
+		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.MagicWand.png", 21, 10))!;
 	public override int Priority => 19;
 	public override bool IsSelectionTool => true;
 

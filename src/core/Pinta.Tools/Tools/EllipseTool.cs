@@ -33,7 +33,7 @@ public sealed class EllipseTool : ShapeTool
 {
 	public EllipseTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.Ellipse.png"), 9, 18, null);
+		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Ellipse.png", 9, 18))!;
 
 		BaseEditEngine.CorrespondingTools[ShapeType] = this;
 		EditEngine = new EllipseEditEngine (services, this);
