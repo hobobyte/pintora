@@ -203,6 +203,9 @@ public abstract class BaseTool
 	{
 	}
 
+	protected virtual void OnBuildToolBar (IToolbarSurface toolbar)
+		=> OnBuildToolBar ((Box) toolbar.NativeToolbar);
+
 	/// <summary>
 	/// Called whenever another component is activated and this tool should
 	/// commit any work that was in a temporary state.
@@ -406,6 +409,8 @@ public abstract class BaseTool
 		if (ShowAlphaBlendingButton)
 			toolbar.Append ((Gtk.Widget) AlphaBlendingDropDown.NativeWidget);
 	}
+
+	internal void DoBuildToolBar (IToolbarSurface toolbar) => OnBuildToolBar (toolbar);
 
 	internal void DoCommit (Document? document) => OnCommit (document);
 
