@@ -80,7 +80,7 @@ internal sealed class HostingContractTests
 		public CursorSourceData? GetCursor (string cursorId) => cursorId == "arrow" ? new CursorSourceData (cursorId, null!, 0, 0) : null;
 	}
 
-	private sealed class EmptyClipboard : IClipboardService
+	private sealed class EmptyClipboard : IAvaloniaClipboardService
 	{
 		public Task SetImageAsync (Bitmap image, CancellationToken cancellationToken = default) => Task.CompletedTask;
 		public Task<Bitmap?> GetImageAsync (CancellationToken cancellationToken = default) => Task.FromResult<Bitmap?> (null);

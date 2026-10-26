@@ -1,8 +1,6 @@
-using System.Threading;
 using System.Threading.Tasks;
-using Avalonia.Media.Imaging;
 using NUnit.Framework;
-using Pintora.Avalonia.Editor.Hosting;
+using Pinta.Core;
 
 namespace Pintora.Avalonia.Tests;
 
@@ -13,17 +11,18 @@ internal sealed class ClipboardContractTests
 	public async Task ClipboardContractSupportsTextRoundTrip ()
 	{
 		var clipboard = new FakeClipboardService ();
-		await clipboard.SetTextAsync ("Pintora");
+		clipboard.SetText ("Pintora");
 
-		Assert.That (await clipboard.GetTextAsync (), Is.EqualTo ("Pintora"));
+		Assert.That (await clipboard.ReadTextAsync (), Is.EqualTo ("Pintora"));
 	}
 
 	private sealed class FakeClipboardService : IClipboardService
 	{
 		private string? text;
-		public Task SetImageAsync (Bitmap image, CancellationToken cancellationToken = default) => Task.CompletedTask;
-		public Task<Bitmap?> GetImageAsync (CancellationToken cancellationToken = default) => Task.FromResult<Bitmap?> (null);
-		public Task SetTextAsync (string value, CancellationToken cancellationToken = default) { text = value; return Task.CompletedTask; }
-		public Task<string?> GetTextAsync (CancellationToken cancellationToken = default) => Task.FromResult (text);
+		public Task<bool> ContainsImageAsync () => Task.FromResult (false);
+		public Task<ClipboardImageData?> ReadImageAsync () => Task.FromResult<ClipboardImageData?> (null);
+		public void WriteImage (ClipboardImageData image) { }
+		public void SetText (string value) => text = value;
+		public Task<string?> ReadTextAsync () => Task.FromResult (text);
 	}
 }
