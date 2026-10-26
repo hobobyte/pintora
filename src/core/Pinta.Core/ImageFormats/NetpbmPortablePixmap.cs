@@ -5,7 +5,7 @@ using Cairo;
 
 namespace Pinta.Core;
 
-public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter, IImageFileImporter, IImageFileExporter
+public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter
 {
 	public Document Import (IFileReference file)
 	{
