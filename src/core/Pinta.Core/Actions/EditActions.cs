@@ -496,8 +496,8 @@ public sealed class EditActions
 		if (choice is null)
 			return;
 
-		Gio.File file = Gio.FileHelper.NewForPath ((choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed."));
-		last_palette_dir = file.GetParent ();
+		PathFileReference file = choice as PathFileReference ?? throw new InvalidOperationException ("The selected file is not path-backed.");
+		last_palette_dir = Gio.FileHelper.NewForPath (file.Path).GetParent ();
 
 		try {
 			palette.CurrentPalette.Load (palette_formats, file);
@@ -531,10 +531,10 @@ public sealed class EditActions
 		if (string.IsNullOrEmpty (extension))
 			path += "." + writableFormats.First ().Extensions.First ();
 
-		Gio.File file = Gio.FileHelper.NewForPath (path);
+		PathFileReference file = new (path);
 		PaletteDescriptor format = palette_formats.GetFormatByFilename (path) ?? throw new FormatException ();
 		palette.CurrentPalette.Save (file, format.Saver);
-		last_palette_dir = file.GetParent ();
+		last_palette_dir = Gio.FileHelper.NewForPath (file.Path).GetParent ();
 	}
 
 	private FileDialogFilter CreatePalettesFilter ()
