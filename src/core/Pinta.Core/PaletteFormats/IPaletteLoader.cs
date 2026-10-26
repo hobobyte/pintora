@@ -34,5 +34,6 @@ namespace Pinta.Core;
 public interface IPaletteLoader
 {
 	List<Color> Load (Gio.File file);
+	List<Color> Load (IFileReference file);
 	List<Color> Load (Stream stream);
 }

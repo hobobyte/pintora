@@ -34,5 +34,6 @@ namespace Pinta.Core;
 public interface IPaletteSaver
 {
 	void Save (IReadOnlyList<Color> colors, Gio.File file);
+	void Save (IReadOnlyList<Color> colors, IFileReference file);
 	void Save (IReadOnlyList<Color> colors, Stream stream);
 }

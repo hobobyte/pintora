@@ -44,6 +44,7 @@ public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver, IPalette
 		using var stream = new GioStream (file.Read (null));
 		return Load (stream);
 	}
+	public List<Color> Load (IFileReference file) { using Stream stream = file.OpenRead (); return Load (stream); }
 
 	public List<Color> Load (Stream stream)
 	{
@@ -77,6 +78,7 @@ public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver, IPalette
 		using var stream = new GioStream (file.Replace ());
 		Save (colors, stream);
 	}
+	public void Save (IReadOnlyList<Color> colors, IFileReference file) { using Stream stream = file.OpenWrite (); Save (colors, stream); }
 
 	public void Save (IReadOnlyList<Color> colors, Stream stream)
 	{
