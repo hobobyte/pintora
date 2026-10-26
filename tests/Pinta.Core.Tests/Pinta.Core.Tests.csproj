@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Pinta.Core\Pinta.Core.csproj" />
+    <ProjectReference Include="..\..\src\core\Pinta.Core\Pinta.Core.csproj" />
   </ItemGroup>
   
   <ItemGroup>
