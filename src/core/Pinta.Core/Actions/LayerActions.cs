@@ -25,6 +25,7 @@
 // THE SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 
 namespace Pinta.Core;
 
@@ -48,6 +49,7 @@ public sealed class LayerActions
 	private readonly ToolManager tools;
 	private readonly WorkspaceManager workspace;
 	private readonly ImageActions image;
+	private IFileDialogService FileDialogs => PintaCore.Services.GetService<IFileDialogService> ();
 	public LayerActions (
 		ChromeManager chrome,
 		ImageConverterManager imageFormats,
@@ -192,27 +194,15 @@ public sealed class LayerActions
 			&& activeDoc.Layers.CurrentUserLayerIndex < activeDoc.Layers.UserLayers.Count - 1;
 	}
 
-	private Gtk.FileFilter CreateImagesFileFilter ()
+	private FileDialogFilter CreateImagesFileFilter ()
 	{
-		Gtk.FileFilter imagesFilter = Gtk.FileFilter.New ();
+		var extensions = new List<string> ();
 		foreach (var format in image_formats.Formats) {
 			if (!format.IsImportAvailable ()) continue;
 			foreach (string ext in format.Extensions)
-				imagesFilter.AddPattern ($"*.{ext}");
+				extensions.Add (ext);
 		}
-
-		// On Unix-like systems, file extensions are often considered optional.
-		// Files can often also be identified by their MIME types.
-		// Windows does not understand MIME types natively.
-		// Adding a MIME filter on Windows would break the native file picker and force a GTK file picker instead.
-		if (SystemManager.GetOperatingSystem () != OS.Windows)
-			foreach (var format in image_formats.Formats)
-				foreach (var mime in format.Mimes)
-					imagesFilter.AddMimeType (mime);
-
-		imagesFilter.Name = Translations.GetString ("Image files");
-
-		return imagesFilter;
+		return new FileDialogFilter (Translations.GetString ("Image files"), extensions);
 	}
 
 	private async void HandlePintaCoreActionsLayersImportFromFileActivated (object sender, EventArgs e)
@@ -221,31 +211,18 @@ public sealed class LayerActions
 
 		tools.Commit ();
 
-		// Add image files filter
-		using Gtk.FileFilter imagesFilter = CreateImagesFileFilter ();
-
-		using Gio.ListStore fileFilters = Gio.ListStore.New (Gtk.FileFilter.GetGType ());
-		fileFilters.Append (imagesFilter);
-
-		using Gtk.FileDialog fileDialog = Gtk.FileDialog.New ();
-		fileDialog.SetTitle (Translations.GetString ("Open Image File"));
-		fileDialog.SetFilters (fileFilters);
-		if (recent_files.GetDialogDirectory () is Gio.File dir && dir.QueryExists (null))
-			fileDialog.SetInitialFolder (dir);
-
-		Gio.File? choice = await fileDialog.OpenFileAsync (chrome.MainWindow);
+		IFileReference? choice = await FileDialogs.OpenFileAsync (new FileDialogOptions (
+			Translations.GetString ("Open Image File"),
+			[CreateImagesFileFilter ()],
+			recent_files.GetDialogDirectory () is Gio.File dir ? new PathFileReference (dir.GetParseName ()) : null));
 
 		if (choice is null) return;
 
-		Gio.File? directory = choice.GetParent ();
-
-		if (directory is not null)
-			recent_files.LastDialogDirectory = directory;
-
 		// Open the image and add it to the layers
-		UserLayer layer = doc.Layers.AddNewLayer (choice.GetDisplayName ());
+		UserLayer layer = doc.Layers.AddNewLayer (choice.DisplayName);
 
-		using (Gio.FileInputStream fs = choice.Read (null)) {
+		Gio.File gioChoice = Gio.FileHelper.NewForPath ((choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed."));
+		using (Gio.FileInputStream fs = gioChoice.Read (null)) {
 			try {
 				using GdkPixbuf.Pixbuf bg = GdkPixbuf.Pixbuf.NewFromStream (fs, cancellable: null)!; // NRT: only nullable when an error is thrown
 				using Cairo.Context context = new (layer.CairoSurface);

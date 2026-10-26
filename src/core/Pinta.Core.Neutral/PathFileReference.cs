@@ -11,11 +11,12 @@ public sealed class PathFileReference : IFileReference
 	public PathFileReference (string path)
 	{
 		this.path = !string.IsNullOrWhiteSpace (path)
-			? Path.GetFullPath (path)
+			? System.IO.Path.GetFullPath (path)
 			: throw new ArgumentException ("A file path is required.", nameof (path));
 	}
 
-	public string DisplayName => Path.GetFileName (path);
+	public string DisplayName => System.IO.Path.GetFileName (path);
+	public string Path => path;
 
 	public Stream OpenRead () => File.Open (path, FileMode.Open, FileAccess.Read, FileShare.Read);
 
