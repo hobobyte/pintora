@@ -25,4 +25,14 @@ public sealed class SkiaImageCodecTests
 		codec.Encode (surface, encoded);
 		Assert.That (encoded.Length, Is.GreaterThan (0));
 	}
+
+	[Test]
+	public void SurfaceFactoryCreatesNeutralSurface ()
+	{
+		var factory = new SkiaImageSurfaceFactory ();
+		using Pinta.Core.IImageSurface surface = factory.Create (7, 5);
+
+		Assert.That (surface.Width, Is.EqualTo (7));
+		Assert.That (surface.Height, Is.EqualTo (5));
+	}
 }
