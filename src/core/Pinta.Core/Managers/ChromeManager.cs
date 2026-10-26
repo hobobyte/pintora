@@ -40,6 +40,7 @@ public interface IChromeService
 		IAddinLocalizer localizer,
 		IWorkspaceService workspace,
 		Action<string?> onChanged);
+	void SetStatusBarVisible (bool visible);
 }
 
 public static class ChromeExtensions
@@ -80,7 +81,7 @@ public sealed class ChromeManager : IChromeService
 
 	public Gtk.Box? MainToolBar { get; private set; }
 	public Gtk.Widget ToolBox { get; private set; } = null!;
-	public Gtk.Box StatusBar { get; private set; } = null!;
+	private Action<bool>? set_status_bar_visible;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
 	public Gio.Menu AdjustmentsMenu { get; private set; } = null!;
@@ -123,10 +124,7 @@ public sealed class ChromeManager : IChromeService
 		MainToolBar = mainToolBar;
 	}
 
-	public void InitializeStatusBar (Gtk.Box statusbar)
-	{
-		StatusBar = statusbar;
-	}
+	public void InitializeStatusBar (Action<bool> setVisible) => set_status_bar_visible = setVisible;
 
 	public void InitializeToolBox (Gtk.Widget toolbox)
 	{
@@ -192,6 +190,8 @@ public sealed class ChromeManager : IChromeService
 	{
 		OnStatusBarTextChanged (text);
 	}
+
+	public void SetStatusBarVisible (bool visible) => set_status_bar_visible?.Invoke (visible);
 
 	public Task<bool> LaunchSimpleEffectDialog (
 		Gtk.Window parent,

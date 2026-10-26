@@ -508,7 +508,7 @@ internal sealed class MainWindow
 
 		PintaCore.Services.GetService<IActionUiService> ().CreateStatusBar (PintaCore.Actions, PintaCore.Workspace, statusbar);
 
-		PintaCore.Chrome.InitializeStatusBar (statusbar);
+		PintaCore.Chrome.InitializeStatusBar (visible => statusbar.Visible = visible);
 	}
 
 	private void CreatePanels ()
