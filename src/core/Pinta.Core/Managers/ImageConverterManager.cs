@@ -69,47 +69,6 @@ public sealed class ImageConverterManager
 		yield return netpbmPortablePixmapDescriptor;
 	}
 
-	private sealed class GdkPixbufImageFormatProvider : IImageFormatProvider
-	{
-		public IEnumerable<FormatDescriptor> GetFormats ()
-		{
-			foreach (var format in GdkPixbufExtensions.GetFormats ())
-				yield return CreateFormatDescriptor (format);
-		}
-	}
-
-	private static FormatDescriptor CreateFormatDescriptor (PixbufFormat format)
-	{
-		string formatName = format.GetName ()?.ToLowerInvariant () ??
-				throw new ArgumentException ($"{nameof (format)} has an empty name");
-
-		string formatNameUpperCase = formatName.ToUpperInvariant ();
-		string[] extensions = formatName switch {
-			"jpeg" => ["jpg", "jpeg", "JPG", "JPEG"],
-			"tiff" => ["tif", "tiff", "TIF", "TIFF"],
-			_ => [formatName, formatNameUpperCase],
-		};
-		GdkPixbufFormat importer = new (formatName);
-		IImageExporter? exporter;
-		if (formatName == "jpeg")
-			exporter = importer = new JpegFormat ();
-		else if (formatName == "tga")
-			exporter = new TgaExporter ();
-		else if (format.IsWritable ())
-			exporter = importer;
-		else
-			exporter = null;
-
-		FormatDescriptor formatDescriptor = new (
-			displayPrefix: formatNameUpperCase,
-			extensions: extensions,
-			mimes: format.GetMimeTypes () ?? [],
-			importer: importer,
-			exporter: exporter,
-			supportsLayers: false);
-
-		return formatDescriptor;
-	}
 
 	public IEnumerable<FormatDescriptor> Formats
 		=> formats;
