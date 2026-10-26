@@ -35,19 +35,16 @@ namespace Pinta.Core;
 public sealed class ImageConverterManager
 {
 	private readonly SettingsManager settings_manager;
-	public ImageConverterManager (SettingsManager settingsManager)
+	public ImageConverterManager (SettingsManager settingsManager, IImageFormatProvider? platformProvider = null)
 	{
 		settings_manager = settingsManager;
+		formats = [.. (platformProvider ?? new GdkPixbufImageFormatProvider ()).GetFormats (), .. GetBuiltinFormats ()];
 	}
 
-	private readonly List<FormatDescriptor> formats = [.. GetInitialFormats ()];
+	private readonly List<FormatDescriptor> formats;
 
-	private static IEnumerable<FormatDescriptor> GetInitialFormats ()
+	private static IEnumerable<FormatDescriptor> GetBuiltinFormats ()
 	{
-		// All the formats supported by Gdk
-		foreach (var format in GdkPixbufExtensions.GetFormats ())
-			yield return CreateFormatDescriptor (format);
-
 		// Create all the formats we have our own importers/exporters for
 
 		OraFormat oraHandler = new ();
@@ -70,6 +67,15 @@ public sealed class ImageConverterManager
 			supportsLayers: false
 		);
 		yield return netpbmPortablePixmapDescriptor;
+	}
+
+	private sealed class GdkPixbufImageFormatProvider : IImageFormatProvider
+	{
+		public IEnumerable<FormatDescriptor> GetFormats ()
+		{
+			foreach (var format in GdkPixbufExtensions.GetFormats ())
+				yield return CreateFormatDescriptor (format);
+		}
 	}
 
 	private static FormatDescriptor CreateFormatDescriptor (PixbufFormat format)
