@@ -5,6 +5,10 @@ baseline; later entries track Pintora-specific work.
 
 ## Unreleased
 
+No changes yet.
+
+## 0.0.2-alpha
+
 ### Added
 
 - Unified Open and Save As workflows for PNG, JPEG, WebP, TIFF, BMP, GIF, SVG layers, and ORA.
