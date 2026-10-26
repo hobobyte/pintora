@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Cairo;
 using NUnit.Framework;
 using Pinta.Core;
@@ -23,8 +24,14 @@ internal static class Utilities
 		manager.AddService<IChromeService> (new MockChromeManager ());
 		manager.AddService<IWorkspaceService> (new MockWorkspaceService (imageSize));
 		manager.AddService<ISystemService> (new MockSystemService ());
+		manager.AddService<IEffectConfigurationService> (new NonInteractiveEffectConfigurationService ());
 		manager.AddService<ILivePreview> (new MockLivePreview (new RectangleI (0, 0, imageSize.Width, imageSize.Height)));
 		return manager;
+	}
+
+	private sealed class NonInteractiveEffectConfigurationService : IEffectConfigurationService
+	{
+		public Task<bool> ConfigureAsync (BaseEffect effect) => Task.FromResult (false);
 	}
 
 	public static ImageSurface LoadImage (string image_name)
