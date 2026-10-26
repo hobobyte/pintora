@@ -103,6 +103,7 @@ public sealed class MainWindow : Window
 		clipboard_service = Clipboard is null ? null : new AvaloniaClipboardService (Clipboard);
 		if (Clipboard is not null)
 			application.Services.ReplaceService<Pinta.Core.IClipboardService> (new AvaloniaNeutralClipboardService (Clipboard));
+		application.Services.ReplaceService<Pinta.Core.IFileDialogService> (new AvaloniaFileDialogService (this));
 		image_source_provider = new FileImageSourceProvider (clipboard_service);
 		UpdateDocumentTitle (canvas, version);
 		canvas.BrushColor = LoadColor ("Pintora.Palette.Primary", ColorBgra.Black);
