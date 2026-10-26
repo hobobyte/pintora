@@ -31,6 +31,7 @@ namespace Pinta.Core;
 
 public sealed class RecentFileManager
 {
+	public Action<IFileReference>? FileAdded { get; set; }
 	private IFileReference? last_dialog_directory;
 
 	public RecentFileManager ()
@@ -67,5 +68,5 @@ public sealed class RecentFileManager
 	/// <summary>
 	/// Add a file to the list of recently-used files.
 	/// </summary>
-	public void AddFile (IFileReference file) { }
+	public void AddFile (IFileReference file) => FileAdded?.Invoke (file);
 }
