@@ -50,7 +50,7 @@ public sealed class LivePreviewManager : ILivePreview
 	private readonly SystemManager system;
 	private readonly ChromeManager chrome;
 
-	internal LivePreviewManager (
+	public LivePreviewManager (
 		WorkspaceManager workspaceManager,
 		ToolManager toolManager,
 		SystemManager systemManager,
