@@ -72,16 +72,16 @@ public sealed class ChromeManager : IChromeService
 	// but it would be nice to rewrite it to provably non-null.
 	public Gtk.Application Application { get; private set; } = null!;
 	public Gtk.Window MainWindow { get; private set; } = null!;
-	public Gtk.Widget Dock { get; private set; } = null!;
-	public Gtk.Widget ImageTabsNotebook { get; private set; } = null!;
 	private IProgressDialog progress_dialog = null!;
 	private ErrorDialogHandler error_dialog_handler = null!;
 	private MessageDialogHandler message_dialog_handler = null!;
 	private SimpleEffectDialogHandler simple_effect_dialog_handler = null!;
 
 	public Gtk.Box? MainToolBar { get; private set; }
-	public Gtk.Widget ToolBox { get; private set; } = null!;
 	private Action<bool>? set_status_bar_visible;
+	private Action<bool>? set_toolbox_visible;
+	private Action<bool>? set_tool_windows_visible;
+	private Action<bool>? set_image_tabs_visible;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
 	public Gio.Menu AdjustmentsMenu { get; private set; } = null!;
@@ -125,21 +125,9 @@ public sealed class ChromeManager : IChromeService
 	}
 
 	public void InitializeStatusBar (Action<bool> setVisible) => set_status_bar_visible = setVisible;
-
-	public void InitializeToolBox (Gtk.Widget toolbox)
-	{
-		ToolBox = toolbox;
-	}
-
-	public void InitializeDock (Gtk.Widget dock)
-	{
-		Dock = dock;
-	}
-
-	public void InitializeImageTabsNotebook (Gtk.Widget notebook)
-	{
-		ImageTabsNotebook = notebook;
-	}
+	public void InitializeToolBoxVisibility (Action<bool> setVisible) => set_toolbox_visible = setVisible;
+	public void InitializeToolWindowsVisibility (Action<bool> setVisible) => set_tool_windows_visible = setVisible;
+	public void InitializeImageTabsVisibility (Action<bool> setVisible) => set_image_tabs_visible = setVisible;
 
 	public void InitializeMainMenu (Gio.Menu adj_menu, Gio.Menu effects_menu)
 	{
@@ -192,6 +180,9 @@ public sealed class ChromeManager : IChromeService
 	}
 
 	public void SetStatusBarVisible (bool visible) => set_status_bar_visible?.Invoke (visible);
+	public void SetToolBoxVisible (bool visible) => set_toolbox_visible?.Invoke (visible);
+	public void SetToolWindowsVisible (bool visible) => set_tool_windows_visible?.Invoke (visible);
+	public void SetImageTabsVisible (bool visible) => set_image_tabs_visible?.Invoke (visible);
 
 	public Task<bool> LaunchSimpleEffectDialog (
 		Gtk.Window parent,

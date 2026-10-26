@@ -52,6 +52,6 @@ internal sealed class ToolBoxToggledAction : IActionHandler
 
 	private void Activated (bool value, bool interactive)
 	{
-		chrome.ToolBox.Visible = value;
+		chrome.SetToolBoxVisible (value);
 	}
 }
