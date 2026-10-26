@@ -118,12 +118,13 @@ internal sealed class PasteAction : IActionHandler
 		var history_text = toNewLayer ? Translations.GetString ("Paste Into New Layer") : Translations.GetString ("Paste");
 		CompoundHistoryItem paste_action = new (Resources.StandardIcons.EditPaste, history_text);
 
+		var clipboardService = PintaCore.Services.GetService<IClipboardService> ();
 		var cb = GdkExtensions.GetDefaultClipboard ();
 
 		// See if the current tool wants to handle the paste
 		// operation (e.g., the text tool could paste text)
 		if (!toNewLayer) {
-			if (await tools.DoHandlePaste (doc, cb))
+			if (await tools.DoHandlePaste (doc, clipboardService))
 				return;
 		}
 

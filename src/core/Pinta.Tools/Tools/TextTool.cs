@@ -952,9 +952,9 @@ public sealed class TextTool : BaseTool
 						return true;
 					case Gdk.Constants.KEY_Insert:
 						if (e.IsShiftPressed) {
-							CurrentTextEngine.PerformPaste (GdkExtensions.GetDefaultClipboard ()).Wait ();
+							CurrentTextEngine.PerformPaste (ClipboardService).Wait ();
 						} else if (e.IsControlPressed) {
-							CurrentTextEngine.PerformCopy (GdkExtensions.GetDefaultClipboard ());
+							CurrentTextEngine.PerformCopy (ClipboardService);
 						}
 						break;
 					default:
@@ -1414,7 +1414,7 @@ public sealed class TextTool : BaseTool
 
 	#region Copy/Paste
 
-	protected override async Task<bool> OnHandlePaste (Document document, Gdk.Clipboard cb)
+	protected override async Task<bool> OnHandlePaste (Document document, IClipboardService cb)
 	{
 		if (!is_editing)
 			return false;
@@ -1426,7 +1426,7 @@ public sealed class TextTool : BaseTool
 		return true;
 	}
 
-	protected override bool OnHandleCopy (Document document, Gdk.Clipboard cb)
+	protected override bool OnHandleCopy (Document document, IClipboardService cb)
 	{
 		if (!is_editing)
 			return false;
@@ -1435,7 +1435,7 @@ public sealed class TextTool : BaseTool
 		return true;
 	}
 
-	protected override bool OnHandleCut (Document document, Gdk.Clipboard cb)
+	protected override bool OnHandleCut (Document document, IClipboardService cb)
 	{
 		if (!is_editing)
 			return false;

@@ -89,6 +89,7 @@ public static class PintaCore
 		// --- Service manager
 
 		ServiceManager services = new ();
+		services.AddService<IClipboardService> (new GdkClipboardServiceAdapter (GdkExtensions.GetDefaultClipboard ())); 
 		services.AddService<IResourceService> (resources);
 		services.AddService<ISettingsService> (settings);
 		services.AddService (actions);

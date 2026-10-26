@@ -42,6 +42,7 @@ public abstract class BaseTool
 
 	protected IResourceService Resources { get; }
 	protected ICursorService CursorService => services.GetService<ICursorService> ();
+	protected IClipboardService ClipboardService => services.GetService<IClipboardService> ();
 	protected ISettingsService Settings { get; }
 
 	public const int DEFAULT_BRUSH_WIDTH = 2;
@@ -222,7 +223,7 @@ public abstract class BaseTool
 	/// Return 'true' if the Copy is handled, or 'false' to allow other
 	/// components to handle it.
 	/// </summary>
-	protected virtual bool OnHandleCopy (Document document, Clipboard cb)
+	protected virtual bool OnHandleCopy (Document document, IClipboardService cb)
 		=> false;
 
 	/// <summary>
@@ -230,7 +231,7 @@ public abstract class BaseTool
 	/// Return 'true' if the Cut is handled, or 'false' to allow other
 	/// components to handle it.
 	/// </summary>
-	protected virtual bool OnHandleCut (Document document, Clipboard cb)
+	protected virtual bool OnHandleCut (Document document, IClipboardService cb)
 		=> false;
 
 	/// <summary>
@@ -238,7 +239,7 @@ public abstract class BaseTool
 	/// Return 'true' if the Cut is handled, or 'false' to allow other
 	/// components to handle it.
 	/// </summary>
-	protected virtual Task<bool> OnHandlePaste (Document document, Clipboard cb)
+	protected virtual Task<bool> OnHandlePaste (Document document, IClipboardService cb)
 		=> Task.FromResult (false);
 
 	/// <summary>
@@ -411,11 +412,11 @@ public abstract class BaseTool
 		OnDeactivated (document, newTool);
 	}
 
-	internal bool DoHandleCopy (Document document, Clipboard clipboard) => OnHandleCopy (document, clipboard);
+	internal bool DoHandleCopy (Document document, IClipboardService clipboard) => OnHandleCopy (document, clipboard);
 
-	internal bool DoHandleCut (Document document, Clipboard clipboard) => OnHandleCut (document, clipboard);
+	internal bool DoHandleCut (Document document, IClipboardService clipboard) => OnHandleCut (document, clipboard);
 
-	internal Task<bool> DoHandlePaste (Document document, Clipboard clipboard) => OnHandlePaste (document, clipboard);
+	internal Task<bool> DoHandlePaste (Document document, IClipboardService clipboard) => OnHandlePaste (document, clipboard);
 
 	internal bool DoHandleRedo (Document document) => OnHandleRedo (document);
 

@@ -14,4 +14,6 @@ public interface IClipboardService
 	Task<bool> ContainsImageAsync ();
 	Task<ClipboardImageData?> ReadImageAsync ();
 	void WriteImage (ClipboardImageData image);
+	void SetText (string text);
+	Task<string?> ReadTextAsync ();
 }

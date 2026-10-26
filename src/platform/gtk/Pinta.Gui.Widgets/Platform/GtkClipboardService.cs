@@ -40,6 +40,10 @@ public sealed class GtkClipboardService : IClipboardService
 		]));
 	}
 
+	public void SetText (string text) => clipboard.SetText (text);
+
+	public Task<string?> ReadTextAsync () => clipboard.ReadTextAsync ();
+
 	private static GObject.Value CreateTextureValue (Texture texture)
 	{
 		GObject.Value value = new (Texture.GetGType ());
