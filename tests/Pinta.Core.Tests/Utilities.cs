@@ -100,11 +100,28 @@ internal static class Utilities
 	public static ImageSurface LoadImage (string imageFilePath)
 	{
 		using SKImage image = SKImage.FromEncodedData (imageFilePath) ?? throw new InvalidDataException (imageFilePath);
-		SKImageInfo info = new (image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
+		SKImageInfo info = new (image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
 		using var bitmap = new SKBitmap (info);
 		if (!image.ReadPixels (info, bitmap.GetPixels (), bitmap.RowBytes, 0, 0))
 			throw new InvalidDataException ($"Unable to decode {imageFilePath}");
 		ImageSurface surface = CairoExtensions.CreateImageSurface (Format.Argb32, image.Width, image.Height);
+		int rowBytes = image.Width * ColorBgra.SizeOf;
+		byte[] bytes = new byte[rowBytes * image.Height];
+		for (int y = 0; y < image.Height; y++)
+			Marshal.Copy (bitmap.GetPixels () + y * bitmap.RowBytes, bytes, y * rowBytes, rowBytes);
+		MemoryMarshal.Cast<byte, ColorBgra> (bytes).CopyTo (surface.GetPixelData ());
+		return surface;
+	}
+
+	public static ArrayImageSurface LoadNeutralImage (string imageFilePath)
+	{
+		using SKImage image = SKImage.FromEncodedData (imageFilePath) ?? throw new InvalidDataException (imageFilePath);
+		SKImageInfo info = new (image.Width, image.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
+		using var bitmap = new SKBitmap (info);
+		if (!image.ReadPixels (info, bitmap.GetPixels (), bitmap.RowBytes, 0, 0))
+			throw new InvalidDataException ($"Unable to decode {imageFilePath}");
+
+		var surface = new ArrayImageSurface (image.Width, image.Height);
 		int rowBytes = image.Width * ColorBgra.SizeOf;
 		byte[] bytes = new byte[rowBytes * image.Height];
 		for (int y = 0; y < image.Height; y++)
@@ -139,6 +156,20 @@ internal static class Utilities
 		Assert.That (diffs, Is.EqualTo (0));
 	}
 
+	public static void CompareImages (IImageSurface expected, IImageSurface result, int tolerance = 1)
+	{
+		Assert.That (expected.Width, Is.EqualTo (result.Width));
+		Assert.That (expected.Height, Is.EqualTo (result.Height));
+		ReadOnlySpan<ColorBgra> expectedPixels = expected.GetReadOnlyPixelData ();
+		ReadOnlySpan<ColorBgra> resultPixels = result.GetReadOnlyPixelData ();
+		int diffs = 0;
+		for (int i = 0; i < resultPixels.Length; i++) {
+			if (!ColorBgra.ColorsWithinTolerance (resultPixels[i], expectedPixels[i], tolerance))
+				diffs++;
+		}
+		Assert.That (diffs, Is.EqualTo (0));
+	}
+
 	public static void TestBlendOp (
 		UserBlendOp blendOp,
 		string sourceExpected,
@@ -149,19 +180,11 @@ internal static class Utilities
 		string pathA = Utilities.GetAssetPath (sourceA);
 		string pathB = Utilities.GetAssetPath (sourceB);
 		string pathExpected = Utilities.GetAssetPath (sourceExpected);
-		using ImageSurface loadedA = Utilities.LoadImage (pathA);
-		using ImageSurface loadedB = Utilities.LoadImage (pathB);
-		using ImageSurface expectedOutput = Utilities.LoadImage (pathExpected);
-		using ImageSurface result = CairoExtensions.CreateImageSurface (Format.Argb32, loadedA.Width, loadedB.Height);
+		using ArrayImageSurface loadedA = Utilities.LoadNeutralImage (pathA);
+		using ArrayImageSurface loadedB = Utilities.LoadNeutralImage (pathB);
+		using ArrayImageSurface expectedOutput = Utilities.LoadNeutralImage (pathExpected);
+		using ArrayImageSurface result = new (loadedA.Width, loadedB.Height);
 		blendOp.Apply (result, loadedB, loadedA);
-
-		// For debugging, optionally save out the result to a file.
-		if (saveImageName != null)
-			result.ToPixbuf ().Savev (
-				saveImageName,
-				"png",
-				[],
-				[]);
 
 		Utilities.CompareImages (expectedOutput, result);
 	}
