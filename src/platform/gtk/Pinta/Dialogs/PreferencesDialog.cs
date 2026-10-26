@@ -14,7 +14,7 @@ using Pinta.Gui.Widgets;
 internal sealed partial class PreferencesDialog
 {
 	private ISettingsService settings = null!; // NRT - set by factory method
-	private IChromeService chrome = null!;
+	private ChromeManager chrome = null!;
 	private IPaletteService palette = null!;
 	private List<string> language_codes = [];
 
@@ -44,7 +44,7 @@ internal sealed partial class PreferencesDialog
 
 	private PintaColorButton startup_color_button = null!;
 
-	public static PreferencesDialog New (IChromeService chrome, IPaletteService palette, ISettingsService settings)
+	public static PreferencesDialog New (ChromeManager chrome, IPaletteService palette, ISettingsService settings)
 	{
 		PreferencesDialog dialog = NewWithProperties ([]);
 		dialog.chrome = chrome;
