@@ -89,6 +89,7 @@ public sealed class ChromeManager : IChromeService
 	private Action<string>? set_window_title;
 	private Action<bool>? set_window_fullscreen;
 	private Func<string, Task>? launch_uri;
+	private Action<bool>? set_window_busy;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
 	public Gio.Menu AdjustmentsMenu { get; private set; } = null!;
@@ -109,10 +110,7 @@ public sealed class ChromeManager : IChromeService
 		set {
 			main_window_busy = value;
 
-			if (main_window_busy)
-				MainWindow.Cursor = Gdk.Cursor.NewFromName (Pinta.Resources.StandardCursors.Progress, null);
-			else
-				MainWindow.Cursor = Gdk.Cursor.NewFromName (Pinta.Resources.StandardCursors.Default, null);
+			set_window_busy?.Invoke (main_window_busy);
 		}
 	}
 
@@ -134,6 +132,8 @@ public sealed class ChromeManager : IChromeService
 		set_window_fullscreen = setFullscreen;
 		launch_uri = launchUri;
 	}
+
+	public void InitializeWindowBusy (Action<bool> setBusy) => set_window_busy = setBusy;
 
 	public void InitializeMainMenu (Gio.Menu adj_menu, Gio.Menu effects_menu)
 	{

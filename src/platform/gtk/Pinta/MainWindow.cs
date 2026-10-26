@@ -372,6 +372,8 @@ internal sealed class MainWindow
 			title => window_shell.Window.Title = title,
 			fullscreen => { if (fullscreen) window_shell.Window.Fullscreen (); else window_shell.Window.Unfullscreen (); },
 			async uri => await Gtk.UriLauncher.New (uri).LaunchAsync (window_shell.Window));
+		PintaCore.Chrome.InitializeWindowBusy (busy => window_shell.Window.Cursor = Gdk.Cursor.NewFromName (
+			busy ? Resources.StandardCursors.Progress : Resources.StandardCursors.Default, null));
 		PintaCore.Chrome.InitializeApplicationCommandSink (app.AddCommand);
 		PintaCore.Chrome.InitializeApplicationQuit (app.Quit);
 	}
