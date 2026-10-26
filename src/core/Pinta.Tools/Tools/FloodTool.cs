@@ -56,12 +56,12 @@ public abstract class FloodTool : BaseTool
 	protected virtual bool CalculatePolygonSet => true;
 	protected bool LimitToSelection { get; set; } = true;
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
+		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
 
 		tb.Append (ModeLabel);
-		tb.Append ((Gtk.Widget) ModeDropDown.NativeWidget);
+		tb.Append (ModeDropDown.NativeWidget);
 		tb.Append (Separator);
 		tb.Append (ToleranceLabel);
 		tb.Append (ToleranceSlider);
