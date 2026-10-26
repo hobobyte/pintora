@@ -33,7 +33,7 @@ public sealed class EllipseSelectTool : SelectTool
 {
 	public EllipseSelectTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.EllipseSelect.png"), 9, 18, null);
+		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.EllipseSelect.png", 9, 18))!;
 	}
 
 	public override string Name => Translations.GetString ("Ellipse Select");
