@@ -74,6 +74,8 @@ internal sealed class GtkActionUiService : IActionUiService
 			var bounds = workspace.HasOpenDocuments ? workspace.ActiveDocument.Selection.GetBounds () : new RectangleD ();
 			selection.SetText ($"{bounds.Width}, {bounds.Height}");
 		};
-		actions.View.CreateStatusBar (target);
+		target.Append (actions.View.ZoomOut.CreateToolBarItem ());
+		target.Append (actions.View.ZoomComboBox);
+		target.Append (actions.View.ZoomIn.CreateToolBarItem ());
 	}
 }
