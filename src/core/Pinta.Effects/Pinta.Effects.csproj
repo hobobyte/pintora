@@ -5,6 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Pinta.Core\Pinta.Core.csproj" />
     <ProjectReference Include="..\..\platform\gtk\Pinta.Gui.Widgets\Pinta.Gui.Widgets.csproj" />
+    <ProjectReference Include="..\Pinta.Core.Neutral\Pinta.Core.Neutral.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Mono.Addins" />
