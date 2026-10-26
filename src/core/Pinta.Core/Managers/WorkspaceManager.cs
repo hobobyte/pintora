@@ -335,7 +335,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 						return false;
 					} catch (Exception e) {
 						// Record errors in case none of the formats work.
-						errors.AppendLine ($"Failed to load image as {format.Filter.Name}:");
+						errors.AppendLine ($"Failed to load image as {format.DisplayName}:");
 						errors.Append (e.ToString ());
 						errors.AppendLine ();
 					}

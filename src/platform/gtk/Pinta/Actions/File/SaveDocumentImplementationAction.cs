@@ -113,12 +113,13 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			if (!format.IsExportAvailable ())
 				continue;
 
-			fcd.AddFilter (format.Filter);
-			filetypes.Add (format.Filter, format);
+			Gtk.FileFilter filter = CreateFilter (format);
+			fcd.AddFilter (filter);
+			filetypes.Add (filter, format);
 
 			// Set the filter to anything we found
 			// We want to ensure that *something* is selected in the filetype
-			fcd.Filter = format.Filter;
+			fcd.Filter = filter;
 		}
 
 		// If we already have a format, set it to the default.
@@ -132,7 +133,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 		if (format_desc is null || !format_desc.IsExportAvailable ())
 			format_desc = image_formats.GetDefaultSaveFormat ();
 
-		fcd.Filter = format_desc.Filter;
+		fcd.Filter = CreateFilter (format_desc);
 
 		while (await fcd.RunAsync () == Gtk.ResponseType.Accept) {
 
@@ -180,6 +181,18 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			document.FileReference = new PathFileReference (file.GetParseName ());
 			document.FileType = format.Extensions.First ();
 			return true;
+		}
+
+		static Gtk.FileFilter CreateFilter (FormatDescriptor format)
+		{
+			Gtk.FileFilter filter = Gtk.FileFilter.New ();
+			foreach (string pattern in format.Patterns)
+				filter.AddPattern (pattern);
+			if (OperatingSystem.IsLinux () || OperatingSystem.IsMacOS ())
+				foreach (string mime in format.Mimes)
+					filter.AddMimeType (mime);
+			filter.Name = format.DisplayName;
+			return filter;
 		}
 
 		return false;
