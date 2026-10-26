@@ -8,7 +8,7 @@ growing toward feature parity with established raster graphics applications.
 Install the .NET 10 SDK, then from the repository root:
 
 ```sh
-dotnet run --project Pintora.Avalonia/Pintora.Avalonia.csproj
+dotnet run --project src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj
 ```
 
 Run the editor test suite with:

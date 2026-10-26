@@ -11,7 +11,7 @@ mkdir "$STAGE/Pintora"
 ditto "$APP" "$STAGE/Pintora/Pintora.app"
 ln -s /Applications "$STAGE/Pintora/Applications"
 cp LICENSE.md CHANGELOG.md \
-    Pinta.Resources/icons/pinta-icons.md "$STAGE/Pintora/"
+    src/core/Pinta.Resources/icons/pinta-icons.md "$STAGE/Pintora/"
 cp third-party/pinta/LICENSE.md "$STAGE/Pintora/LICENSE-PINTA.md"
 cp third-party/paint.net/LICENSE.md "$STAGE/Pintora/LICENSE-PAINT.NET.md"
 hdiutil create -quiet -volname "Pintora" -srcfolder "$STAGE/Pintora" -fs HFS+ -format UDZO "$OUTPUT"

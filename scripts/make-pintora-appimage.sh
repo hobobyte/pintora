@@ -11,7 +11,7 @@ mkdir -p "$APPDIR/usr/bin" "$OUTPUT_DIR"
 cp -R "$PUBLISH_DIR"/. "$APPDIR/usr/bin/"
 chmod +x "$APPDIR/usr/bin/Pintora"
 cp installer/avalonia/pintora.desktop "$APPDIR/Pintora.desktop"
-cp Pinta.Resources/icons/hicolor/96x96/apps/com.github.PintaProject.Pinta.png "$APPDIR/pintora.png"
+cp src/core/Pinta.Resources/icons/hicolor/96x96/apps/com.github.PintaProject.Pinta.png "$APPDIR/pintora.png"
 cat > "$APPDIR/AppRun" <<'APPRUN'
 #!/usr/bin/env bash
 HERE="$(dirname "$(readlink -f "$0")")"
