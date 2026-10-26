@@ -10,7 +10,7 @@
     <BuildTranslations>false</BuildTranslations>
   </PropertyGroup>
 
-  <Import Project="../../../properties/ReferenceGirCoreAdw1.props" />
+  <Import Project="../../../../properties/ReferenceGirCoreAdw1.props" />
 
   <ItemGroup>
     <PackageReference Include="Tmds.DBus.Protocol" />
