@@ -51,15 +51,23 @@ internal static class NativeImportResolver
 	};
 
 	private static readonly Dictionary<string, LibraryInfo> library_infos = [];
+	private static readonly HashSet<Assembly> registered_assemblies = [];
 
 	static NativeImportResolver ()
 	{
-		NativeLibrary.SetDllImportResolver (typeof (NativeImportResolver).Assembly, Resolve);
+		RegisterResolver (typeof (NativeImportResolver).Assembly);
 	}
 
 	public static void RegisterLibrary (string library, string windowsLibraryName, string linuxLibraryName, string osxLibraryName)
 	{
 		library_infos.Add (library, new LibraryInfo (windowsLibraryName, linuxLibraryName, osxLibraryName));
+		RegisterResolver (Assembly.GetCallingAssembly ());
+	}
+
+	private static void RegisterResolver (Assembly assembly)
+	{
+		if (registered_assemblies.Add (assembly))
+			NativeLibrary.SetDllImportResolver (assembly, Resolve);
 	}
 
 	public static IntPtr Resolve (string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
