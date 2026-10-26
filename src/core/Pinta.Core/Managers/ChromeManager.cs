@@ -101,8 +101,10 @@ public sealed class ChromeManager : IChromeService
 	private Action<bool>? set_window_busy;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
-	public Gio.Menu AdjustmentsMenu { get; private set; } = null!;
-	public Gio.Menu EffectsMenu { get; private set; } = null!;
+	private Action<Command>? add_adjustment_menu_item;
+	private Action<Command>? remove_adjustment_menu_item;
+	private Action<string, Command>? add_effect_menu_item;
+	private Action<string, Command>? remove_effect_menu_item;
 
 	public PointI LastCanvasCursorPoint {
 		get => last_canvas_cursor_point;
@@ -145,11 +147,18 @@ public sealed class ChromeManager : IChromeService
 	public void InitializeWindowBusy (Action<bool> setBusy) => set_window_busy = setBusy;
 	public void InitializeTextContext (Func<Pango.Context> getContext) => text_context = getContext;
 
-	public void InitializeMainMenu (Gio.Menu adj_menu, Gio.Menu effects_menu)
+	public void InitializeMenuAdapter (Action<Command> addAdjustment, Action<Command> removeAdjustment, Action<string, Command> addEffect, Action<string, Command> removeEffect)
 	{
-		AdjustmentsMenu = adj_menu;
-		EffectsMenu = effects_menu;
+		add_adjustment_menu_item = addAdjustment;
+		remove_adjustment_menu_item = removeAdjustment;
+		add_effect_menu_item = addEffect;
+		remove_effect_menu_item = removeEffect;
 	}
+
+	public void AddAdjustmentMenuItem (Command command) => add_adjustment_menu_item?.Invoke (command);
+	public void RemoveAdjustmentMenuItem (Command command) => remove_adjustment_menu_item?.Invoke (command);
+	public void AddEffectMenuItem (string category, Command command) => add_effect_menu_item?.Invoke (category, command);
+	public void RemoveEffectMenuItem (string category, Command command) => remove_effect_menu_item?.Invoke (category, command);
 
 	public void InitializeProgessDialog (IProgressDialog progressDialog)
 	{

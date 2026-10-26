@@ -31,7 +31,7 @@ namespace Pinta.Core;
 
 public sealed class EffectsActions
 {
-	public Dictionary<string, Gio.Menu> Menus { get; } = [];
+	private HashSet<string> categories = [];
 	public Collection<Command> Actions { get; } = [];
 
 	private readonly ChromeManager chrome;
@@ -43,28 +43,20 @@ public sealed class EffectsActions
 	#region Initialization
 	public void AddEffect (string category, Command action)
 	{
-		var effects_menu = chrome.EffectsMenu;
-
-		if (!Menus.ContainsKey (category)) {
-			var category_menu = Gio.Menu.New ();
-			effects_menu.AppendMenuItemSorted (Gio.MenuItem.NewSubmenu (category, category_menu));
-			Menus.Add (category, category_menu);
-		}
+		categories.Add (category);
+		chrome.AddEffectMenuItem (category, action);
 
 		Actions.Add (action);
 
-		Gio.Menu m = Menus[category];
-		m.AppendMenuItemSorted (action.CreateMenuItem ());
 	}
 
 	// TODO: Remove menu category if empty
 	internal void RemoveEffect (string category, Command action)
 	{
-		if (!Menus.ContainsKey (category))
+		if (!categories.Contains (category))
 			return;
 
-		var menu = Menus[category];
-		menu.Remove (action);
+		chrome.RemoveEffectMenuItem (category, action);
 	}
 	#endregion
 

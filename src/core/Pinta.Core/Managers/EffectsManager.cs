@@ -89,7 +89,7 @@ public sealed class EffectsManager
 
 		chrome_manager.AddApplicationCommand (action);
 
-		chrome_manager.AdjustmentsMenu.AppendMenuItemSorted (action.CreateMenuItem ());
+		chrome_manager.AddAdjustmentMenuItem (action);
 
 		adjustments.Add (adjustmentType, action);
 	}
@@ -157,6 +157,6 @@ public sealed class EffectsManager
 
 		adjustments.Remove (adjustmentType);
 		action_manager.Adjustments.Actions.Remove (action);
-		chrome_manager.AdjustmentsMenu.Remove (action);
+		chrome_manager.RemoveAdjustmentMenuItem (action);
 	}
 }

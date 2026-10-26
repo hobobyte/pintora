@@ -25,6 +25,7 @@
 // THE SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Mono.Addins;
 using Pinta.Core;
@@ -44,6 +45,8 @@ internal sealed class MainWindow
 	Gio.Menu menu_bar = null!;
 	Gio.Menu image_menu = null!;
 	Gio.Menu view_menu = null!;
+	Gio.Menu adjustments_menu = null!;
+	Gio.Menu effects_menu = null!;
 
 	CanvasPad canvas_pad = null!;
 
@@ -451,7 +454,13 @@ internal sealed class MainWindow
 			}
 		}
 
-		PintaCore.Chrome.InitializeMainMenu (adjustmentsMenu, effectsMenu);
+		adjustments_menu = adjustmentsMenu;
+		effects_menu = effectsMenu;
+		PintaCore.Chrome.InitializeMenuAdapter (
+			addAdjustment: command => adjustments_menu.AppendMenuItemSorted (command.CreateMenuItem ()),
+			removeAdjustment: command => adjustments_menu.Remove (command),
+			addEffect: (category, command) => AddEffectMenuItem (category, command),
+			removeEffect: (category, command) => RemoveEffectMenuItem (category, command));
 
 		// --- References to keep
 
@@ -470,12 +479,12 @@ internal sealed class MainWindow
 				Translations.GetString ("Main Menu")));
 
 			headerBar.PackEnd (GtkExtensions.CreateMenuButton (
-				PintaCore.Chrome.EffectsMenu,
+				effects_menu,
 				Resources.Icons.EffectsDefault,
 				Translations.GetString ("Effects")));
 
 			headerBar.PackEnd (GtkExtensions.CreateMenuButton (
-				PintaCore.Chrome.AdjustmentsMenu,
+				adjustments_menu,
 				Resources.Icons.AdjustmentsDefault,
 				Translations.GetString ("Adjustments")));
 
@@ -494,6 +503,25 @@ internal sealed class MainWindow
 			var main_toolbar = window_shell.CreateToolBar ("main_toolbar");
 			PintaCore.Services.GetService<IActionUiService> ().CreateToolBar (PintaCore.Actions, main_toolbar);
 		}
+	}
+
+	private readonly Dictionary<string, Gio.Menu> effect_category_menus = [];
+
+	private void AddEffectMenuItem (string category, Command command)
+	{
+		if (!effect_category_menus.TryGetValue (category, out Gio.Menu? menu)) {
+			menu = Gio.Menu.New ();
+			effect_category_menus.Add (category, menu);
+			effects_menu.AppendMenuItemSorted (Gio.MenuItem.NewSubmenu (category, menu));
+		}
+
+		menu.AppendMenuItemSorted (command.CreateMenuItem ());
+	}
+
+	private void RemoveEffectMenuItem (string category, Command command)
+	{
+		if (effect_category_menus.TryGetValue (category, out Gio.Menu? menu))
+			menu.Remove (command);
 	}
 
 	private void CreateToolToolBar ()
