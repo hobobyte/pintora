@@ -219,7 +219,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 		tools.Commit ();
 
 		try {
-			format.Exporter.Export (document, file, parent);
+			format.Exporter.Export (document, new PathFileReference (file.GetParseName ()));
 
 		} catch (GLib.GException e) when (e.Message == "Image too large to be saved as ICO") {
 			// This has a generic error code of GDK_PIXBUF_ERROR_BAD_OPTION so we need to check the message text.
