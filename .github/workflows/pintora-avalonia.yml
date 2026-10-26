@@ -41,7 +41,7 @@ jobs:
         run: dotnet restore tests/Pintora.Avalonia.Tests/Pintora.Avalonia.Tests.csproj
 
       - name: Build
-        run: dotnet build Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release --no-restore -warnaserror
+        run: dotnet build src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release --no-restore -warnaserror
 
       - name: Test
         run: dotnet test tests/Pintora.Avalonia.Tests/Pintora.Avalonia.Tests.csproj --configuration Release --no-restore -p:BuildInParallel=false -m:1
@@ -76,22 +76,22 @@ jobs:
         id: version
         shell: bash
         run: |
-          app_version="$(sed -n 's/^[[:space:]]*<Version>\(.*\)<\/Version>[[:space:]]*$/\1/p' Pintora.Avalonia/Pintora.Avalonia.csproj | head -n 1)"
+          app_version="$(sed -n 's/^[[:space:]]*<Version>\(.*\)<\/Version>[[:space:]]*$/\1/p' src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj | head -n 1)"
           echo "app-version=$app_version" >> "$GITHUB_OUTPUT"
           echo "msi-version=${app_version%%-*}" >> "$GITHUB_OUTPUT"
           deb_version="$(printf '%s' "$app_version" | sed 's/-/~/')"
           echo "deb-version=$deb_version" >> "$GITHUB_OUTPUT"
 
       - name: Publish self-contained app
-        run: dotnet publish Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release --runtime ${{ matrix.rid }} --self-contained true --output publish/${{ matrix.rid }}
+        run: dotnet publish src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release --runtime ${{ matrix.rid }} --self-contained true --output publish/${{ matrix.rid }}
 
       - name: Include licenses and release documentation
         shell: bash
         run: |
-          cp LICENSE.md Pintora.Avalonia/README.md CHANGELOG.md publish/${{ matrix.rid }}/
+          cp LICENSE.md src/platform/avalonia/Pintora.Avalonia/README.md CHANGELOG.md publish/${{ matrix.rid }}/
           cp third-party/pinta/LICENSE.md publish/${{ matrix.rid }}/LICENSE-PINTA.md
           cp third-party/paint.net/LICENSE.md publish/${{ matrix.rid }}/LICENSE-PAINT.NET.md
-          cp Pinta.Resources/icons/pinta-icons.md publish/${{ matrix.rid }}/THIRD-PARTY-NOTICES-icons.md
+          cp src/core/Pinta.Resources/icons/pinta-icons.md publish/${{ matrix.rid }}/THIRD-PARTY-NOTICES-icons.md
 
       - name: Archive portable app
         if: startsWith(matrix.rid, 'win-')
@@ -189,7 +189,7 @@ jobs:
         id: version
         shell: bash
         run: |
-          version="$(sed -n 's/^[[:space:]]*<Version>\(.*\)<\/Version>[[:space:]]*$/\1/p' Pintora.Avalonia/Pintora.Avalonia.csproj | head -n 1)"
+          version="$(sed -n 's/^[[:space:]]*<Version>\(.*\)<\/Version>[[:space:]]*$/\1/p' src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj | head -n 1)"
           echo "app-version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Download platform packages
