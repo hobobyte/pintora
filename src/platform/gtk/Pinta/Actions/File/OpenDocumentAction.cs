@@ -26,6 +26,7 @@
 
 using System;
 using Pinta.Core;
+using Pinta.Gui.Widgets;
 
 namespace Pinta.Actions;
 
