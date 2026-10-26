@@ -37,6 +37,7 @@
     <ProjectReference Include="..\Pinta.Docking\Pinta.Docking.csproj" />
     <ProjectReference Include="..\Pinta.Gui.Addins\Pinta.Gui.Addins.csproj" />
     <ProjectReference Include="..\Pinta.Gui.Widgets\Pinta.Gui.Widgets.csproj" />
+    <ProjectReference Include="..\Pinta.Tools.Gtk\Pinta.Tools.Gtk.csproj" />
     <ProjectReference Include="..\..\..\core\Pinta.Resources\Pinta.Resources.csproj" />
     <ProjectReference Include="..\..\..\core\Pinta.Tools\Pinta.Tools.csproj" />
     <ProjectReference Include="..\..\..\core\Pinta.Effects\Pinta.Effects.csproj" />
