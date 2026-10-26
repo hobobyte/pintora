@@ -21,8 +21,10 @@ public sealed class TextTool : BaseTool
 	private PointD start_mouse_xy;
 	private PointI start_click_point;
 	private bool tracking;
-	private readonly Gdk.Cursor cursor_move = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.Move);
-	private readonly Gdk.Cursor cursor_invalid = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.NotAllowed);
+	private Gdk.Cursor CursorMove
+		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.Move))!;
+	private Gdk.Cursor CursorInvalid
+		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.NotAllowed))!;
 
 	private PointI click_point;
 	private bool is_editing;
@@ -117,7 +119,7 @@ public sealed class TextTool : BaseTool
 
 		layout = new TextLayout (chromeService);
 
-		DefaultCursor = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.Text);
+		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.Text))!;
 	}
 
 	#region ToolBar
@@ -848,12 +850,12 @@ public sealed class TextTool : BaseTool
 	private void UpdateMouseCursor (Document document)
 	{
 		if (tracking) {
-			SetCursor (cursor_move);
+			SetCursor (CursorMove);
 			return;
 		}
 
 		//Whether or not to show the normal text cursor.
-		Gdk.Cursor newCursor = cursor_invalid;
+		Gdk.Cursor newCursor = CursorInvalid;
 
 		if (ctrl_key && workspace.HasOpenDocuments) {
 			//Go through every UserLayer.
