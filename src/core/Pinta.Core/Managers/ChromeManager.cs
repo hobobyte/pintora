@@ -40,6 +40,11 @@ public interface IChromeService
 		IAddinLocalizer localizer,
 		IWorkspaceService workspace,
 		Action<string?> onChanged);
+	Task<bool> LaunchSimpleEffectDialog (
+		BaseEffect effect,
+		IAddinLocalizer localizer,
+		IWorkspaceService workspace,
+		Action<string?> onChanged);
 	void SetStatusBarVisible (bool visible);
 	void SetMainWindowTitle (string title);
 	void SetMainWindowFullscreen (bool fullscreen);
@@ -219,6 +224,13 @@ public sealed class ChromeManager : IChromeService
 			workspace,
 			onChanged);
 	}
+
+	public Task<bool> LaunchSimpleEffectDialog (
+		BaseEffect effect,
+		IAddinLocalizer localizer,
+		IWorkspaceService workspace,
+		Action<string?> onChanged)
+		=> LaunchSimpleEffectDialog (MainWindow, effect, localizer, workspace, onChanged);
 
 	private void OnLastCanvasCursorPointChanged ()
 	{
