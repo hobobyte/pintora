@@ -33,14 +33,18 @@ public sealed class PanTool : BaseTool
 {
 	private bool active;
 	private PointD last_point;
-	private readonly Gdk.Cursor grabbing_cursor = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.Grabbing);
+	private Gdk.Cursor GrabbingCursor
+		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.Grabbing))!;
 
-	public PanTool (IServiceProvider services) : base (services) { }
+	public PanTool (IServiceProvider services) : base (services)
+	{
+	}
 
 	public override string Name => Translations.GetString ("Pan");
 	public override string Icon => Pinta.Resources.Icons.ToolPan;
 	public override string StatusBarText => Translations.GetString ("Click and drag to navigate image.");
-	public override Gdk.Cursor DefaultCursor => GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.Grab);
+	public override Gdk.Cursor DefaultCursor
+		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.Grab))!;
 	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_H);
 	public override int Priority => 11;
 
@@ -55,7 +59,7 @@ public sealed class PanTool : BaseTool
 			active = true;
 
 		last_point = new PointD (e.RootPoint.X, e.RootPoint.Y);
-		SetCursor (grabbing_cursor);
+		SetCursor (GrabbingCursor);
 	}
 
 	protected override void OnMouseMove (Document document, ToolMouseEventArgs e)
