@@ -400,7 +400,7 @@ public sealed class EditActions
 
 		tools.Commit ();
 
-		CopyLayersToClipboard (doc, doc.Layers.CurrentUserLayer.GetLayersToPaint (), GdkExtensions.GetDefaultClipboard ());
+		CopyLayersToClipboard (doc, doc.Layers.CurrentUserLayer.GetLayersToPaint (), cb);
 	}
 
 	private void HandlerPintaCoreActionsEditCopyMergedActivated (object sender, EventArgs e)
@@ -409,10 +409,10 @@ public sealed class EditActions
 
 		Document doc = workspace.ActiveDocument;
 		IClipboardService cb = PintaCore.Services.GetService<IClipboardService> ();
-		CopyLayersToClipboard (doc, doc.Layers.GetLayersToPaint (), GdkExtensions.GetDefaultClipboard ());
+		CopyLayersToClipboard (doc, doc.Layers.GetLayersToPaint (), cb);
 	}
 
-	private static void CopyLayersToClipboard (Document doc, IEnumerable<Layer> layers, Gdk.Clipboard clipboard)
+	private static void CopyLayersToClipboard (Document doc, IEnumerable<Layer> layers, IClipboardService clipboard)
 	{
 		RectangleI rect = doc.GetSelectedBounds (true);
 		if (rect.IsEmpty)
@@ -437,32 +437,9 @@ public sealed class EditActions
 	/// This records two content providers: one with the image (equivalent to Clipboard.SetTexture()), and
 	/// one storing additional custom data that Pinta can check for when pasting.
 	/// </summary>
-	private static void CopyImageToClipboard (Gdk.Clipboard clipboard, ImageSurface image, PointI srcPos, DocumentSelection selection)
+	private static void CopyImageToClipboard (IClipboardService clipboard, ImageSurface image, PointI srcPos, DocumentSelection selection)
 	{
-		Gdk.Texture texture = image.ToTexture ();
-
-		ClipboardImageMetadata customImageMetadata = ClipboardImageMetadata.NewWithProperties ([]);
-		// Store the original position so we can later paste at the same location,
-		// e.g. to cut and paste into a different layer.
-		customImageMetadata.Position = srcPos;
-		// Store the original selection so we can paste with the correct mask, e.g. if an ellipse
-		// selection was used.
-		customImageMetadata.Selection = selection.Clone ();
-
-		// This is equivalent to gdk_clipboard_set_texture(), and will copy the image to the clipboard
-		// with suitable MIME types etc.
-		GObject.Value textureValue = new (Gdk.Texture.GetGType ());
-		textureValue.SetObject (texture);
-		Gdk.ContentProvider textureProvider = Gdk.ContentProvider.NewForValue (textureValue);
-
-		// Wrap our custom data in a content provider.
-		GObject.Value customDataValue = new (ClipboardImageMetadata.GetGType ());
-		customDataValue.SetObject (customImageMetadata);
-		Gdk.ContentProvider customProvider = Gdk.ContentProvider.NewForValue (customDataValue);
-
-		// Combine the two providers and add it to the clipboard.
-		clipboard.SetContent (
-			GdkExtensions.CreateContentProviderUnion ([textureProvider, customProvider]));
+		clipboard.WriteImage (new ClipboardImageData (CairoImageSurface.Wrap (image), srcPos));
 	}
 
 	private void HandlerPintaCoreActionsEditCutActivated (object sender, EventArgs e)
