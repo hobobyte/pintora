@@ -12,5 +12,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj" />
     <ProjectReference Include="../../src/core/Pinta.Core/Pinta.Core.csproj" />
+    <ProjectReference Include="../../src/graphics/Pinta.Graphics.Skia/Pinta.Graphics.Skia.csproj" />
   </ItemGroup>
 </Project>
