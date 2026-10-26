@@ -3,7 +3,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <Import Project="../../../properties/ReferenceGirCoreAdw1.props" />
+  <Import Project="../../../../properties/ReferenceGirCoreAdw1.props" />
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\core\Pinta.Core\Pinta.Core.csproj" />
