@@ -93,6 +93,7 @@ internal sealed class MainWindow
 		};
 		PintaCore.Services.AddService<IToolOptionViewFactory> (new GtkToolOptionViewFactory ());
 		PintaCore.Services.AddService<IToolUiService> (new GtkToolUiService (PintaCore.Chrome));
+		PintaCore.Services.AddService<IToolbarWidgetFactory> (new GtkToolbarWidgetFactory ());
 		PintaCore.Services.AddService<IActionUiService> (new GtkActionUiService (PintaCore.Chrome));
 		PintaCore.Services.AddService<ICursorService> (new GtkCursorService ());
 		PintaCore.Services.AddService<IEffectConfigurationService> (new GtkEffectConfigurationService (PintaCore.Chrome));
