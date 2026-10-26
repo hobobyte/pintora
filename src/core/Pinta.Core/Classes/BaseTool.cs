@@ -38,14 +38,17 @@ public abstract class BaseTool
 {
 	private readonly IToolService tools;
 	private readonly IWorkspaceService workspace;
+	private readonly IServiceProvider services;
 
 	protected IResourceService Resources { get; }
+	protected ICursorService CursorService => services.GetService<ICursorService> ();
 	protected ISettingsService Settings { get; }
 
 	public const int DEFAULT_BRUSH_WIDTH = 2;
 
 	protected BaseTool (IServiceProvider services)
 	{
+		this.services = services;
 		Resources = services.GetService<IResourceService> ();
 		Settings = services.GetService<ISettingsService> ();
 
