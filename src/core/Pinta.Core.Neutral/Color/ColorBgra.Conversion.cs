@@ -22,20 +22,20 @@ partial struct ColorBgra
 	/// </summary>
 	public static ColorBgra FromBgraClamped (int b, int g, int r, int a)
 		=> FromBgra (
-			Utility.ClampToByte (b),
-			Utility.ClampToByte (g),
-			Utility.ClampToByte (r),
-			Utility.ClampToByte (a));
+			ColorMath.ClampToByte (b),
+			ColorMath.ClampToByte (g),
+			ColorMath.ClampToByte (r),
+			ColorMath.ClampToByte (a));
 
 	/// <summary>
 	/// Creates a new ColorBgra instance with the given color and alpha values.
 	/// </summary>
 	public static ColorBgra FromBgraClamped (float b, float g, float r, float a)
 		=> FromBgra (
-			Utility.ClampToByte (b),
-			Utility.ClampToByte (g),
-			Utility.ClampToByte (r),
-			Utility.ClampToByte (a));
+			ColorMath.ClampToByte (b),
+			ColorMath.ClampToByte (g),
+			ColorMath.ClampToByte (r),
+			ColorMath.ClampToByte (a));
 
 	/// <summary>
 	/// Constructs a new ColorBgra instance with the given 32-bit value.
