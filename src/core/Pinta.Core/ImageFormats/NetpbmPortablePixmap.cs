@@ -15,12 +15,6 @@ public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter, IImag
 	}
 	private const string MAGIC_SEQUENCE = "P3"; // Magic sequence for text-based portable pixmap format
 
-	public Document Import (Gio.File file)
-	{
-		using GioStream stream = new GioStream (file.Read (cancellable: null));
-		return Import (stream, new PathFileReference (file.GetParseName ()));
-	}
-
 	/// <summary>Imports a PPM stream without requiring a Gio file handle.</summary>
 	public Document Import (Stream stream, IFileReference file)
 	{

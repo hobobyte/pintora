@@ -317,7 +317,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 			// Open the image and add it to the layers
 			IImageImporter? importer = image_formats.GetImporterByFile (file.GetDisplayName ());
 			if (importer is not null) {
-				Document imported = importer.Import (file);
+				Document imported = importer.Import (new PathFileReference (file.GetParseName ()));
 				ActivateDocument (imported);
 			} else {
 				// Unknown extension, so try every loader.
@@ -325,7 +325,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 				bool loaded = false;
 				foreach (var format in image_formats.Formats.Where (f => f.IsImportAvailable ())) {
 					try {
-						Document imported = format.Importer!.Import (file);
+						Document imported = format.Importer!.Import (new PathFileReference (file.GetParseName ()));
 						ActivateDocument (imported);
 						loaded = true;
 						break;
