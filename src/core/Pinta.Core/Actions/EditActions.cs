@@ -60,6 +60,7 @@ public sealed class EditActions
 	private readonly PaletteManager palette;
 	private readonly ToolManager tools;
 	private readonly WorkspaceManager workspace;
+	private IFileDialogService FileDialogs => PintaCore.Services.GetService<IFileDialogService> ();
 	public EditActions (
 		ChromeManager chrome,
 		PaletteFormatManager paletteFormats,
@@ -487,28 +488,19 @@ public sealed class EditActions
 	private async void HandlerPintaCoreActionsEditLoadPaletteActivated (object sender, EventArgs e)
 	{
 
-		using Gtk.FileFilter palettesFilter = CreatePalettesFilter ();
-		using Gtk.FileFilter catchAllFilter = CreateCatchAllFilter ();
-
-		using Gio.ListStore filters = Gio.ListStore.New (Gtk.FileFilter.GetGType ());
-		filters.Append (palettesFilter);
-		filters.Append (catchAllFilter);
-
-		using Gtk.FileDialog fileDialog = Gtk.FileDialog.New ();
-		fileDialog.SetTitle (Translations.GetString ("Open Palette File"));
-		fileDialog.SetFilters (filters);
-		if (last_palette_dir != null)
-			fileDialog.SetInitialFolder (last_palette_dir);
-
-		var choice = await fileDialog.OpenFileAsync (chrome.MainWindow);
+		IFileReference? choice = await FileDialogs.OpenFileAsync (new FileDialogOptions (
+			Translations.GetString ("Open Palette File"),
+			[CreatePalettesFilter (), new FileDialogFilter (Translations.GetString ("All files"), [])],
+			last_palette_dir is null ? null : new PathFileReference (last_palette_dir.GetParseName ())));
 
 		if (choice is null)
 			return;
 
-		last_palette_dir = choice.GetParent ();
+		Gio.File file = Gio.FileHelper.NewForPath ((choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed."));
+		last_palette_dir = file.GetParent ();
 
 		try {
-			palette.CurrentPalette.Load (palette_formats, choice);
+			palette.CurrentPalette.Load (palette_formats, file);
 
 		} catch (PaletteLoadException ex) {
 
@@ -571,11 +563,9 @@ public sealed class EditActions
 		fcd.Show ();
 	}
 
-	private Gtk.FileFilter CreatePalettesFilter ()
+	private FileDialogFilter CreatePalettesFilter ()
 	{
-		Gtk.FileFilter palettesFilter = Gtk.FileFilter.New ();
-
-		palettesFilter.Name = Translations.GetString ("Palette files");
+		var extensions = new List<string> ();
 
 		foreach (var format in palette_formats.Formats) {
 
@@ -583,18 +573,9 @@ public sealed class EditActions
 				continue;
 
 			foreach (var ext in format.Extensions)
-				palettesFilter.AddPattern ($"*.{ext}");
+				extensions.Add (ext);
 		}
-
-		return palettesFilter;
-	}
-
-	private static Gtk.FileFilter CreateCatchAllFilter ()
-	{
-		Gtk.FileFilter catchAllFilter = Gtk.FileFilter.New ();
-		catchAllFilter.Name = Translations.GetString ("All files");
-		catchAllFilter.AddPattern ("*");
-		return catchAllFilter;
+		return new FileDialogFilter (Translations.GetString ("Palette files"), extensions);
 	}
 
 	private void HandlerPintaCoreActionsEditResetPaletteActivated (object sender, EventArgs e)
