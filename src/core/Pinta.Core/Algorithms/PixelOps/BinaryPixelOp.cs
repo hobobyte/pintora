@@ -28,6 +28,21 @@ public abstract class BinaryPixelOp : PixelOp
 	}
 
 	/// <summary>
+	/// Applies the blend operation through the platform-neutral surface contract.
+	/// </summary>
+	public void Apply (IImageSurface dst, IImageSurface lhs, IImageSurface rhs)
+	{
+		if (dst.Width != lhs.Width || dst.Height != lhs.Height ||
+			lhs.Width != rhs.Width || lhs.Height != rhs.Height)
+			throw new ArgumentException ("Image surface sizes must match.");
+
+		ReadOnlySpan<ColorBgra> lhsData = lhs.GetReadOnlyPixelData ();
+		ReadOnlySpan<ColorBgra> rhsData = rhs.GetReadOnlyPixelData ();
+		Span<ColorBgra> dstData = dst.GetPixelData ();
+		Apply (dstData, lhsData, rhsData);
+	}
+
+	/// <summary>
 	/// Provides a default implementation for performing dst = F(lhs, rhs) over some rectangle of interest.
 	/// </summary>
 	/// <param name="dst">The Surface to write pixels to.</param>
