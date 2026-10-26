@@ -10,6 +10,9 @@ public sealed class GdkPixbufImageFormatProvider : IImageFormatProvider
 {
 	public IEnumerable<FormatDescriptor> GetFormats ()
 	{
+		OraFormat oraHandler = new ();
+		yield return new FormatDescriptor ("OpenRaster", ["ora", "ORA"], ["image/openraster"], oraHandler, oraHandler, true);
+
 		foreach (var format in GdkPixbufExtensions.GetFormats ())
 			yield return CreateFormatDescriptor (format);
 	}

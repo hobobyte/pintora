@@ -47,16 +47,6 @@ public sealed class ImageConverterManager
 	{
 		// Create all the formats we have our own importers/exporters for
 
-		OraFormat oraHandler = new ();
-		FormatDescriptor oraFormatDescriptor = new (
-			displayPrefix: "OpenRaster",
-			extensions: ["ora", "ORA"],
-			mimes: ["image/openraster"],
-			importer: oraHandler,
-			exporter: oraHandler,
-			supportsLayers: true);
-		yield return oraFormatDescriptor;
-
 		NetpbmPortablePixmap netpbmPortablePixmap = new ();
 		FormatDescriptor netpbmPortablePixmapDescriptor = new (
 			displayPrefix: "Netpbm Portable Pixmap",
