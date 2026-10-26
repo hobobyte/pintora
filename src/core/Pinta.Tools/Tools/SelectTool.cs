@@ -258,7 +258,7 @@ public abstract class SelectTool : BaseTool
 	private ToolBarDropDownButton AutoScrollButton {
 		get {
 			if (auto_scroll_button is null) {
-				auto_scroll_button ??= ToolBarDropDownButton.New ();
+				auto_scroll_button ??= CreateToolDropDownButton ();
 
 				auto_scroll_button.AddItem (Translations.GetString ("Autoscroll On"), Pinta.Resources.Icons.EffectsBlursZoomBlur, true);
 				auto_scroll_button.AddItem (Translations.GetString ("Autoscroll Off"), Pinta.Resources.Icons.EffectsBlursUnfocus, false);

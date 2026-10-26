@@ -177,7 +177,7 @@ public sealed class TextTool : BaseTool
 		tb.Append (GtkExtensions.CreateToolBarSeparator ());
 
 		if (variant_btn == null) {
-			variant_btn = ToolBarDropDownButton.New ();
+			variant_btn = CreateToolDropDownButton ();
 
 			variant_btn.AddItem (
 				// Translators: 'Normal' refers to the font-variant text property
@@ -249,7 +249,7 @@ public sealed class TextTool : BaseTool
 		tb.Append (GtkExtensions.CreateToolBarSeparator ());
 
 		if (weight_btn == null) {
-			weight_btn = ToolBarDropDownButton.New ();
+			weight_btn = CreateToolDropDownButton ();
 
 			weight_btn.AddItem (
 				// Translators: 'Thin' (100) refers to the font-weight text property
@@ -401,7 +401,7 @@ public sealed class TextTool : BaseTool
 		tb.Append (fill_label);
 
 		if (fill_button == null) {
-			fill_button = ToolBarDropDownButton.New ();
+			fill_button = CreateToolDropDownButton ();
 
 			fill_button.AddItem (Translations.GetString ("Normal"), Pinta.Resources.Icons.FillStyleFill, 0);
 			fill_button.AddItem (Translations.GetString ("Normal and Outline"), Pinta.Resources.Icons.FillStyleOutlineFill, 1);
@@ -441,7 +441,7 @@ public sealed class TextTool : BaseTool
 		tb.Append (join_sep);
 
 		if (join_btn == null) {
-			join_btn = ToolBarDropDownButton.New ();
+			join_btn = CreateToolDropDownButton ();
 
 			join_btn.AddItem (
 				// Translators: 'Miter Join' refers to the Cairo.LineJoin property

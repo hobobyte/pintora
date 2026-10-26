@@ -220,7 +220,7 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	private ToolBarDropDownButton FillDropDown {
 		get {
 			if (fill_button == null) {
-				fill_button = ToolBarDropDownButton.New ();
+				fill_button = CreateToolDropDownButton ();
 
 				fill_button.AddItem (Translations.GetString ("Outline Shape"), Pinta.Resources.Icons.FillStyleOutline, 0);
 				fill_button.AddItem (Translations.GetString ("Fill Shape"), Pinta.Resources.Icons.FillStyleFill, 1);
