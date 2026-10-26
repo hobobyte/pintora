@@ -37,6 +37,7 @@ public sealed class PintaApplication
 		var services = new ServiceManager ();
 		services.AddService<IResourceService> (resources);
 		services.AddService<ISettingsService> (settings);
+		services.AddService (settings);
 		services.AddService (actions);
 		services.AddService<IWorkspaceService> (workspace);
 		services.AddService<IPaintBrushService> (paintBrushes);
