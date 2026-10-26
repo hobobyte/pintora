@@ -41,4 +41,20 @@ public sealed class SkiaImageCodecTests
 	{
 		Assert.That (new SkiaImageCodec (), Is.AssignableTo<Pinta.Core.IImageFileCodec> ());
 	}
+
+	[Test]
+	public void PathFileReferenceProvidesNeutralFileAccess ()
+	{
+		string path = Path.Combine (Path.GetTempPath (), $"pintora-{Guid.NewGuid ():N}.tmp");
+		try {
+			var reference = new Pinta.Core.PathFileReference (path);
+			using (Stream output = reference.OpenWrite ())
+				output.WriteByte (42);
+			using Stream input = reference.OpenRead ();
+			Assert.That (input.ReadByte (), Is.EqualTo (42));
+			Assert.That (reference.DisplayName, Does.EndWith (".tmp"));
+		} finally {
+			if (File.Exists (path)) File.Delete (path);
+		}
+	}
 }
