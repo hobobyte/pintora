@@ -1215,7 +1215,7 @@ public sealed class TextTool : BaseTool
 		}
 
 		g.Save ();
-		PangoCairo.Functions.ContextSetFontOptions (chrome.MainWindow.GetPangoContext (), options);
+		PangoCairo.Functions.ContextSetFontOptions (chrome.TextContext, options);
 
 
 		// Show selection if on text layer
