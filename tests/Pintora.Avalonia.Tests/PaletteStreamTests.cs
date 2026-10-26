@@ -3,6 +3,7 @@ using System.Linq;
 using Cairo;
 using NUnit.Framework;
 using Pinta.Core;
+using Pinta.Core.Neutral;
 
 namespace Pintora.Avalonia.Tests;
 
@@ -58,6 +59,17 @@ internal sealed class PaletteStreamTests
 		Assert.That (new GimpPalette (), Is.AssignableTo<IPaletteStreamLoader> ());
 		Assert.That (new PaintDotNetPalette (), Is.AssignableTo<IPaletteStreamSaver> ());
 		Assert.That (new PaintShopProPalette (), Is.AssignableTo<IPaletteStreamLoader> ());
+	}
+
+	[Test]
+	public void FormatsExposeNeutralColorStreamLoaders ()
+	{
+		foreach (IPaletteColorStreamLoader palette in new IPaletteColorStreamLoader[] { new GimpPalette (), new PaintDotNetPalette (), new PaintShopProPalette () }) {
+			using var stream = new MemoryStream ();
+			((IPaletteSaver) palette).Save (colors, stream);
+			stream.Position = 0;
+			Assert.That (palette.LoadColors (stream), Has.Count.EqualTo (2));
+		}
 	}
 
 	[Test]

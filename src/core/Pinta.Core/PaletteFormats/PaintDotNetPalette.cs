@@ -26,15 +26,18 @@
 // THE SOFTWARE.
 
 using System.Collections.Generic;
+using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Cairo;
 
 namespace Pinta.Core;
 
-public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver, IPaletteStreamLoader, IPaletteStreamSaver
+public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver, IPaletteStreamLoader, IPaletteStreamSaver, Pinta.Core.Neutral.IPaletteColorStreamLoader
 {
+	public IReadOnlyList<ColorBgra> LoadColors (Stream stream) => Load (stream).Select (c => ColorBgra.FromBgra ((byte) Math.Round (c.B * 255), (byte) Math.Round (c.G * 255), (byte) Math.Round (c.R * 255), (byte) Math.Round (c.A * 255))).ToArray ();
 	public List<Color> Load (Gio.File file)
 	{
 		using var stream = new GioStream (file.Read (null));
