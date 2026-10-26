@@ -52,16 +52,16 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_O);
 	public override int Priority => 45;
 
-	protected override void OnBuildToolBar (Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
 		tb.Append (FillLabel);
-		tb.Append ((Gtk.Widget) FillDropDown.NativeWidget);
+		tb.Append (FillDropDown.NativeWidget);
 		tb.Append (Separator);
-		base.OnBuildToolBar (tb);
+		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
 
 		// TODO: This could be cleaner.
 		// This will only return an item on the first setup so we only add the handler once.
-		var dash_pattern_box = dash_p_box.SetupToolbar (tb);
+		var dash_pattern_box = dash_p_box.SetupToolbar ((Gtk.Box) tb.NativeToolbar);
 		BrushWidthLabel.Visible = BrushWidthSpinButton.Visible = StrokeShape;
 		dash_p_box.SetVisible (StrokeShape);
 
