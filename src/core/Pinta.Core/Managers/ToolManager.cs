@@ -88,6 +88,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 
 	private readonly WorkspaceManager workspace_manager;
 	private readonly ChromeManager chrome_manager;
+	private IToolUiService? ToolUi => PintaCore.Services.GetOptionalService<IToolUiService> ();
 	public ToolManager (WorkspaceManager workspaceManager, ChromeManager chromeManager)
 	{
 		workspace_manager = workspaceManager;
@@ -175,6 +176,13 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		CurrentTool = tool;
 
 		tool.DoActivated (workspace_manager.ActiveDocumentOrDefault);
+		if (ToolUi is IToolUiService ui) {
+			ui.ActivateTool (tool);
+			workspace_manager.Invalidate ();
+			chrome_manager.SetStatusBarText ($" {tool.Name}: {tool.StatusBarText}");
+			ToolActivated?.Invoke (this, new ToolEventArgs (tool));
+			return;
+		}
 
 		ToolImage.SetFromIconName (tool.Icon);
 
@@ -237,6 +245,10 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 
 	private void DeactivateTool (BaseTool tool, BaseTool? newTool)
 	{
+		if (ToolUi is IToolUiService ui) {
+			ui.DeactivateTool (tool, newTool);
+			return;
+		}
 		ToolWidgetsBox.RemoveAll ();
 		chrome_manager.ToolToolBar.RemoveAll ();
 

@@ -89,6 +89,7 @@ internal sealed class MainWindow
 				Gtk.RecentManager.GetDefault ().AddItem (Gio.FileHelper.NewForPath (path.Path).GetUri ());
 		};
 		PintaCore.Services.AddService<IToolOptionViewFactory> (new GtkToolOptionViewFactory ());
+		PintaCore.Services.AddService<IToolUiService> (new GtkToolUiService (PintaCore.Chrome));
 		PintaCore.Services.AddService<ICursorService> (new GtkCursorService ());
 		PintaCore.Services.AddService<IEffectConfigurationService> (new GtkEffectConfigurationService (PintaCore.Chrome));
 
