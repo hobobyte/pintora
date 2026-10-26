@@ -32,8 +32,6 @@ namespace Pinta.Core;
 
 public interface IChromeService
 {
-	Gtk.Window MainWindow { get; }
-
 	Task<bool> LaunchSimpleEffectDialog (
 		Gtk.Window parent,
 		BaseEffect effect,
