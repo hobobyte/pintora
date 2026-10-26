@@ -38,6 +38,7 @@ public sealed class Document
 {
 	private string display_name = string.Empty;
 	private Gio.File? file = null;
+	private IFileReference? file_reference = null;
 
 	private bool is_dirty;
 
@@ -138,9 +139,21 @@ public sealed class Document
 	}
 
 	/// <summary>
+	/// Platform-neutral file reference. This is the migration path away from Gio.File.
+	/// </summary>
+	public IFileReference? FileReference {
+		get => file_reference;
+		set {
+			file_reference = value;
+			if (value is not null)
+				DisplayName = value.DisplayName;
+		}
+	}
+
+	/// <summary>
 	/// Whether the document is associated with a file on disk.
 	/// </summary>
-	public bool HasFile => file is not null;
+	public bool HasFile => file is not null || file_reference is not null;
 
 	/// Whether or not the document has been saved to the file that it is currently associated with in the
 	/// current session. This should be false if the Document has not yet been saved, if it was just loaded into
