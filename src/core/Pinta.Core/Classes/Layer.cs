@@ -57,11 +57,14 @@ public class Layer : ObservableObject
 		Transform = CairoExtensions.CreateIdentityMatrix ();
 	}
 
+	/// <summary>Legacy Cairo surface. New code should use <see cref="RasterSurface"/>.</summary>
+	[Obsolete ("Use RasterSurface and IImageSurfaceFactory for platform-neutral code.")]
 	public ImageSurface Surface { get; set; }
 
 	/// <summary>
 	/// Explicit Cairo access for code that still needs the current renderer.
 	/// </summary>
+	[Obsolete ("Use RasterSurface and IImageSurfaceFactory for platform-neutral code.")]
 	public ImageSurface CairoSurface => Surface;
 
 	/// <summary>
