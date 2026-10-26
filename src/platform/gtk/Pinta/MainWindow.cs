@@ -83,6 +83,7 @@ internal sealed class MainWindow
 		PintaCore.Chrome.InitializeSimpleEffectDialog (SimpleEffectDialog.Launch);
 
 		PintaCore.Initialize ();
+		PintaCore.Services.ReplaceService<IFileDialogService> (new GtkFileDialogService (window_shell.Window));
 		PintaCore.Services.AddService<IToolOptionViewFactory> (new GtkToolOptionViewFactory ());
 		PintaCore.Services.AddService<ICursorService> (new GtkCursorService ());
 		PintaCore.Services.AddService<IEffectConfigurationService> (new GtkEffectConfigurationService (PintaCore.Chrome));
