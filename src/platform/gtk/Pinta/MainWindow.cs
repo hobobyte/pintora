@@ -530,18 +530,18 @@ internal sealed class MainWindow
 		toolbox_scroll.WindowPlacement = Gtk.CornerType.BottomRight;
 
 		container.Append (toolbox_scroll);
-		PintaCore.Chrome.InitializeToolBox (toolbox);
+		PintaCore.Chrome.InitializeToolBoxVisibility (visible => toolbox.Visible = visible);
 
 		// Dock widget
 		dock = Dock.New ();
 		dock.Hexpand = true;
 		dock.Halign = Gtk.Align.Fill;
-		PintaCore.Chrome.InitializeDock (dock);
+		PintaCore.Chrome.InitializeToolWindowsVisibility (visible => ((Docking.Dock) dock).RightPanel.Visible = visible);
 
 		// Canvas pad
 		canvas_pad = new CanvasPad ();
 		canvas_pad.Initialize (dock);
-		PintaCore.Chrome.InitializeImageTabsNotebook (canvas_pad.Notebook);
+		PintaCore.Chrome.InitializeImageTabsVisibility (visible => ((Docking.DockNotebook) canvas_pad.Notebook).EnableTabs = visible);
 
 		// Layer pad
 		LayersPad layers_pad = new (PintaCore.Actions.Layers);
