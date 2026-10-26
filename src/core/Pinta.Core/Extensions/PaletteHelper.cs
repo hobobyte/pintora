@@ -24,6 +24,11 @@ public static class PaletteHelper
 		saver.Save (palette.Colors, stream);
 	}
 
+	public static void Save (this Palette palette, Stream stream, IPaletteStreamSaver saver)
+	{
+		saver.Save (palette.Colors, stream);
+	}
+
 	public static void Save (this Palette palette, IFileReference file, IPaletteSaver saver)
 	{
 		using Stream stream = file.OpenWrite ();
@@ -45,8 +50,8 @@ public static class PaletteHelper
 	public static void Load (this Palette palette, PaletteFormatManager paletteFormats, Stream stream, string fileName)
 	{
 		var format = paletteFormats.GetFormatByFilename (fileName);
-		if (format?.Loader is not null) {
-			palette.Load (format.Loader.Load (stream));
+		if (format?.StreamLoader is not null) {
+			palette.Load (format.StreamLoader.Load (stream));
 			return;
 		}
 
