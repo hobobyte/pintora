@@ -90,6 +90,7 @@ internal sealed class MainWindow
 		};
 		PintaCore.Services.AddService<IToolOptionViewFactory> (new GtkToolOptionViewFactory ());
 		PintaCore.Services.AddService<IToolUiService> (new GtkToolUiService (PintaCore.Chrome));
+		PintaCore.Services.AddService<IActionUiService> (new GtkActionUiService (PintaCore.Chrome));
 		PintaCore.Services.AddService<ICursorService> (new GtkCursorService ());
 		PintaCore.Services.AddService<IEffectConfigurationService> (new GtkEffectConfigurationService (PintaCore.Chrome));
 
@@ -480,10 +481,10 @@ internal sealed class MainWindow
 				Resources.StandardIcons.ViewReveal,
 				Translations.GetString ("View")));
 
-			PintaCore.Actions.CreateHeaderToolBar (headerBar);
+			PintaCore.Services.GetService<IActionUiService> ().CreateHeaderToolBar (PintaCore.Actions, headerBar);
 		} else {
 			var main_toolbar = window_shell.CreateToolBar ("main_toolbar");
-			PintaCore.Actions.CreateToolBar (main_toolbar);
+			PintaCore.Services.GetService<IActionUiService> ().CreateToolBar (PintaCore.Actions, main_toolbar);
 		}
 	}
 
@@ -505,7 +506,7 @@ internal sealed class MainWindow
 
 		statusbar.Append (widget);
 
-		PintaCore.Actions.CreateStatusBar (statusbar, PintaCore.Workspace);
+		PintaCore.Services.GetService<IActionUiService> ().CreateStatusBar (PintaCore.Actions, PintaCore.Workspace, statusbar);
 
 		PintaCore.Chrome.InitializeStatusBar (statusbar);
 	}
