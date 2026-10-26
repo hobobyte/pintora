@@ -65,16 +65,11 @@ public sealed class ColorPickerTool : BaseTool
 	public override Gdk.Cursor DefaultCursor {
 		get {
 			double scale = workspace.GetScale ();
-			Gdk.Texture icon = GdkExtensions.CreateIconWithShape (
-				"Cursor.ColorPicker.png",
+			return (Gdk.Cursor?) CursorService.CreateShapedCursor (
+				new CursorDescriptor ("Cursor.ColorPicker.png", 7, 27),
 				CursorShape.Rectangle,
 				scale,
-				SampleSize,
-				7,
-				27,
-				out var iconOffsetX,
-				out var iconOffsetY);
-			return Gdk.Cursor.NewFromTexture (icon, iconOffsetX, iconOffsetY, null);
+				SampleSize)!;
 		}
 	}
 
