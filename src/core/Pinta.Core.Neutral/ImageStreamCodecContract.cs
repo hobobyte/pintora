@@ -14,3 +14,10 @@ public interface IImageStreamCodec
 	/// <summary>Encodes an engine surface into the destination stream.</summary>
 	void Encode (IImageSurface source, Stream destination);
 }
+
+/// <summary>File-reference boundary for image codecs.</summary>
+public interface IImageFileCodec
+{
+	IImageSurface Decode (IFileReference source);
+	void Encode (IImageSurface source, IFileReference destination);
+}

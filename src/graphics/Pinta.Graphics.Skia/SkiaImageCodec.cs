@@ -3,8 +3,20 @@ using SkiaSharp;
 
 namespace Pinta.Graphics.Skia;
 
-public sealed class SkiaImageCodec : Pinta.Core.IImageStreamCodec
+public sealed class SkiaImageCodec : Pinta.Core.IImageStreamCodec, Pinta.Core.IImageFileCodec
 {
+	public Pinta.Core.IImageSurface Decode (Pinta.Core.IFileReference source)
+	{
+		using Stream stream = source.OpenRead ();
+		return Decode (stream);
+	}
+
+	public void Encode (Pinta.Core.IImageSurface source, Pinta.Core.IFileReference destination)
+	{
+		using Stream stream = destination.OpenWrite ();
+		Encode (source, stream);
+	}
+
 	public Pinta.Core.IImageSurface Decode (Stream source)
 	{
 		using var data = SKData.Create (source);

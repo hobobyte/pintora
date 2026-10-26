@@ -35,4 +35,10 @@ public sealed class SkiaImageCodecTests
 		Assert.That (surface.Width, Is.EqualTo (7));
 		Assert.That (surface.Height, Is.EqualTo (5));
 	}
+
+	[Test]
+	public void CodecExposesNeutralFileReferenceBoundary ()
+	{
+		Assert.That (new SkiaImageCodec (), Is.AssignableTo<Pinta.Core.IImageFileCodec> ());
+	}
 }
