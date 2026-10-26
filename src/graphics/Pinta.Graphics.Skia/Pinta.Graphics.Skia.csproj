@@ -6,7 +6,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Pinta.Core\Pinta.Core.csproj" />
+    <ProjectReference Include="..\..\core\Pinta.Core\Pinta.Core.csproj" />
     <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 </Project>

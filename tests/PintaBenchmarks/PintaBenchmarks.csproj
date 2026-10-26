@@ -12,9 +12,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Pinta.Core\Pinta.Core.csproj" />
-    <ProjectReference Include="..\..\Pinta.Effects\Pinta.Effects.csproj" />
-    <ProjectReference Include="..\..\Pinta.Gui.Widgets\Pinta.Gui.Widgets.csproj" />
+    <ProjectReference Include="..\..\src\core\Pinta.Core\Pinta.Core.csproj" />
+    <ProjectReference Include="..\..\src\core\Pinta.Effects\Pinta.Effects.csproj" />
+    <ProjectReference Include="..\..\src\platform\gtk\Pinta.Gui.Widgets\Pinta.Gui.Widgets.csproj" />
   </ItemGroup>
 
   <ItemGroup>
