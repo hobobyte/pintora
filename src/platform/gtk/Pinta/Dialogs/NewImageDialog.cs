@@ -217,7 +217,7 @@ public sealed partial class NewImageDialog
 	}
 
 	private void Configure (
-		IChromeService chrome,
+		ChromeManager chrome,
 		IPaletteService palette,
 		Size initialSize,
 		BackgroundType initialBackgroundType,
@@ -272,7 +272,7 @@ public sealed partial class NewImageDialog
 	/// <param name="imgHeight">Initial value of the height entry.</param>
 	/// <param name="isClipboardSize">Indicates if there is an image on the clipboard (and the size parameters represent the clipboard image size).</param>
 	public static NewImageDialog New (
-		IChromeService chrome,
+		ChromeManager chrome,
 		IPaletteService palette,
 		Size initialSize,
 		BackgroundType initialBackgroundType,
