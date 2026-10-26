@@ -31,11 +31,11 @@ public static class RasterBlitter
 		Span<ColorBgra> destinationPixels = destination.GetPixelData ();
 		for (int y = firstY; y < lastY; y++) {
 			for (int x = firstX; x < lastX; x++) {
-				double localX = (x + 0.5 - (left + width / 2)) / actualScaleX;
-				double localY = (y + 0.5 - (top + height / 2)) / actualScaleY;
+				double localPositionX = (x + 0.5 - (left + width / 2)) / actualScaleX;
+				double localPositionY = (y + 0.5 - (top + height / 2)) / actualScaleY;
 				double cosine = Math.Cos (-rotation), sine = Math.Sin (-rotation);
-				double rotatedX = localX * cosine - localY * sine + source.Width / 2.0;
-				double rotatedY = localX * sine + localY * cosine + source.Height / 2.0;
+				double rotatedX = localPositionX * cosine - localPositionY * sine + source.Width / 2.0;
+				double rotatedY = localPositionX * sine + localPositionY * cosine + source.Height / 2.0;
 				if (rotatedX < 0 || rotatedY < 0 || rotatedX >= source.Width || rotatedY >= source.Height)
 					continue;
 				int sourceX = Math.Clamp ((int) rotatedX, 0, source.Width - 1);
