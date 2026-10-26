@@ -33,7 +33,7 @@ public sealed class MainWindow : Window
 	private readonly PintoraViewSettings view_settings;
 	private readonly string version;
 	private readonly IImageSourceProvider image_source_provider;
-	private readonly IClipboardService? clipboard_service;
+	private readonly IAvaloniaClipboardService? clipboard_service;
 	private readonly List<ColorBgra> recent_colors = new ();
 	private readonly List<ColorBgra> palette_colors = new ();
 	private LayerThumbnailProvider? thumbnail_provider;
@@ -101,6 +101,8 @@ public sealed class MainWindow : Window
 		SyncActiveCanvas ();
 		thumbnail_provider = new LayerThumbnailProvider (canvas);
 		clipboard_service = Clipboard is null ? null : new AvaloniaClipboardService (Clipboard);
+		if (Clipboard is not null)
+			application.Services.ReplaceService<Pinta.Core.IClipboardService> (new AvaloniaNeutralClipboardService (Clipboard));
 		image_source_provider = new FileImageSourceProvider (clipboard_service);
 		UpdateDocumentTitle (canvas, version);
 		canvas.BrushColor = LoadColor ("Pintora.Palette.Primary", ColorBgra.Black);

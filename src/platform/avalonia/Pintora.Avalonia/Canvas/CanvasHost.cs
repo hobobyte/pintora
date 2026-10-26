@@ -906,7 +906,7 @@ public sealed class CanvasHost : Control, IDisposable
 		return selection_tool.Copy (Surface);
 	}
 
-	public async Task<bool> CopyImageToClipboardAsync (IClipboardService clipboard, CancellationToken cancellationToken = default)
+	public async Task<bool> CopyImageToClipboardAsync (IAvaloniaClipboardService clipboard, CancellationToken cancellationToken = default)
 	{
 		using MemoryImageSurface composite = CreateCompositeSurface ();
 		using WriteableBitmap image = CreateBitmap (composite);
@@ -914,7 +914,7 @@ public sealed class CanvasHost : Control, IDisposable
 		return true;
 	}
 
-	public async Task<bool> CopySelectionToClipboardAsync (IClipboardService clipboard, CancellationToken cancellationToken = default)
+	public async Task<bool> CopySelectionToClipboardAsync (IAvaloniaClipboardService clipboard, CancellationToken cancellationToken = default)
 	{
 		if (Surface is null || Selection is not RectangleI area || area.Width <= 0 || area.Height <= 0)
 			return false;

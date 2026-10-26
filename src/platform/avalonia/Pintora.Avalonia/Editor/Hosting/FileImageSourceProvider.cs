@@ -9,9 +9,9 @@ namespace Pintora.Avalonia.Editor.Hosting;
 
 public sealed class FileImageSourceProvider : IImageSourceProvider
 {
-	private readonly IClipboardService? clipboard;
+	private readonly IAvaloniaClipboardService? clipboard;
 
-	public FileImageSourceProvider (IClipboardService? clipboard = null)
+	public FileImageSourceProvider (IAvaloniaClipboardService? clipboard = null)
 	{
 		this.clipboard = clipboard;
 	}

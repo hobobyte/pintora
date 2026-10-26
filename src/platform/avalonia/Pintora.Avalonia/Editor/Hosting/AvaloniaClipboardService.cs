@@ -6,7 +6,7 @@ using Avalonia.Media.Imaging;
 namespace Pintora.Avalonia.Editor.Hosting;
 
 /// <summary>System clipboard adapter for Avalonia desktop hosts.</summary>
-public sealed class AvaloniaClipboardService (IClipboard clipboard) : IClipboardService
+public sealed class AvaloniaClipboardService (IClipboard clipboard) : IAvaloniaClipboardService
 {
 	public async Task SetImageAsync (Bitmap image, CancellationToken cancellationToken = default)
 	{
