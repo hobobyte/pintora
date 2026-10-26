@@ -18,7 +18,7 @@ cp -R "$PUBLISH_DIR"/. "$STAGING/usr/lib/pintora/"
 chmod +x "$STAGING/usr/lib/pintora/Pintora"
 ln -s /usr/lib/pintora/Pintora "$STAGING/usr/bin/pintora"
 cp installer/avalonia/pintora.desktop "$STAGING/usr/share/applications/"
-cp Pinta.Resources/icons/hicolor/96x96/apps/com.github.PintaProject.Pinta.png \
+cp src/core/Pinta.Resources/icons/hicolor/96x96/apps/com.github.PintaProject.Pinta.png \
     "$STAGING/usr/share/icons/hicolor/96x96/apps/pintora.png"
 cp LICENSE.md CHANGELOG.md \
     "$STAGING/usr/share/doc/pintora/"

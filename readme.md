@@ -31,13 +31,13 @@ can be imported as rasterized layers. Export is available for PNG, JPEG, WebP, T
 Install the .NET 10 SDK. From the repository root:
 
 ```sh
-dotnet run --project Pintora.Avalonia/Pintora.Avalonia.csproj
+dotnet run --project src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj
 ```
 
 To build a Release version:
 
 ```sh
-dotnet build Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release
+dotnet build src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release
 ```
 
 ## Tests
@@ -60,4 +60,4 @@ Pintora-specific contributions are licensed under MIT; see [`LICENSE.md`](LICENS
 Pinta and Paint.NET code retain their original notices in
 [`third-party/pinta/LICENSE.md`](third-party/pinta/LICENSE.md) and
 [`third-party/paint.net/LICENSE.md`](third-party/paint.net/LICENSE.md). Icon sources and attributions are listed in
-[`Pinta.Resources/icons/pinta-icons.md`](Pinta.Resources/icons/pinta-icons.md).
+[`src/core/Pinta.Resources/icons/pinta-icons.md`](src/core/Pinta.Resources/icons/pinta-icons.md).
