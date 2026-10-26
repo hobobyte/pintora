@@ -111,4 +111,13 @@ internal sealed class PaletteStreamTests
 		Assert.That (catalog.Formats, Has.Count.EqualTo (3));
 	}
 
+	[Test]
+	public void ImageFormatMetadataIsIndependentFromGtkFilter ()
+	{
+		var metadata = new ImageFormatMetadata (["ppm"], ["image/x-portable-pixmap"], supportsLayers: false);
+		Assert.That (metadata.Extensions, Has.Member ("ppm"));
+		Assert.That (metadata.Mimes, Has.Member ("image/x-portable-pixmap"));
+		Assert.That (metadata.SupportsLayers, Is.False);
+	}
+
 }
