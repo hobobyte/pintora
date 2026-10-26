@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\core\Pinta.Resources.Neutral\Pinta.Resources.Neutral.csproj" />
     <ProjectReference Include="..\..\..\core\Pinta.Core\Pinta.Core.csproj" />
+    <ProjectReference Include="..\..\..\application\Pinta.Application\Pinta.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -15,6 +15,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
 using Pinta.Core;
+using Pinta.Application;
 using Pintora.Avalonia.Canvas;
 using Pintora.Avalonia.Document;
 using Pintora.Avalonia.Editor.Commands;
@@ -62,7 +63,7 @@ public sealed class MainWindow : Window
 	private List<(Button Button, CanvasHost.CanvasTool Tool)>? tool_buttons;
 	private static readonly CanvasHost.CanvasTool[] EffectTools = [CanvasHost.CanvasTool.Blur, CanvasHost.CanvasTool.Pixelate, CanvasHost.CanvasTool.Highlight, CanvasHost.CanvasTool.Magnify, CanvasHost.CanvasTool.Spotlight];
 
-	public MainWindow ()
+	public MainWindow (PintaApplication application)
 	{
 		version = typeof (MainWindow).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?.InformationalVersion
 			?? "0.0.1-alpha";
@@ -75,7 +76,7 @@ public sealed class MainWindow : Window
 		MinWidth = 900;
 		MinHeight = 600;
 
-		settings = new SettingsManager ();
+		settings = application.GetService<SettingsManager> ();
 		App.InitializeTheme (settings);
 		keyboard = new PintoraKeyboardSettings (settings);
 		view_settings = new PintoraViewSettings (settings);

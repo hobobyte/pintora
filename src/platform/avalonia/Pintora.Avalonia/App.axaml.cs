@@ -3,11 +3,13 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 using Pinta.Core;
+using Pinta.Application;
 
 namespace Pintora.Avalonia;
 
 public sealed class App : Application
 {
+	public static PintaApplication Services { get; } = PintaApplication.Build (new NeutralImageFormatProvider ());
 	private const string ThemeSettingKey = "Pintora.Theme";
 	private static ISettingsService? themeSettings;
 
@@ -44,7 +46,7 @@ public sealed class App : Application
 	public override void OnFrameworkInitializationCompleted ()
 	{
 		if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-			desktop.MainWindow = new MainWindow ();
+			 desktop.MainWindow = new MainWindow (Services);
 
 		base.OnFrameworkInitializationCompleted ();
 	}
