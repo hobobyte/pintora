@@ -370,7 +370,7 @@ internal sealed class MainWindow
 
 		app.AddWindow (window_shell.Window);
 
-		PintaCore.Chrome.InitializeWindowShell (window_shell.Window);
+		PintaCore.Chrome.MainWindow = window_shell.Window;
 		PintaCore.Chrome.InitializeWindowHost (
 			title => window_shell.Window.Title = title,
 			fullscreen => { if (fullscreen) window_shell.Window.Fullscreen (); else window_shell.Window.Unfullscreen (); },
