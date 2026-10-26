@@ -4,7 +4,7 @@ using Avalonia.Media.Imaging;
 
 namespace Pintora.Avalonia.Editor.Hosting;
 
-public interface IClipboardService
+public interface IAvaloniaClipboardService
 {
 	Task SetImageAsync (Bitmap image, CancellationToken cancellationToken = default);
 	Task<Bitmap?> GetImageAsync (CancellationToken cancellationToken = default);
