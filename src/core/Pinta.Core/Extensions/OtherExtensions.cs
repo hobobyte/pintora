@@ -154,7 +154,6 @@ public static class OtherExtensions
 
 	internal static Task ShowUnsupportedFormatDialog (
 		this ChromeManager chrome,
-		Gtk.Window parent,
 		IEnumerable<PaletteDescriptor> supportedPalettes,
 		string filename,
 		string message,
@@ -176,7 +175,6 @@ public static class OtherExtensions
 		details.AppendJoin (", ", extensions);
 
 		return chrome.ShowErrorDialog (
-			parent,
 			message,
 			details.ToString (),
 			errors);
