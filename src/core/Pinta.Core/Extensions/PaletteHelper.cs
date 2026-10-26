@@ -24,6 +24,12 @@ public static class PaletteHelper
 		saver.Save (palette.Colors, stream);
 	}
 
+	public static void Save (this Palette palette, IFileReference file, IPaletteSaver saver)
+	{
+		using Stream stream = file.OpenWrite ();
+		saver.Save (palette.Colors, stream);
+	}
+
 
 	public static void LoadDefault (this Palette palette)
 	{
@@ -45,6 +51,12 @@ public static class PaletteHelper
 		}
 
 		throw new PaletteLoadException (fileName, $"No palette format is registered for '{fileName}'.");
+	}
+
+	public static void Load (this Palette palette, PaletteFormatManager paletteFormats, IFileReference file)
+	{
+		using Stream stream = file.OpenRead ();
+		palette.Load (paletteFormats, stream, file.DisplayName);
 	}
 
 	private static List<Color> LoadColorsFromFile (PaletteFormatManager paletteFormats, Gio.File file)
