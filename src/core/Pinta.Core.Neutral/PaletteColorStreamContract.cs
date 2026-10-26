@@ -11,3 +11,9 @@ public interface IPaletteColorStreamLoader
 {
 	IReadOnlyList<ColorBgra> LoadColors (Stream stream);
 }
+
+/// <summary>Platform-neutral palette encoder contract.</summary>
+public interface IPaletteColorStreamSaver
+{
+	void SaveColors (IReadOnlyList<ColorBgra> colors, Stream stream);
+}

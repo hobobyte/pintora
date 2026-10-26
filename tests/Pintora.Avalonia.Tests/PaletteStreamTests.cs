@@ -73,6 +73,17 @@ internal sealed class PaletteStreamTests
 	}
 
 	[Test]
+	public void FormatsExposeNeutralColorStreamSavers ()
+	{
+		ColorBgra[] neutralColors = [ColorBgra.Red, ColorBgra.FromBgra (255, 128, 0, 255)];
+		foreach (IPaletteColorStreamSaver palette in new IPaletteColorStreamSaver[] { new GimpPalette (), new PaintDotNetPalette (), new PaintShopProPalette () }) {
+			using var stream = new MemoryStream ();
+			palette.SaveColors (neutralColors, stream);
+			Assert.That (stream.Length, Is.GreaterThan (0));
+		}
+	}
+
+	[Test]
 	public void PaletteDescriptorExposesNeutralMetadata ()
 	{
 		var descriptor = new PaletteDescriptor ("GIMP", ["gpl"], new GimpPalette (), new GimpPalette (), createGtkFilter: false);
