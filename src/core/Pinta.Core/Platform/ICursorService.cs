@@ -7,4 +7,5 @@ public readonly record struct CursorDescriptor (string ResourceName, int Hotspot
 public interface ICursorService
 {
 	object? CreateCursor (CursorDescriptor descriptor);
+	object? CreateShapedCursor (CursorDescriptor descriptor, CursorShape shape, double scale, int shapeWidth);
 }

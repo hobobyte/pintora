@@ -17,4 +17,18 @@ public sealed class GtkCursorService : ICursorService
 
 		return GdkExtensions.CursorFromName (descriptor.ResourceName);
 	}
+
+	public object? CreateShapedCursor (CursorDescriptor descriptor, CursorShape shape, double scale, int shapeWidth)
+	{
+		Gdk.Texture texture = GdkExtensions.CreateIconWithShape (
+			descriptor.ResourceName,
+			shape,
+			scale,
+			shapeWidth,
+			descriptor.HotspotX,
+			descriptor.HotspotY,
+			out int hotspotX,
+			out int hotspotY);
+		return Cursor.NewFromTexture (texture, hotspotX, hotspotY, null);
+	}
 }
