@@ -41,6 +41,9 @@ public interface IChromeService
 		IWorkspaceService workspace,
 		Action<string?> onChanged);
 	void SetStatusBarVisible (bool visible);
+	void SetMainWindowTitle (string title);
+	void SetMainWindowFullscreen (bool fullscreen);
+	Task LaunchUri (string uri);
 }
 
 public static class ChromeExtensions
@@ -83,6 +86,9 @@ public sealed class ChromeManager : IChromeService
 	private Action<bool>? set_main_toolbar_visible;
 	private Action<Command>? add_application_command;
 	private Action? quit_application;
+	private Action<string>? set_window_title;
+	private Action<bool>? set_window_fullscreen;
+	private Func<string, Task>? launch_uri;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
 	public Gio.Menu AdjustmentsMenu { get; private set; } = null!;
@@ -122,6 +128,12 @@ public sealed class ChromeManager : IChromeService
 	public void InitializeMainToolBarVisibility (Action<bool> setVisible) => set_main_toolbar_visible = setVisible;
 	public void InitializeApplicationCommandSink (Action<Command> addCommand) => add_application_command = addCommand;
 	public void InitializeApplicationQuit (Action quit) => quit_application = quit;
+	public void InitializeWindowHost (Action<string> setTitle, Action<bool> setFullscreen, Func<string, Task> launchUri)
+	{
+		set_window_title = setTitle;
+		set_window_fullscreen = setFullscreen;
+		launch_uri = launchUri;
+	}
 
 	public void InitializeMainMenu (Gio.Menu adj_menu, Gio.Menu effects_menu)
 	{
@@ -180,6 +192,9 @@ public sealed class ChromeManager : IChromeService
 	public void SetMainToolBarVisible (bool visible) => set_main_toolbar_visible?.Invoke (visible);
 	public void AddApplicationCommand (Command command) => add_application_command?.Invoke (command);
 	public void QuitApplication () => quit_application?.Invoke ();
+	public void SetMainWindowTitle (string title) => set_window_title?.Invoke (title);
+	public void SetMainWindowFullscreen (bool fullscreen) => set_window_fullscreen?.Invoke (fullscreen);
+	public Task LaunchUri (string uri) => launch_uri?.Invoke (uri) ?? Task.CompletedTask;
 
 	public Task<bool> LaunchSimpleEffectDialog (
 		Gtk.Window parent,

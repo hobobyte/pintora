@@ -148,8 +148,7 @@ public static class OtherExtensions
 			Process process = Process.Start ("open", uri);
 			process.WaitForExit ();
 		} else {
-			Gtk.UriLauncher launcher = Gtk.UriLauncher.New (uri);
-			await launcher.LaunchAsync (PintaCore.Chrome.MainWindow);
+			await PintaCore.Chrome.LaunchUri (uri);
 		}
 	}
 

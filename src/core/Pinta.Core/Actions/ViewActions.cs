@@ -271,9 +271,9 @@ public sealed class ViewActions
 
 		Fullscreen.Activated += (foo, bar) => {
 			if (!isFullscreen)
-				chrome.MainWindow.Fullscreen ();
+				chrome.SetMainWindowFullscreen (true);
 			else
-				chrome.MainWindow.Unfullscreen ();
+				chrome.SetMainWindowFullscreen (false);
 
 			isFullscreen = !isFullscreen;
 		};
