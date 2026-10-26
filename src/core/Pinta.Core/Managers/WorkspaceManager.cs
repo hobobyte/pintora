@@ -308,11 +308,8 @@ public sealed class WorkspaceManager : IWorkspaceService
 	// TODO: Standardize add to recent files
 	/// <returns>Flag that indicates if file was opened successfully</returns>
 	public bool OpenFile (
-		IFileReference file,
-		Gtk.Window? parent = null)
+		IFileReference file)
 	{
-		parent ??= chrome_manager.MainWindow;
-
 		try {
 			// Open the image and add it to the layers
 			IImageImporter? importer = image_formats.GetImporterByFile (file.DisplayName);
@@ -331,7 +328,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 						break;
 					} catch (UnauthorizedAccessException) {
 						// If the file can't be accessed, don't retry for every format.
-						ShowFilePermissionErrorDialog (parent, file.DisplayName);
+						ShowFilePermissionErrorDialog (file.DisplayName);
 						return false;
 					} catch (Exception e) {
 						// Record errors in case none of the formats work.
@@ -342,7 +339,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 				}
 
 				if (!loaded) {
-					ShowUnsupportedFormatDialog (parent, file.DisplayName,
+					ShowUnsupportedFormatDialog (file.DisplayName,
 						Translations.GetString ("Unsupported file format"), errors.ToString ());
 					return false;
 				}
@@ -354,9 +351,9 @@ public sealed class WorkspaceManager : IWorkspaceService
 			return true;
 
 		} catch (UnauthorizedAccessException) {
-			ShowFilePermissionErrorDialog (parent, file.DisplayName);
+			ShowFilePermissionErrorDialog (file.DisplayName);
 		} catch (Exception e) {
-			ShowOpenFileErrorDialog (parent, file.DisplayName, e.Message, e.ToString ());
+			ShowOpenFileErrorDialog (file.DisplayName, e.Message, e.ToString ());
 		}
 
 		return false;
@@ -420,7 +417,6 @@ public sealed class WorkspaceManager : IWorkspaceService
 	}
 
 	private Task ShowOpenFileErrorDialog (
-		Gtk.Window parent,
 		string filename,
 		string primary_text,
 		string details)
@@ -430,7 +426,6 @@ public sealed class WorkspaceManager : IWorkspaceService
 	}
 
 	private Task ShowUnsupportedFormatDialog (
-		Gtk.Window parent,
 		string filename,
 		string message,
 		string errors)
@@ -454,7 +449,6 @@ public sealed class WorkspaceManager : IWorkspaceService
 	}
 
 	private Task ShowFilePermissionErrorDialog (
-		Gtk.Window parent,
 		string filename)
 	{
 		string message = Translations.GetString ("Failed to open image");
