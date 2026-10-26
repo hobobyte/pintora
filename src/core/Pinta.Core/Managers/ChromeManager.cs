@@ -44,6 +44,8 @@ public interface IChromeService
 	void SetMainWindowTitle (string title);
 	void SetMainWindowFullscreen (bool fullscreen);
 	Task LaunchUri (string uri);
+	Task ShowErrorDialog (string message, string body, string details);
+	Task ShowMessageDialog (string message, string body);
 }
 
 public static class ChromeExtensions
@@ -179,6 +181,12 @@ public sealed class ChromeManager : IChromeService
 	{
 		return message_dialog_handler (parent, message, body);
 	}
+
+	public Task ShowErrorDialog (string message, string body, string details)
+		=> ShowErrorDialog (MainWindow, message, body, details);
+
+	public Task ShowMessageDialog (string message, string body)
+		=> ShowMessageDialog (MainWindow, message, body);
 
 	public void SetStatusBarText (string text)
 	{
