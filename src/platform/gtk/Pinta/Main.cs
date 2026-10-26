@@ -91,6 +91,10 @@ internal sealed class MainClass
 	private static void OpenMainWindow (int threads, IEnumerable<string> files, bool debug, string locale_dir)
 	{
 		GLib.UnhandledException.SetHandler (OnUnhandledException);
+		// Configure the GTK image provider before the first access to PintaCore.
+		// This keeps platform composition at the application boundary and allows
+		// the GdkPixbuf implementation to move out of Pinta.Core later.
+		PintaCoreConfiguration.ImageFormatProvider = new GdkPixbufImageFormatProvider ();
 
 		Gsk.Module.Initialize ();
 		Pango.Module.Initialize ();
