@@ -280,7 +280,6 @@ public sealed class LivePreviewManager : ILivePreview
 		public Task<bool> LaunchSimpleEffectDialog (IAddinLocalizer? localizer = null)
 		{
 			return chrome.LaunchSimpleEffectDialog (
-				chrome.MainWindow,
 				effect,
 				localizer ?? new PintaLocalizer (),
 				workspace,
