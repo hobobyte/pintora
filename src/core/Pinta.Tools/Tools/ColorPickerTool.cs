@@ -206,7 +206,7 @@ public sealed class ColorPickerTool : BaseTool
 	private ToolBarDropDownButton ToolSelectionDropDown {
 		get {
 			if (tool_select is null) {
-				tool_select = ToolBarDropDownButton.New (true);
+				tool_select = CreateToolDropDownButton (true);
 
 				tool_select.AddItem (Translations.GetString ("Do not switch tool"), Pinta.Resources.Icons.ToolColorPicker, 0);
 				tool_select.AddItem (Translations.GetString ("Switch to previous tool"), Pinta.Resources.Icons.ToolColorPickerPreviousTool, 1);
@@ -222,7 +222,7 @@ public sealed class ColorPickerTool : BaseTool
 	private ToolBarDropDownButton SampleSizeDropDown {
 		get {
 			if (sample_size is null) {
-				sample_size = ToolBarDropDownButton.New (true);
+				sample_size = CreateToolDropDownButton (true);
 
 				// Change the cursor when the SampleSize is changed.
 				sample_size.SelectedItemChanged += (sender, e) => SetCursor (DefaultCursor);
@@ -243,7 +243,7 @@ public sealed class ColorPickerTool : BaseTool
 	private ToolBarDropDownButton SampleTypeDropDown {
 		get {
 			if (sample_type is null) {
-				sample_type = ToolBarDropDownButton.New (true);
+				sample_type = CreateToolDropDownButton (true);
 
 				sample_type.AddItem (Translations.GetString ("Layer"), Pinta.Resources.Icons.LayerMergeDown, true);
 				sample_type.AddItem (Translations.GetString ("Image"), Pinta.Resources.Icons.ResizeCanvasBase, false);
