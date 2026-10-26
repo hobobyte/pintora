@@ -315,7 +315,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 
 		try {
 			// Open the image and add it to the layers
-			IImageImporter? importer = image_formats.GetImporterByFile (file.GetDisplayName ());
+			IImageImporter? importer = image_formats.GetImporterByFile (System.IO.Path.GetFileName (file.GetParseName ()));
 			if (importer is not null) {
 				Document imported = importer.Import (new PathFileReference (file.GetParseName ()));
 				ActivateDocument (imported);
