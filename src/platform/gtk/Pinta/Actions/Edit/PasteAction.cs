@@ -28,6 +28,7 @@
 using System;
 using System.Threading.Tasks;
 using Pinta.Core;
+using Pinta.Gui.Widgets;
 
 namespace Pinta.Actions;
 
@@ -119,7 +120,7 @@ internal sealed class PasteAction : IActionHandler
 		CompoundHistoryItem paste_action = new (Resources.StandardIcons.EditPaste, history_text);
 
 		var clipboardService = PintaCore.Services.GetService<IClipboardService> ();
-		var cb = GdkExtensions.GetDefaultClipboard ();
+		var cb = GtkClipboardExtensions.GetDefaultClipboard ();
 
 		// See if the current tool wants to handle the paste
 		// operation (e.g., the text tool could paste text)
@@ -134,13 +135,13 @@ internal sealed class PasteAction : IActionHandler
 		// If the image was copied from Pinta, look for our extra metadata.
 		ClipboardImageMetadata? metadata = null;
 		try {
-			GObject.Value metadataValue = await cb.ReadValueAsync (ClipboardImageMetadata.GetGType (), 0);
+			GObject.Value metadataValue = await GtkClipboardExtensions.ReadValueAsync (cb, ClipboardImageMetadata.GetGType (), 0);
 			metadata = (ClipboardImageMetadata?) metadataValue.GetObject ();
 		} catch (GLib.GException e) when (e.Matches (Gio.IOErrorEnum.NotSupported)) {
 			// If the clipboard didn't have this data, continue on.
 		}
 
-		Gdk.Texture? cb_texture = await cb.ReadTextureAsync ();
+			Gdk.Texture? cb_texture = await GtkClipboardExtensions.ReadTextureAsync (cb);
 		if (cb_texture is null) {
 			await ShowClipboardEmptyDialog (chrome);
 			return;

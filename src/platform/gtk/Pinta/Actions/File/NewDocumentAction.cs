@@ -27,6 +27,7 @@
 using System;
 using System.Threading.Tasks;
 using Pinta.Core;
+using Pinta.Gui.Widgets;
 
 namespace Pinta.Actions;
 
@@ -86,10 +87,7 @@ internal sealed class NewDocumentAction : IActionHandler
 		// Try to get the dimensions of an image on the clipboard
 		// for the initial width and height values on the NewImageDialog
 
-		Gdk.Texture? clipboardTexture = await
-			GdkExtensions
-			.GetDefaultClipboard ()
-			.ReadTextureAsync ();
+		Gdk.Texture? clipboardTexture = await GtkClipboardExtensions.GetDefaultClipboard ().ReadTextureAsync ();
 
 		if (clipboardTexture is not null)
 			return new (

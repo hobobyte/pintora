@@ -26,6 +26,7 @@
 
 using System;
 using Pinta.Core;
+using Pinta.Gui.Widgets;
 
 namespace Pinta.Actions;
 
@@ -56,8 +57,8 @@ internal sealed class PasteIntoNewImageAction : IActionHandler
 
 	private async void Activated (object sender, EventArgs e)
 	{
-		var cb = GdkExtensions.GetDefaultClipboard ();
-		Gdk.Texture? cb_texture = await cb.ReadTextureAsync ();
+		var cb = GtkClipboardExtensions.GetDefaultClipboard ();
+		Gdk.Texture? cb_texture = await GtkClipboardExtensions.ReadTextureAsync (cb);
 
 		if (cb_texture is not null)
 			workspace.NewDocumentFromImage (cb_texture.ToSurface ());

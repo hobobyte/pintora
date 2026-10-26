@@ -53,8 +53,6 @@ internal sealed class MainWindow
 	public MainWindow (Adw.Application app)
 	{
 		this.app = app;
-		PintaCore.Services.ReplaceService<IClipboardService> (
-			new GtkClipboardService (Gdk.Display.GetDefault ()!.GetClipboard ()));
 
 		// Set the human-readable application name, used by e.g. gtk_recent_manager_add_item().
 		GLib.Functions.SetApplicationName (Translations.GetString ("Pinta"));
