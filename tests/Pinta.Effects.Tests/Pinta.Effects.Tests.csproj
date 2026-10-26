@@ -4,13 +4,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="SkiaSharp" />
     <PackageReference Include="NUnit" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="NUnit3TestAdapter" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Pinta.Effects\Pinta.Effects.csproj" />
+    <ProjectReference Include="..\..\src\core\Pinta.Effects\Pinta.Effects.csproj" />
   </ItemGroup>
 
   <ItemGroup>
