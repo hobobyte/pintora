@@ -168,7 +168,7 @@ public sealed class CloneStampTool : BaseBrushTool
 		// Note that this WON'T work if user presses control key and THEN selects the tool!
 		if (e.Key.IsControlKey ()) {
 			move_origin_handle = false;
-			SetCursor (Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.CloneStampSetSource.png"), 16, 26, null));
+			SetCursor ((Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.CloneStampSetSource.png", 16, 26))!);
 		}
 
 		return false;
