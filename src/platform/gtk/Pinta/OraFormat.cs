@@ -35,7 +35,7 @@ using GdkPixbuf;
 
 namespace Pinta.Core;
 
-public sealed class OraFormat : IImageImporter, IImageExporter, IImageFileImporter, IImageFileExporter
+public sealed class OraFormat : IImageImporter, IImageExporter
 {
 	private const int THUMB_MAX_SIZE = 256;
 

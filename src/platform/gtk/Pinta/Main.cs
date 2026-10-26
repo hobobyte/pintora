@@ -30,6 +30,7 @@ using System.CommandLine;
 using System.IO;
 using System.Linq;
 using Pinta.Core;
+using Pinta.Gui.Widgets;
 
 namespace Pinta;
 

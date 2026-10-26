@@ -52,7 +52,7 @@ public sealed class EditActions
 	public Command ResetPalette { get; }
 	public Command ResizePalette { get; }
 
-	private Gio.File? last_palette_dir = null;
+	private PathFileReference? last_palette_dir = null;
 	private Document? active_document = null;
 
 	private readonly ChromeManager chrome;
@@ -491,13 +491,13 @@ public sealed class EditActions
 		IFileReference? choice = await FileDialogs.OpenFileAsync (new FileDialogOptions (
 			Translations.GetString ("Open Palette File"),
 			[CreatePalettesFilter (), new FileDialogFilter (Translations.GetString ("All files"), [])],
-			last_palette_dir is null ? null : new PathFileReference (last_palette_dir.GetParseName ())));
+			last_palette_dir));
 
 		if (choice is null)
 			return;
 
 		PathFileReference file = choice as PathFileReference ?? throw new InvalidOperationException ("The selected file is not path-backed.");
-		last_palette_dir = Gio.FileHelper.NewForPath (file.Path).GetParent ();
+		last_palette_dir = GetParentDirectory (file);
 
 		try {
 			palette.CurrentPalette.Load (palette_formats, file);
@@ -522,7 +522,7 @@ public sealed class EditActions
 		IFileReference? choice = await FileDialogs.SaveFileAsync (new FileDialogOptions (
 			Translations.GetString ("Save Palette File"),
 			filters,
-			last_palette_dir is null ? null : new PathFileReference (last_palette_dir.GetParseName ())));
+			last_palette_dir));
 		if (choice is null)
 			return;
 
@@ -534,7 +534,13 @@ public sealed class EditActions
 		PathFileReference file = new (path);
 		PaletteDescriptor format = palette_formats.GetFormatByFilename (path) ?? throw new FormatException ();
 		palette.CurrentPalette.Save (file, format.Saver);
-		last_palette_dir = Gio.FileHelper.NewForPath (file.Path).GetParent ();
+		last_palette_dir = GetParentDirectory (file);
+	}
+
+	private static PathFileReference? GetParentDirectory (PathFileReference file)
+	{
+		string? directory = System.IO.Path.GetDirectoryName (file.Path);
+		return string.IsNullOrEmpty (directory) ? null : new PathFileReference (directory);
 	}
 
 	private FileDialogFilter CreatePalettesFilter ()
