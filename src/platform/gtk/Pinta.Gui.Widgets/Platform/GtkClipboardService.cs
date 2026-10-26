@@ -18,8 +18,15 @@ public sealed class GtkClipboardService : IClipboardService
 	public Task<bool> ContainsImageAsync ()
 		=> Task.FromResult (clipboard.GetFormats ().ContainGtype (Texture.GetGType ()));
 
-	public Task<ClipboardImageData?> ReadImageAsync ()
-		=> throw new NotSupportedException ("GTK texture decoding requires the platform image-surface decoder.");
+	public async Task<ClipboardImageData?> ReadImageAsync ()
+	{
+		Gdk.Texture? texture = await clipboard.ReadTextureAsync ();
+		if (texture is null)
+			return null;
+
+		Cairo.ImageSurface surface = texture.ToSurface ();
+		return new ClipboardImageData (new CairoImageSurface (surface), new PointI (0, 0));
+	}
 
 	public void WriteImage (ClipboardImageData image)
 	{
