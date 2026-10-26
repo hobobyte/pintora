@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Pinta.Effects\Pinta.Effects.csproj" />
+    <ProjectReference Include="..\..\src\core\Pinta.Effects\Pinta.Effects.csproj" />
   </ItemGroup>
 
   <ItemGroup>
