@@ -25,6 +25,21 @@ internal static class Utilities
 		return AreFilesEqual (context1.DataStream, context2.DataStream); ;
 	}
 
+	internal static bool AreStreamsEqual (Stream first, Stream second)
+	{
+		first.Position = 0;
+		second.Position = 0;
+		Span<byte> buffer1 = stackalloc byte[4096];
+		Span<byte> buffer2 = stackalloc byte[4096];
+		while (true) {
+			int read1 = first.Read (buffer1);
+			int read2 = second.Read (buffer2);
+			if (read1 != read2) return false;
+			if (read1 == 0) return true;
+			if (!buffer1[..read1].SequenceEqual (buffer2[..read2])) return false;
+		}
+	}
+
 	internal static DataInputStreamContext OpenFile (string filePath)
 	{
 		return new (filePath);
