@@ -135,6 +135,14 @@ public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter
 		Export (flattenedImage, outputStream);
 	}
 
+	/// <summary>Exports a document through the neutral file-reference boundary.</summary>
+	public void Export (Document document, IFileReference file)
+	{
+		using ImageSurface flattenedImage = document.GetFlattenedImage ();
+		using Stream outputStream = file.OpenWrite ();
+		Export (flattenedImage, outputStream);
+	}
+
 	private readonly ref struct PpmTokenReader
 	{
 		private readonly TextReader reader;

@@ -93,6 +93,14 @@ public sealed class TgaExporter : IImageExporter
 		Export (flattenedImage, file_stream);
 	}
 
+	/// <summary>Exports a document through the neutral file-reference boundary.</summary>
+	public void Export (Document document, IFileReference file)
+	{
+		using ImageSurface flattenedImage = document.GetFlattenedImage ();
+		using Stream outputStream = file.OpenWrite ();
+		Export (flattenedImage, outputStream);
+	}
+
 	private static void Export (ImageSurface flattenedImage, Stream outputStream)
 	{
 		using BinaryWriter writer = new (outputStream);
