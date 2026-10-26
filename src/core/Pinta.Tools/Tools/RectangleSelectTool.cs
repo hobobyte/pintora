@@ -33,7 +33,7 @@ public sealed class RectangleSelectTool : SelectTool
 {
 	public RectangleSelectTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = Gdk.Cursor.NewFromTexture (Resources.GetIcon ("Cursor.RectangleSelect.png"), 9, 18, null);
+		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.RectangleSelect.png", 9, 18))!;
 	}
 
 	public override string Name => Translations.GetString ("Rectangle Select");
