@@ -6,8 +6,13 @@ using Gtk;
 
 namespace Pinta.Core;
 
-public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter
+public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter, IImageFileImporter, IImageFileExporter
 {
+	public Document Import (IFileReference file)
+	{
+		using Stream stream = file.OpenRead ();
+		return Import (stream, file);
+	}
 	private const string MAGIC_SEQUENCE = "P3"; // Magic sequence for text-based portable pixmap format
 
 	public Document Import (Gio.File file)
