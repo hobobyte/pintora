@@ -35,7 +35,7 @@ public sealed class PaletteFormatManager : IPaletteFormatCatalog
 	public IReadOnlyList<IPaletteFormatDescriptor> NeutralFormats { get; }
 	IReadOnlyList<IPaletteFormatDescriptor> IPaletteFormatCatalog.Formats => NeutralFormats;
 
-	public PaletteFormatManager (bool createGtkFilters = false)
+	public PaletteFormatManager ()
 	{
 		PaintDotNetPalette pdnHandler = new ();
 		GimpPalette gimpHandler = new ();
@@ -46,20 +46,17 @@ public sealed class PaletteFormatManager : IPaletteFormatCatalog
 				"Paint.NET",
 				["txt", "TXT"],
 				pdnHandler,
-				pdnHandler,
-				createGtkFilters),
+				pdnHandler),
 			new PaletteDescriptor (
 				"GIMP",
 				["gpl", "GPL"],
 				gimpHandler,
-				gimpHandler,
-				createGtkFilters),
+				gimpHandler),
 			new PaletteDescriptor (
 				"PaintShop Pro",
 				["pal", "PAL"],
 				pspHandler,
-				pspHandler,
-				createGtkFilters),
+				pspHandler),
 		];
 		NeutralFormats = Formats.Cast<IPaletteFormatDescriptor> ().ToArray ();
 	}
