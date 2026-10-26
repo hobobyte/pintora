@@ -174,7 +174,7 @@ internal sealed class NewScreenshotAction : IActionHandler
 						if (reply.Results.TryGetValue ("uri", out VariantValue vv) && vv.Type == VariantValueType.String)
 							uri = vv.GetString ();
 
-						if (uri is null || !workspace.OpenFile (Gio.FileHelper.NewForUri (uri)))
+						if (uri is null || !workspace.OpenFile (new GioFileReference (Gio.FileHelper.NewForUri (uri))))
 							return;
 
 						// Mark as not having a file, so that the user doesn't unintentionally

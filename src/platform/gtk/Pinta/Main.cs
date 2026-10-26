@@ -152,7 +152,7 @@ internal sealed class MainClass
 
 		if (files.Any ()) {
 			foreach (var file in files) {
-				PintaCore.Workspace.OpenFile (Gio.FileHelper.NewForCommandlineArg (file));
+				PintaCore.Workspace.OpenFile (new GioFileReference (Gio.FileHelper.NewForCommandlineArg (file)));
 			}
 		} else {
 			// Create a blank document
@@ -210,7 +210,7 @@ internal sealed class MainClass
 				GLib.Functions.TimeoutAdd (0, 10, () => {
 					foreach (string filename in e.Documents.Keys) {
 						System.Console.Error.WriteLine ("Opening: {0}", filename);
-						PintaCore.Workspace.OpenFile (Gio.FileHelper.NewForCommandlineArg (filename));
+				PintaCore.Workspace.OpenFile (new GioFileReference (Gio.FileHelper.NewForCommandlineArg (filename)));
 					}
 					return false;
 				});

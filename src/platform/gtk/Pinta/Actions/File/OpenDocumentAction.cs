@@ -84,7 +84,7 @@ internal sealed class OpenDocumentAction : IActionHandler
 
 		foreach (var file in selection) {
 
-			if (!workspace.OpenFile (file))
+			if (!workspace.OpenFile (new GioFileReference (file)))
 				continue;
 
 			recent_files.AddFile (new PathFileReference (file.GetParseName ()));
