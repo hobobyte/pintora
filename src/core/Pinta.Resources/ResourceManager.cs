@@ -60,8 +60,9 @@ public static class ResourceLoader
 	public static void LoadCssStyles ()
 	{
 		try {
-			Bytes? bytes = GetBytesFromAssembly (Assembly.GetExecutingAssembly (), "style.css");
-			if (bytes is null) return;
+			byte[]? rawBytes = EmbeddedResourceLocator.Find ("style.css", Assembly.GetExecutingAssembly ());
+			if (rawBytes is null) return;
+			Bytes bytes = Bytes.New (rawBytes);
 			Gtk.CssProvider cssProvider = Gtk.CssProvider.New ();
 			cssProvider.LoadFromBytes (bytes);
 			Gdk.Display? display = Gdk.Display.GetDefault ();
@@ -101,37 +102,18 @@ public static class ResourceLoader
 
 	private static Gdk.Texture? GetIconFromResources (string name)
 	{
-		// Check 'Pinta.Resources' for our image
-		Gdk.Texture? fromExecutingAssembly = GetIconFromAssembly (Assembly.GetExecutingAssembly (), name);
-		if (fromExecutingAssembly is not null)
-			return fromExecutingAssembly;
-
-		// Maybe we can find the icon in the resource of a different assembly (e.g. Plugin)
-		foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies ()) {
-			Gdk.Texture? fromTargetedAssembly = GetIconFromAssembly (assembly, name);
-			if (fromTargetedAssembly is not null)
-				return fromTargetedAssembly;
-		}
-
-		return null;
+		byte[]? bytes = EmbeddedResourceLocator.Find (name, Assembly.GetExecutingAssembly ());
+		return bytes is null ? null : CreateTexture (bytes);
 	}
 
-	private static Gdk.Texture? GetIconFromAssembly (Assembly assembly, string name)
+	private static Gdk.Texture? CreateTexture (byte[] bytes)
 	{
 		try {
-			Bytes? bytes = GetBytesFromAssembly (assembly, name);
-			if (bytes is null) return null;
-			return Gdk.Texture.NewFromBytes (bytes);
+			return Gdk.Texture.NewFromBytes (Bytes.New (bytes));
 		} catch (Exception ex) {
 			Console.Error.WriteLine (ex.Message);
 			return null;
 		}
-	}
-
-	private static Bytes? GetBytesFromAssembly (Assembly assembly, string name)
-	{
-		byte[]? bytes = EmbeddedResourceReader.Read (assembly, name);
-		return bytes is null ? null : Bytes.New (bytes);
 	}
 
 	// From MonoDevelop:
