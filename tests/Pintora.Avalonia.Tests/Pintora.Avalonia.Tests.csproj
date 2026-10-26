@@ -10,6 +10,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../Pintora.Avalonia/Pintora.Avalonia.csproj" />
+    <ProjectReference Include="../../src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj" />
   </ItemGroup>
 </Project>

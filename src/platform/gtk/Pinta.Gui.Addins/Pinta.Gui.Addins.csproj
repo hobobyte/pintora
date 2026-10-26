@@ -4,14 +4,14 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <Import Project="../properties/ReferenceGirCoreAdw1.props" />
+  <Import Project="../../../properties/ReferenceGirCoreAdw1.props" />
 
   <ItemGroup>
     <PackageReference Include="Mono.Addins" />
     <PackageReference Include="Mono.Addins.Setup" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Pinta.Core\Pinta.Core.csproj" />
+    <ProjectReference Include="..\..\core\Pinta.Core\Pinta.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

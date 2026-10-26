@@ -3,8 +3,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <Import Project="../properties/ReferenceGirCoreAdw1.props" />
-  <Import Project="../properties/ReferenceGirCorePangoCairo10.props" />
+  <Import Project="../../../properties/ReferenceGirCoreAdw1.props" />
+  <Import Project="../../../properties/ReferenceGirCorePangoCairo10.props" />
 
   <ItemGroup>
     <PackageReference Include="ParagonClipper" />

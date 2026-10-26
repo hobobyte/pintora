@@ -4,7 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Pinta.Core\Pinta.Core.csproj" />
-    <ProjectReference Include="..\Pinta.Gui.Widgets\Pinta.Gui.Widgets.csproj" />
+    <ProjectReference Include="..\..\platform\gtk\Pinta.Gui.Widgets\Pinta.Gui.Widgets.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Mono.Addins" />
