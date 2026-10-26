@@ -515,52 +515,26 @@ public sealed class EditActions
 		}
 	}
 
-	private void HandlerPintaCoreActionsEditSavePaletteActivated (object sender, EventArgs e)
+	private async void HandlerPintaCoreActionsEditSavePaletteActivated (object sender, EventArgs e)
 	{
-		var fcd = Gtk.FileChooserNative.New (
+		var writableFormats = palette_formats.Formats.Where (format => !format.IsReadOnly ()).ToArray ();
+		var filters = writableFormats.Select (format => new FileDialogFilter (format.DisplayName, format.Extensions)).ToArray ();
+		IFileReference? choice = await FileDialogs.SaveFileAsync (new FileDialogOptions (
 			Translations.GetString ("Save Palette File"),
-			chrome.MainWindow,
-			Gtk.FileChooserAction.Save,
-			Translations.GetString ("Save"),
-			Translations.GetString ("Cancel"));
+			filters,
+			last_palette_dir is null ? null : new PathFileReference (last_palette_dir.GetParseName ())));
+		if (choice is null)
+			return;
 
-		foreach (var format in palette_formats.Formats) {
+		string path = (choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed.");
+		string extension = System.IO.Path.GetExtension (path);
+		if (string.IsNullOrEmpty (extension))
+			path += "." + writableFormats.First ().Extensions.First ();
 
-			if (format.IsReadOnly ())
-				continue;
-
-			fcd.AddFilter (format.GetGtkFilter ());
-		}
-
-		if (last_palette_dir != null)
-			fcd.SetCurrentFolder (last_palette_dir);
-
-		fcd.OnResponse += (_, args) => {
-
-			Gtk.ResponseType response = (Gtk.ResponseType) args.ResponseId;
-
-			if (response != Gtk.ResponseType.Accept)
-				return;
-
-			Gio.File file = fcd.GetFile ()!;
-
-			// Add in the extension if necessary, based on the current selected file filter.
-			// Note: on macOS, fcd.Filter doesn't seem to properly update to the current filter.
-			// However, on macOS the dialog always adds the extension automatically, so this issue doesn't matter.
-			string basename = file.GetParent ()!.GetRelativePath (file)!;
-			string extension = System.IO.Path.GetExtension (basename);
-			if (string.IsNullOrEmpty (extension)) {
-				var currentFormat = palette_formats.Formats.First (f => f.GetGtkFilter () == fcd.Filter);
-				basename += "." + currentFormat.Extensions.First ();
-				file = file.GetParent ()!.GetChild (basename);
-			}
-
-			PaletteDescriptor format = palette_formats.GetFormatByFilename (basename) ?? throw new FormatException ();
-			palette.CurrentPalette.Save (file, format.Saver);
-			last_palette_dir = file.GetParent ();
-		};
-
-		fcd.Show ();
+		Gio.File file = Gio.FileHelper.NewForPath (path);
+		PaletteDescriptor format = palette_formats.GetFormatByFilename (path) ?? throw new FormatException ();
+		palette.CurrentPalette.Save (file, format.Saver);
+		last_palette_dir = file.GetParent ();
 	}
 
 	private FileDialogFilter CreatePalettesFilter ()
