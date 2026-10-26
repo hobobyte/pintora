@@ -31,16 +31,21 @@ public sealed class PosterizeEffect : BaseEffect
 	public PosterizeData Data => (PosterizeData) EffectData!;  // NRT - Set in constructor
 
 	private readonly IChromeService chrome;
+	private readonly IEffectConfigurationService? configurationService;
 
 	public PosterizeEffect (IServiceProvider services)
 	{
 		chrome = services.GetService<IChromeService> ();
+		configurationService = services.GetService<IEffectConfigurationService> ();
 
 		EffectData = new PosterizeData ();
 	}
 
 	public override async Task<bool> LaunchConfiguration ()
 	{
+		if (configurationService is not null)
+			return await configurationService.ConfigureAsync (this);
+
 		using PosterizeDialog dialog = PosterizeDialog.New (chrome);
 		dialog.Title = Name;
 		dialog.IconName = Icon;
