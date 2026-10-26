@@ -74,8 +74,8 @@ internal sealed class OpenDocumentAction : IActionHandler
 		fileDialog.SetFilters (filters);
 		fileDialog.Modal = true;
 
-		if (recent_files.GetDialogDirectory () is Gio.File dir && dir.QueryExists (null))
-			fileDialog.SetInitialFolder (dir);
+		if (recent_files.GetDialogDirectory () is PathFileReference dir)
+			fileDialog.SetInitialFolder (Gio.FileHelper.NewForPath (dir.Path));
 
 		var selection = await fileDialog.OpenFilesAsync (chrome.MainWindow);
 
@@ -87,12 +87,12 @@ internal sealed class OpenDocumentAction : IActionHandler
 			if (!workspace.OpenFile (file))
 				continue;
 
-			recent_files.AddFile (file);
+			recent_files.AddFile (new PathFileReference (file.GetParseName ()));
 
 			Gio.File? directory = file.GetParent ();
 
 			if (directory is not null)
-				recent_files.LastDialogDirectory = directory;
+			recent_files.LastDialogDirectory = new PathFileReference (directory.GetParseName ());
 		}
 	}
 

@@ -562,8 +562,9 @@ internal sealed class MainWindow
 		PintaCore.Actions.View.ImageTabs.Value = PintaCore.Settings.GetSetting (SettingNames.IMAGE_TABS_SHOWN, true);
 		PintaCore.Actions.View.ToolWindows.Value = PintaCore.Settings.GetSetting (SettingNames.TOOL_WINDOWS_SHOWN, true);
 
-		string dialog_uri = PintaCore.Settings.GetSetting (SettingNames.LAST_DIALOG_DIRECTORY, PintaCore.RecentFiles.DefaultDialogDirectory?.GetUri () ?? "");
-		PintaCore.RecentFiles.LastDialogDirectory = Gio.FileHelper.NewForUri (dialog_uri);
+		string dialog_uri = PintaCore.Settings.GetSetting (SettingNames.LAST_DIALOG_DIRECTORY, "");
+		if (!string.IsNullOrEmpty (dialog_uri))
+			PintaCore.RecentFiles.LastDialogDirectory = new PathFileReference (Gio.FileHelper.NewForUri (dialog_uri).GetParseName ());
 
 		MetricType ruler_metric = (MetricType) PintaCore.Settings.GetSetting (SettingNames.RULER_METRIC, (int) MetricType.Pixels);
 		PintaCore.Actions.View.RulerMetric.Activate (GLib.Variant.NewInt32 ((int) ruler_metric));
@@ -587,7 +588,8 @@ internal sealed class MainWindow
 		PintaCore.Settings.PutSetting (SettingNames.TOOLBAR_SHOWN, PintaCore.Actions.View.ToolBar.Value);
 		PintaCore.Settings.PutSetting (SettingNames.STATUSBAR_SHOWN, PintaCore.Actions.View.StatusBar.Value);
 		PintaCore.Settings.PutSetting (SettingNames.TOOLBOX_SHOWN, PintaCore.Actions.View.ToolBox.Value);
-		PintaCore.Settings.PutSetting (SettingNames.LAST_DIALOG_DIRECTORY, PintaCore.RecentFiles.LastDialogDirectory?.GetUri () ?? "");
+		string? dialog_path = (PintaCore.RecentFiles.LastDialogDirectory as PathFileReference)?.Path;
+		PintaCore.Settings.PutSetting (SettingNames.LAST_DIALOG_DIRECTORY, dialog_path is null ? "" : Gio.FileHelper.NewForPath (dialog_path).GetUri ());
 
 		if (PintaCore.Tools.CurrentTool is BaseTool tool)
 			PintaCore.Settings.PutSetting (SettingNames.LAST_SELECTED_TOOL, tool.GetType ().Name);

@@ -98,8 +98,8 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 		if (document.HasFile)
 			fcd.SetFile (document.File!);
 		else {
-			if (recent_files.GetDialogDirectory () is Gio.File dir && dir.QueryExists (null))
-				fcd.SetCurrentFolder (dir);
+			if (recent_files.GetDialogDirectory () is PathFileReference dir)
+				fcd.SetCurrentFolder (Gio.FileHelper.NewForPath (dir.Path));
 
 			// Append the default extension, producing e.g. "Unsaved Image 1.png"
 			string default_ext = image_formats.GetDefaultSaveFormat ().Extensions.First ();
@@ -159,7 +159,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			Gio.File? directory = file.GetParent ();
 
 			if (directory is not null)
-				recent_files.LastDialogDirectory = directory;
+				recent_files.LastDialogDirectory = new PathFileReference (directory.GetParseName ());
 
 			// If saving the file failed or was cancelled, let the user select
 			// a different file type.
@@ -174,7 +174,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			//hasn't been saved to its associated file in this session.
 			document.HasBeenSavedInSession = false;
 
-			recent_files.AddFile (file);
+			recent_files.AddFile (new PathFileReference (file.GetParseName ()));
 			image_formats.SetDefaultFormat (format.Extensions.First ());
 
 			document.File = file;
