@@ -43,6 +43,11 @@ jobs:
       - name: Build
         run: dotnet build src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj --configuration Release --no-restore -warnaserror
 
+      - name: Build dependency boundary targets
+        run: |
+          dotnet build src/graphics/Pinta.Graphics.Skia/Pinta.Graphics.Skia.csproj --configuration Release --no-restore -warnaserror
+          dotnet build src/codecs/Pinta.Codecs/Pinta.Codecs.csproj --configuration Release --no-restore -warnaserror
+
       - name: Test
         run: dotnet test tests/Pintora.Avalonia.Tests/Pintora.Avalonia.Tests.csproj --configuration Release --no-restore -p:BuildInParallel=false -m:1
 
