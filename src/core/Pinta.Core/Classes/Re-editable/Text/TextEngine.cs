@@ -365,7 +365,7 @@ public sealed partial class TextEngine
 			ClearSelection ();
 	}
 
-	public void PerformCopy (Gdk.Clipboard clipboard)
+	public void PerformCopy (IClipboardService clipboard)
 	{
 		// Note we could set the clipboard text to empty if nothing is selected,
 		// but this seems to crash on Windows (bug 2070035)
@@ -387,7 +387,7 @@ public sealed partial class TextEngine
 		clipboard.SetText (strbld.ToString ());
 	}
 
-	public void PerformCut (Gdk.Clipboard clipboard)
+	public void PerformCut (IClipboardService clipboard)
 	{
 		PerformCopy (clipboard);
 		if (HasSelection ())
@@ -397,12 +397,12 @@ public sealed partial class TextEngine
 	/// <summary>
 	/// Pastes text from the clipboard.
 	/// </summary>
-	public async Task<bool> PerformPaste (Gdk.Clipboard clipboard)
+	public async Task<bool> PerformPaste (IClipboardService clipboard)
 	{
 		string? txt;
 		try {
 			txt = await clipboard.ReadTextAsync ();
-		} catch (GLib.GException e) when (e.Matches (Gio.IOErrorEnum.NotSupported)) {
+		} catch (NotSupportedException) {
 			// The clipboard probably contained an image.
 			return false;
 		}

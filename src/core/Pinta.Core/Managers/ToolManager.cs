@@ -270,7 +270,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 	public void DoAfterSave (Document document)
 		=> CurrentTool?.DoAfterSave (document);
 
-	public Task<bool> DoHandlePaste (Document document, Gdk.Clipboard clipboard)
+	public Task<bool> DoHandlePaste (Document document, IClipboardService clipboard)
 		=> CurrentTool?.DoHandlePaste (document, clipboard) ?? Task.FromResult (false);
 
 	public IEnumerator<BaseTool> GetEnumerator ()

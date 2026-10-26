@@ -394,13 +394,13 @@ public sealed class EditActions
 	private void HandlerPintaCoreActionsEditCopyActivated (object sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
-		Gdk.Clipboard cb = GdkExtensions.GetDefaultClipboard ();
+		IClipboardService cb = PintaCore.Services.GetService<IClipboardService> ();
 		if (tools.CurrentTool?.DoHandleCopy (doc, cb) == true)
 			return;
 
 		tools.Commit ();
 
-		CopyLayersToClipboard (doc, doc.Layers.CurrentUserLayer.GetLayersToPaint (), cb);
+		CopyLayersToClipboard (doc, doc.Layers.CurrentUserLayer.GetLayersToPaint (), GdkExtensions.GetDefaultClipboard ());
 	}
 
 	private void HandlerPintaCoreActionsEditCopyMergedActivated (object sender, EventArgs e)
@@ -408,8 +408,8 @@ public sealed class EditActions
 		tools.Commit ();
 
 		Document doc = workspace.ActiveDocument;
-		Gdk.Clipboard cb = GdkExtensions.GetDefaultClipboard ();
-		CopyLayersToClipboard (doc, doc.Layers.GetLayersToPaint (), cb);
+		IClipboardService cb = PintaCore.Services.GetService<IClipboardService> ();
+		CopyLayersToClipboard (doc, doc.Layers.GetLayersToPaint (), GdkExtensions.GetDefaultClipboard ());
 	}
 
 	private static void CopyLayersToClipboard (Document doc, IEnumerable<Layer> layers, Gdk.Clipboard clipboard)
@@ -469,7 +469,7 @@ public sealed class EditActions
 	{
 		Document doc = workspace.ActiveDocument;
 
-		Gdk.Clipboard cb = GdkExtensions.GetDefaultClipboard ();
+		IClipboardService cb = PintaCore.Services.GetService<IClipboardService> ();
 
 		if (tools.CurrentTool?.DoHandleCut (doc, cb) == true)
 			return;
