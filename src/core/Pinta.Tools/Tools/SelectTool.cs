@@ -59,14 +59,14 @@ public abstract class SelectTool : BaseTool
 
 	protected abstract void DrawShape (Document document, RectangleD r, Layer l);
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
-		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb, workspace.SelectionHandler, Settings);
+		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
+		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb.NativeToolbar, workspace.SelectionHandler, Settings);
 
 		tb.Append (Separator);
 
-		tb.Append ((Gtk.Widget) AutoScrollButton.NativeWidget);
+		tb.Append (AutoScrollButton.NativeWidget);
 	}
 
 	private static PointD AdjustMousePosition (Document document, in PointD position)
