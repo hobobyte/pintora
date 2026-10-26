@@ -71,15 +71,15 @@ public sealed class GradientTool : BaseTool
 	private GradientColorMode SelectedGradientColorMode => ColorModeDropDown.SelectedItem.GetTagOrDefault (GradientColorMode.Color);
 	public override IEnumerable<IToolHandle> Handles => [handle];
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
+		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
 
 		tb.Append (GradientLabel);
-		tb.Append ((Gtk.Widget) GradientDropDown.NativeWidget);
+		tb.Append (GradientDropDown.NativeWidget);
 		tb.Append (GtkExtensions.CreateToolBarSeparator ());
 		tb.Append (ModeLabel);
-		tb.Append ((Gtk.Widget) ColorModeDropDown.NativeWidget);
+		tb.Append (ColorModeDropDown.NativeWidget);
 
 		AlphaBlendingDropDown.SelectedItemChanged += HandleGradientTypeChanged;
 	}
