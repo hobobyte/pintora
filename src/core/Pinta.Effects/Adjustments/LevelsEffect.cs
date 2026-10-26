@@ -30,14 +30,14 @@ public sealed class LevelsEffect : BaseEffect
 
 	public LevelsData Data => (LevelsData) EffectData!;  // NRT - Set in constructor
 
-	private readonly IChromeService chrome;
+	private readonly ChromeManager chrome;
 	private readonly IPaletteService palette;
 	private readonly IWorkspaceService workspace;
 	private readonly IEffectConfigurationService? configurationService;
 
 	public LevelsEffect (IServiceProvider services)
 	{
-		chrome = services.GetService<IChromeService> ();
+		chrome = (ChromeManager) services.GetService<IChromeService> ();
 		palette = services.GetService<IPaletteService> ();
 		workspace = services.GetService<IWorkspaceService> ();
 		configurationService = services.GetService<IEffectConfigurationService> ();

@@ -158,7 +158,7 @@ public sealed partial class CurvesDialog
 		check_blue = checkBlue;
 	}
 
-	public static CurvesDialog New (IChromeService chrome, CurvesData effectData)
+	public static CurvesDialog New (ChromeManager chrome, CurvesData effectData)
 	{
 		CurvesDialog dialog = NewWithProperties ([]);
 		dialog.TransientFor = chrome.MainWindow;

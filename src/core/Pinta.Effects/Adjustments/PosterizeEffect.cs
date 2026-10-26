@@ -30,12 +30,12 @@ public sealed class PosterizeEffect : BaseEffect
 
 	public PosterizeData Data => (PosterizeData) EffectData!;  // NRT - Set in constructor
 
-	private readonly IChromeService chrome;
+	private readonly ChromeManager chrome;
 	private readonly IEffectConfigurationService? configurationService;
 
 	public PosterizeEffect (IServiceProvider services)
 	{
-		chrome = services.GetService<IChromeService> ();
+		chrome = (ChromeManager) services.GetService<IChromeService> ();
 		configurationService = services.GetService<IEffectConfigurationService> ();
 
 		EffectData = new PosterizeData ();

@@ -80,7 +80,7 @@ public sealed partial class PosterizeDialog
 			linkButton]);
 	}
 
-	public static PosterizeDialog New (IChromeService chrome)
+	public static PosterizeDialog New (ChromeManager chrome)
 	{
 		PosterizeDialog dialog = NewWithProperties ([]);
 		dialog.TransientFor = chrome.MainWindow;
