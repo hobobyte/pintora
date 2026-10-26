@@ -37,7 +37,6 @@ namespace Pinta.Core;
 public sealed class Document
 {
 	private string display_name = string.Empty;
-	private Gio.File? file = null;
 	private IFileReference? file_reference = null;
 
 	private bool is_dirty;
@@ -149,10 +148,10 @@ public sealed class Document
 	/// Identifier for the file location on disk.
 	/// </summary>
 	public Gio.File? File {
-		get => file;
+		get => file_reference is PathFileReference path ? Gio.FileHelper.NewForPath (path.Path) : null;
 		set {
-			file = value;
-			DisplayName = file?.GetDisplayName () ?? string.Empty;
+			file_reference = value is null ? null : new PathFileReference (value.GetParseName ());
+			DisplayName = file_reference?.DisplayName ?? string.Empty;
 		}
 	}
 
@@ -171,7 +170,7 @@ public sealed class Document
 	/// <summary>
 	/// Whether the document is associated with a file on disk.
 	/// </summary>
-	public bool HasFile => file is not null || file_reference is not null;
+	public bool HasFile => file_reference is not null;
 
 	/// Whether or not the document has been saved to the file that it is currently associated with in the
 	/// current session. This should be false if the Document has not yet been saved, if it was just loaded into
