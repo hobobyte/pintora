@@ -25,17 +25,27 @@
 // THE SOFTWARE.
 
 using Pinta.Resources;
+using System.IO;
+using System.Reflection;
 
 namespace Pinta;
 
 public interface IResourceService
 {
+	/// <summary>Opens an embedded resource without requiring a platform image type.</summary>
+	Stream? OpenResource (string name);
 	Gdk.Texture GetIcon (string name);
 	Gdk.Texture GetIcon (string name, int size);
 }
 
 public sealed class ResourceManager : IResourceService
 {
+	public Stream? OpenResource (string name)
+	{
+		byte[]? bytes = EmbeddedResourceLocator.Find (name, Assembly.GetExecutingAssembly ());
+		return bytes is null ? null : new MemoryStream (bytes, writable: false);
+	}
+
 	public Gdk.Texture GetIcon (string name)
 	{
 		return GetIcon (name, 16);
