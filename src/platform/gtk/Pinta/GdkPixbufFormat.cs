@@ -32,6 +32,13 @@ namespace Pinta.Core;
 
 public class GdkPixbufFormat : IImageImporter, IImageExporter
 {
+	public Document Import (IFileReference file)
+	{
+		if (file is not PathFileReference path)
+			throw new InvalidOperationException ("The imported file is not path-backed.");
+		return Import (Gio.FileHelper.NewForPath (path.Path));
+	}
+
 	private readonly string filetype;
 	private readonly bool supports_alpha;
 
