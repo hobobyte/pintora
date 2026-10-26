@@ -426,7 +426,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 		string details)
 	{
 		string secondary_text = Translations.GetString ("Could not open file: {0}", filename);
-		return chrome_manager.ShowErrorDialog (parent, primary_text, secondary_text, details);
+		return chrome_manager.ShowErrorDialog (primary_text, secondary_text, details);
 	}
 
 	private Task ShowUnsupportedFormatDialog (
@@ -450,7 +450,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 
 		body.AppendJoin (", ", extensions);
 
-		return chrome_manager.ShowErrorDialog (parent, message, body.ToString (), errors);
+		return chrome_manager.ShowErrorDialog (message, body.ToString (), errors);
 	}
 
 	private Task ShowFilePermissionErrorDialog (
@@ -462,7 +462,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 		// Translators: {0} is the name of a file that the user does not have permission to open.
 		string details = Translations.GetString ("You do not have access to '{0}'.", filename);
 
-		return chrome_manager.ShowMessageDialog (parent, message, details);
+		return chrome_manager.ShowMessageDialog (message, details);
 	}
 
 	public event EventHandler? LayerAdded;
