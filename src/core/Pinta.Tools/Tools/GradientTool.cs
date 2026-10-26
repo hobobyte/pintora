@@ -76,10 +76,10 @@ public sealed class GradientTool : BaseTool
 		base.OnBuildToolBar (tb);
 
 		tb.Append (GradientLabel);
-		tb.Append (GradientDropDown);
+		tb.Append ((Gtk.Widget) GradientDropDown.NativeWidget);
 		tb.Append (GtkExtensions.CreateToolBarSeparator ());
 		tb.Append (ModeLabel);
-		tb.Append (ColorModeDropDown);
+		tb.Append ((Gtk.Widget) ColorModeDropDown.NativeWidget);
 
 		AlphaBlendingDropDown.SelectedItemChanged += HandleGradientTypeChanged;
 	}
@@ -282,12 +282,12 @@ public sealed class GradientTool : BaseTool
 	}
 
 	private Gtk.Label? gradient_label;
-	private ToolBarDropDownButton? gradient_button;
+	private IToolBarDropDownButton? gradient_button;
 	private Gtk.Label? color_mode_label;
-	private ToolBarDropDownButton? color_mode_button;
+	private IToolBarDropDownButton? color_mode_button;
 
 	private Gtk.Label GradientLabel => gradient_label ??= Gtk.Label.New (string.Format (" {0}: ", Translations.GetString ("Gradient")));
-	private ToolBarDropDownButton GradientDropDown {
+	private IToolBarDropDownButton GradientDropDown {
 		get {
 			if (gradient_button == null) {
 				gradient_button = CreateToolDropDownButton ();
@@ -321,7 +321,7 @@ public sealed class GradientTool : BaseTool
 	}
 
 	private Gtk.Label ModeLabel => color_mode_label ??= Gtk.Label.New (string.Format (" {0}: ", Translations.GetString ("Mode")));
-	private ToolBarDropDownButton ColorModeDropDown {
+	private IToolBarDropDownButton ColorModeDropDown {
 		get {
 			if (color_mode_button == null) {
 				color_mode_button = CreateToolDropDownButton ();

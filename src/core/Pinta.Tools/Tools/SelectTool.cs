@@ -38,7 +38,7 @@ public abstract class SelectTool : BaseTool
 	private SelectionHistoryItem? hist = default;
 	private CombineMode combine_mode = default;
 	private Gtk.Separator? mode_sep;
-	private ToolBarDropDownButton? auto_scroll_button;
+	private IToolBarDropDownButton? auto_scroll_button;
 
 	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_S);
 	public override bool IsSelectionTool => true;
@@ -66,7 +66,7 @@ public abstract class SelectTool : BaseTool
 
 		tb.Append (Separator);
 
-		tb.Append (AutoScrollButton);
+		tb.Append ((Gtk.Widget) AutoScrollButton.NativeWidget);
 	}
 
 	private static PointD AdjustMousePosition (Document document, in PointD position)
@@ -255,7 +255,7 @@ public abstract class SelectTool : BaseTool
 
 	private Gtk.Separator Separator => mode_sep ??= GtkExtensions.CreateToolBarSeparator ();
 
-	private ToolBarDropDownButton AutoScrollButton {
+	private IToolBarDropDownButton AutoScrollButton {
 		get {
 			if (auto_scroll_button is null) {
 				auto_scroll_button ??= CreateToolDropDownButton ();

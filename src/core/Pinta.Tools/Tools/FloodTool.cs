@@ -44,7 +44,7 @@ namespace Pinta.Tools;
 public abstract class FloodTool : BaseTool
 {
 	protected Label? mode_label;
-	protected ToolBarDropDownButton? mode_button;
+	protected IToolBarDropDownButton? mode_button;
 	protected Separator? mode_sep;
 	protected Label? tolerance_label;
 	protected Scale? tolerance_slider;
@@ -61,7 +61,7 @@ public abstract class FloodTool : BaseTool
 		base.OnBuildToolBar (tb);
 
 		tb.Append (ModeLabel);
-		tb.Append (ModeDropDown);
+		tb.Append ((Gtk.Widget) ModeDropDown.NativeWidget);
 		tb.Append (Separator);
 		tb.Append (ToleranceLabel);
 		tb.Append (ToleranceSlider);
@@ -123,7 +123,7 @@ public abstract class FloodTool : BaseTool
 	protected Scale ToleranceSlider => tolerance_slider ??= GtkExtensions.CreateToolBarSlider (0, 100, 1, Settings.GetSetting (SettingNames.FloodToolFillTolerance (this), 0));
 	protected Separator Separator => mode_sep ??= GtkExtensions.CreateToolBarSeparator ();
 
-	protected ToolBarDropDownButton ModeDropDown {
+	protected IToolBarDropDownButton ModeDropDown {
 		get {
 			if (mode_button is null) {
 				mode_button = CreateToolDropDownButton ();

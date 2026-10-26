@@ -7,5 +7,5 @@ namespace Pinta.Core;
 /// </summary>
 public interface IToolbarWidgetFactory
 {
-	object CreateDropDownButton (bool showLabel = false);
+	IToolBarDropDownButton CreateDropDownButton (bool showLabel = false);
 }

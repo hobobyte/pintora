@@ -331,20 +331,19 @@ public abstract class BaseTool
 	}
 
 	#region Toolbar
-	public ToolBarDropDownButton CreateToolDropDownButton (bool showLabel = false)
-		=> (ToolBarDropDownButton) PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDropDownButton (showLabel);
+	public IToolBarDropDownButton CreateToolDropDownButton (bool showLabel = false)
+		=> PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDropDownButton (showLabel);
 
-	private ToolBarDropDownButton? antialiasing_button;
-	private ToolBarDropDownButton? alphablending_button;
+	private IToolBarDropDownButton? antialiasing_button;
+	private IToolBarDropDownButton? alphablending_button;
 	private Separator? separator;
 
 	private Separator Separator => separator ??= GtkExtensions.CreateToolBarSeparator ();
 
-	protected ToolBarDropDownButton AlphaBlendingDropDown {
+	protected IToolBarDropDownButton AlphaBlendingDropDown {
 		get {
 			if (alphablending_button is null) {
-				alphablending_button = (ToolBarDropDownButton) PintaCore.Services
-					.GetService<IToolbarWidgetFactory> ().CreateDropDownButton ();
+				alphablending_button = CreateToolDropDownButton ();
 
 				alphablending_button.AddItem (Translations.GetString ("Normal Blending"), Pinta.Resources.Icons.BlendingNormal, true);
 				alphablending_button.AddItem (Translations.GetString ("Overwrite"), Pinta.Resources.Icons.BlendingOverwrite, false);
@@ -358,11 +357,10 @@ public abstract class BaseTool
 		}
 	}
 
-	private ToolBarDropDownButton AntialiasingDropDown {
+	private IToolBarDropDownButton AntialiasingDropDown {
 		get {
 			if (antialiasing_button is null) {
-				antialiasing_button = (ToolBarDropDownButton) PintaCore.Services
-					.GetService<IToolbarWidgetFactory> ().CreateDropDownButton ();
+				antialiasing_button = CreateToolDropDownButton ();
 
 				antialiasing_button.AddItem (Translations.GetString ("Antialiasing On"), Pinta.Resources.Icons.AntiAliasingEnabled, true);
 				antialiasing_button.AddItem (Translations.GetString ("Antialiasing Off"), Pinta.Resources.Icons.AntiAliasingDisabled, false);
@@ -404,9 +402,9 @@ public abstract class BaseTool
 			toolbar.Append (Separator);
 
 		if (ShowAntialiasingButton)
-			toolbar.Append (AntialiasingDropDown);
+			toolbar.Append ((Gtk.Widget) AntialiasingDropDown.NativeWidget);
 		if (ShowAlphaBlendingButton)
-			toolbar.Append (AlphaBlendingDropDown);
+			toolbar.Append ((Gtk.Widget) AlphaBlendingDropDown.NativeWidget);
 	}
 
 	internal void DoCommit (Document? document) => OnCommit (document);
