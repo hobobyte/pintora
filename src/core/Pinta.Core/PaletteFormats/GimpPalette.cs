@@ -35,9 +35,10 @@ using Cairo;
 
 namespace Pinta.Core;
 
-public sealed class GimpPalette : IPaletteLoader, IPaletteSaver, IPaletteStreamLoader, IPaletteStreamSaver, Pinta.Core.Neutral.IPaletteColorStreamLoader
+public sealed class GimpPalette : IPaletteLoader, IPaletteSaver, IPaletteStreamLoader, IPaletteStreamSaver, Pinta.Core.Neutral.IPaletteColorStreamLoader, Pinta.Core.Neutral.IPaletteColorStreamSaver
 {
 	public IReadOnlyList<ColorBgra> LoadColors (Stream stream) => Load (stream).Select (c => ColorBgra.FromBgra ((byte) Math.Round (c.B * 255), (byte) Math.Round (c.G * 255), (byte) Math.Round (c.R * 255), (byte) Math.Round (c.A * 255))).ToArray ();
+	public void SaveColors (IReadOnlyList<ColorBgra> colors, Stream stream) => Save (colors.Select (c => new Color (c.R / 255.0, c.G / 255.0, c.B / 255.0, c.A / 255.0)).ToArray (), stream);
 	public List<Color> Load (Gio.File file)
 	{
 		using GioStream stream = new (file.Read (null));
