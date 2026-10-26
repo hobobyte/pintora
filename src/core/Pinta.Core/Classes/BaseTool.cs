@@ -331,7 +331,7 @@ public abstract class BaseTool
 	}
 
 	#region Toolbar
-	protected ToolBarDropDownButton CreateToolDropDownButton (bool showLabel = false)
+	public ToolBarDropDownButton CreateToolDropDownButton (bool showLabel = false)
 		=> (ToolBarDropDownButton) PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDropDownButton (showLabel);
 
 	private ToolBarDropDownButton? antialiasing_button;
