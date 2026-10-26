@@ -6,5 +6,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\core\Pinta.Core\Pinta.Core.csproj" />
     <ProjectReference Include="..\..\..\core\Pinta.Tools\Pinta.Tools.csproj" />
+    <ProjectReference Include="..\..\..\core\Pinta.Core.Neutral\Pinta.Core.Neutral.csproj" />
   </ItemGroup>
 </Project>
