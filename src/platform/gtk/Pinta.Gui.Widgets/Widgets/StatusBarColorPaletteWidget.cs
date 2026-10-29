@@ -151,7 +151,7 @@ public sealed partial class StatusBarColorPaletteWidget
 				if (index < 0)
 					break;
 
-				bool isCtrlPressed = state.IsControlPressed ();
+				bool isCtrlPressed = ((ModifierKeys) (uint) state).IsControlPressed ();
 				if (button == GtkExtensions.MOUSE_RIGHT_BUTTON) {
 					palette.SecondaryColor = palette.CurrentPalette.Colors[index];
 				} else if (button == GtkExtensions.MOUSE_LEFT_BUTTON && !isCtrlPressed) {

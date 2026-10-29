@@ -69,7 +69,7 @@ public sealed class HelpActions
 		this.system = system;
 		this.app = app;
 	}
-	public void RegisterActions (Gtk.Application application, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
 	{
 		menu.AppendItem (Contents.CreateMenuItem ());
 
@@ -79,7 +79,7 @@ public sealed class HelpActions
 		menu.AppendItem (Bugs.CreateMenuItem ());
 		menu.AppendItem (Translate.CreateMenuItem ());
 
-		application.AddCommands ([
+		registrar.AddCommands ([
 			Contents,
 			Website,
 			Bugs,

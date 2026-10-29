@@ -61,16 +61,16 @@ partial class GtkExtensions
 	}
 
 	/// <summary>
-	/// Provides convenient access to the Gdk.Key of the key being pressed.
+	/// Provides convenient access to the neutral key value of the key being pressed.
 	/// </summary>
-	public static Gdk.Key GetKey (this Gtk.EventControllerKey.KeyPressedSignalArgs args)
-		=> new Gdk.Key (args.Keyval);
+	public static ToolKey GetKey (this Gtk.EventControllerKey.KeyPressedSignalArgs args)
+		=> new ToolKey (args.Keyval);
 
 	/// <summary>
-	/// Provides convenient access to the Gdk.Key of the key being released.
+	/// Provides convenient access to the neutral key value of the key being released.
 	/// </summary>
-	public static Gdk.Key GetKey (this Gtk.EventControllerKey.KeyReleasedSignalArgs args)
-		=> new Gdk.Key (args.Keyval);
+	public static ToolKey GetKey (this Gtk.EventControllerKey.KeyReleasedSignalArgs args)
+		=> new ToolKey (args.Keyval);
 
 	public static void GetPreeditString (
 		this Gtk.IMContext context,

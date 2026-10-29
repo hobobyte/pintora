@@ -28,8 +28,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Gdk;
-using Gtk;
 
 namespace Pinta.Core;
 
@@ -86,7 +84,7 @@ public abstract class BaseTool
 	public virtual string StatusBarText
 		=> string.Empty;
 
-	private Cursor? default_cursor;
+	private object? default_cursor;
 
 	/// <summary>
 	/// The default cursor used by the tool. Return 'null' for the default pointer.
@@ -94,19 +92,19 @@ public abstract class BaseTool
 	/// (<see cref="DefaultCursorDescriptor"/>, <see cref="DefaultShapedCursor"/>,
 	/// <see cref="DefaultCursorName"/>) to use a cursor without referencing platform types.
 	/// </summary>
-	public virtual Cursor? DefaultCursor {
+	public virtual object? DefaultCursor {
 		get {
 			if (default_cursor is not null)
 				return default_cursor;
 
 			if (DefaultCursorDescriptor is { } descriptor)
-				return (Cursor?) CursorService.CreateCursor (descriptor);
+				return CursorService.CreateCursor (descriptor);
 
 			if (DefaultShapedCursor is { } shaped)
-				return (Cursor?) CursorService.CreateShapedCursor (shaped.Cursor, shaped.Shape, shaped.Scale, shaped.ShapeWidth);
+				return CursorService.CreateShapedCursor (shaped.Cursor, shaped.Shape, shaped.Scale, shaped.ShapeWidth);
 
 			if (DefaultCursorName is { } name)
-				return (Cursor?) CursorService.CreateCursor (new CursorDescriptor (name));
+				return CursorService.CreateCursor (new CursorDescriptor (name));
 
 			return null;
 		}
@@ -136,7 +134,7 @@ public abstract class BaseTool
 	/// <summary>
 	/// The current cursor for this tool. Return 'null' for the default pointer.
 	/// </summary>
-	public Cursor? CurrentCursor { get; private set; }
+	public object? CurrentCursor { get; private set; }
 
 
 	/// <summary>
@@ -160,13 +158,13 @@ public abstract class BaseTool
 		=> [];
 
 	/// <summary>
-	/// The shortcut key used to activate this tool in the toolbox.
-	/// Return Gdk.Key.Invalid for no shortcut key.
+	/// The shortcut key used to activate this tool in the toolbox
+	/// (a neutral key value; <see cref="ToolKey.Invalid"/> for no shortcut key).
 	/// Tools that don't want to reference key types can override
 	/// <see cref="ShortcutKeyStandard"/> instead.
 	/// </summary>
-	public virtual Gdk.Key ShortcutKey
-		=> ShortcutKeyStandard is { } key ? new Gdk.Key (key.ToKeyValue ()) : Gdk.Key.Invalid;
+	public virtual ToolKey ShortcutKey
+		=> ShortcutKeyStandard is { } key ? new ToolKey (key.ToKeyValue ()) : ToolKey.Invalid;
 
 	/// <summary>
 	/// Neutral shortcut key used to activate this tool in the toolbox.
@@ -250,12 +248,9 @@ public abstract class BaseTool
 	/// <summary>
 	/// Called when the tool needs to add its items to the Tool toolbar.
 	/// </summary>
-	protected virtual void OnBuildToolBar (Box toolbar)
+	protected virtual void OnBuildToolBar (IToolbarSurface toolbar)
 	{
 	}
-
-	protected virtual void OnBuildToolBar (IToolbarSurface toolbar)
-		=> OnBuildToolBar ((Box) toolbar.NativeToolbar);
 
 	/// <summary>
 	/// Called whenever another component is activated and this tool should
@@ -371,31 +366,38 @@ public abstract class BaseTool
 	/// Tool should call this in order to change the application cursor.
 	/// Pass 'null' to reset the cursor back to the default.
 	/// </summary>
-	public void SetCursor (Cursor? cursor)
+	public void SetCursor (object? cursor)
 	{
 		CurrentCursor = cursor;
 
 		if (workspace.HasOpenDocuments)
-			workspace.ActiveWorkspace.Canvas.Cursor = cursor;
+			CursorService.SetWidgetCursor (workspace.ActiveWorkspace.Canvas!, cursor);
+	}
+
+	/// <summary>Reset the cursor back to the platform default.</summary>
+	public void ResetCursor ()
+	{
+		CurrentCursor = null;
+
+		if (workspace.HasOpenDocuments)
+			CursorService.SetWidgetCursor (workspace.ActiveWorkspace.Canvas!, null);
 	}
 
 	/// <summary>
 	/// Change the application cursor to a standard cursor given by its neutral name.
 	/// </summary>
 	public void SetCursor (string cursorName)
-		=> SetCursor ((Cursor?) CursorService.CreateCursor (new CursorDescriptor (cursorName)));
+		=> SetCursor (CursorService.CreateCursor (new CursorDescriptor (cursorName)));
 
 	/// <summary>
 	/// Change the application cursor to a cursor given by its neutral descriptor.
 	/// </summary>
 	public void SetCursor (CursorDescriptor descriptor)
-		=> SetCursor ((Cursor?) CursorService.CreateCursor (descriptor));
+		=> SetCursor (CursorService.CreateCursor (descriptor));
 
 	/// <summary>
 	/// Change the application cursor to a previously created native cursor object.
 	/// </summary>
-	public void SetCursor (object cursor)
-		=> SetCursor ((Cursor?) cursor);
 
 	protected bool IsActiveTool ()
 	{
@@ -408,9 +410,9 @@ public abstract class BaseTool
 
 	private IToolBarDropDownButton? antialiasing_button;
 	private IToolBarDropDownButton? alphablending_button;
-	private Separator? separator;
+	private IToolBarSeparator? separator;
 
-	private Separator Separator => separator ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarSeparator Separator => separator ??= WidgetFactory.CreateSeparator ();
 
 	protected IToolBarDropDownButton AlphaBlendingDropDown {
 		get {
@@ -465,27 +467,25 @@ public abstract class BaseTool
 
 	internal void DoAfterUndo (Document document) => OnAfterUndo (document);
 
-	internal void DoBuildToolBar (Box toolbar)
+	internal void DoBuildToolBar (IToolbarSurface toolbar)
 	{
 		OnBuildToolBar (toolbar);
 
 		// Add alpha-blending and anti-aliasing dropdowns if needed
 		if (ShowAlphaBlendingButton || ShowAntialiasingButton)
-			toolbar.Append (Separator);
+			toolbar.Append (Separator.NativeWidget);
 
 		if (ShowAntialiasingButton)
-			toolbar.Append ((Gtk.Widget) AntialiasingDropDown.NativeWidget);
+			toolbar.Append (AntialiasingDropDown.NativeWidget);
 		if (ShowAlphaBlendingButton)
-			toolbar.Append ((Gtk.Widget) AlphaBlendingDropDown.NativeWidget);
+			toolbar.Append (AlphaBlendingDropDown.NativeWidget);
 	}
-
-	internal void DoBuildToolBar (IToolbarSurface toolbar) => OnBuildToolBar (toolbar);
 
 	internal void DoCommit (Document? document) => OnCommit (document);
 
 	internal void DoDeactivated (Document? document, BaseTool? newTool)
 	{
-		SetCursor ((Gdk.Cursor?) null);
+		ResetCursor ();
 		OnDeactivated (document, newTool);
 	}
 

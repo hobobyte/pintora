@@ -30,9 +30,74 @@ using System.Collections.Generic;
 namespace Pinta.Core;
 
 [GObject.Subclass<Gtk.Box>]
-public sealed partial class ToolBarComboBox
+public sealed partial class ToolBarComboBox : IToolBarComboBox
 {
 	public Gtk.ComboBoxText ComboBox { get; private set; } = null!; // NRT - set in factory method
+
+	private EventHandler? changed;
+	private EventHandler? focusEntered;
+	private EventHandler? focusLeft;
+
+	public string? ActiveText => ComboBox.GetActiveText ();
+
+	public int Active {
+		get => ComboBox.Active;
+		set => ComboBox.Active = value;
+	}
+
+	public int ItemCount => ComboBox.Model.IterNChildren (null);
+
+	public new bool Sensitive {
+		get => base.Sensitive;
+		set => base.Sensitive = value;
+	}
+
+	public event EventHandler? Changed {
+		add {
+			if (changed is null)
+				ComboBox.OnChanged += OnComboChanged;
+			changed += value;
+		}
+		remove {
+			changed -= value;
+			if (changed is null)
+				ComboBox.OnChanged -= OnComboChanged;
+		}
+	}
+
+	private void OnComboChanged (Gtk.ComboBox comboBox, EventArgs args)
+		=> changed?.Invoke (this, EventArgs.Empty);
+
+	public event EventHandler? FocusEntered {
+		add => focusEntered += value;
+		remove => focusEntered -= value;
+	}
+
+	public event EventHandler? FocusLeft {
+		add => focusLeft += value;
+		remove => focusLeft -= value;
+	}
+
+	public void AppendItem (string text) => ComboBox.AppendText (text);
+
+	public void RemoveAllItems () => ComboBox.RemoveAll ();
+
+	public void SetEntryText (string text) => ComboBox.GetEntry ().SetText (text);
+
+	public string GetEntryText () => ComboBox.GetEntry ().GetText ();
+
+	public object NativeWidget => this;
+
+	private void AttachFocusController ()
+	{
+		if (!ComboBox.HasEntry)
+			return;
+
+		Gtk.EventControllerFocus focusController = Gtk.EventControllerFocus.New ();
+		focusController.OnEnter += (o, args) => focusEntered?.Invoke (this, EventArgs.Empty);
+		focusController.OnLeave += (o, args) => focusLeft?.Invoke (this, EventArgs.Empty);
+		ComboBox.GetEntry ().AddController (focusController);
+	}
 
 	public static ToolBarComboBox New (int width, int activeIndex, bool allowEntry)
 		=> New (width, activeIndex, allowEntry, []);
@@ -62,6 +127,7 @@ public sealed partial class ToolBarComboBox
 		ToolBarComboBox widget = NewWithProperties ([]);
 		widget.Append (comboBox);
 		widget.ComboBox = comboBox;
+		widget.AttachFocusController ();
 		return widget;
 	}
 

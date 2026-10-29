@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Pinta.Core;
 
 namespace Pinta;
@@ -34,4 +35,10 @@ internal sealed class GtkToolbarWidgetFactory : IToolbarWidgetFactory
 
 	public IToolbarContainer CreateBox (int spacing, int marginStart)
 		=> new GtkBoxContainer (spacing, marginStart);
+
+	public IToolBarComboBox CreateComboBox (int width, int initialIndex, bool withEntry, IEnumerable<string>? items)
+		=> ToolBarComboBox.New (width, initialIndex, withEntry, items ?? []);
+
+	public object CreateToolBarItem (Command action, bool forceIconOnly)
+		=> action.CreateToolBarItem (forceIconOnly);
 }

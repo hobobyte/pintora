@@ -222,7 +222,7 @@ public sealed partial class CanvasWindow
 			chrome.LastCanvasCursorPoint = current_canvas_pos.ToInt ();
 
 		ToolMouseEventArgs tool_args = new () {
-			State = controller.GetCurrentEventState (),
+			State = (ModifierKeys) (uint) controller.GetCurrentEventState (),
 			MouseButton = MouseButton.None,
 			PointDouble = current_canvas_pos,
 			WindowPoint = viewPos,
@@ -322,7 +322,7 @@ public sealed partial class CanvasWindow
 		if (gesture_zoom.IsActive ())
 			return true;
 		// Allow the user to zoom in/out with Ctrl-Mousewheel or Ctrl-two-finger-scroll
-		if (!controller.GetCurrentEventState ().IsControlPressed ())
+		if (!((ModifierKeys) (uint) controller.GetCurrentEventState ()).IsControlPressed ())
 			return false;
 
 		// "clicky" scroll wheels generate 1 or -1
@@ -382,7 +382,7 @@ public sealed partial class CanvasWindow
 		PointD canvasPoint = document.Workspace.ViewPointToCanvas (viewPoint);
 
 		ToolMouseEventArgs tool_args = new () {
-			State = gesture.GetCurrentEventState (),
+			State = (ModifierKeys) (uint) gesture.GetCurrentEventState (),
 			MouseButton = gesture.GetCurrentMouseButton (),
 			PointDouble = canvasPoint,
 			WindowPoint = viewPoint,
@@ -406,7 +406,7 @@ public sealed partial class CanvasWindow
 
 		// Send the mouse move event to the current tool.
 		ToolMouseEventArgs tool_args = new () {
-			State = gesture.GetCurrentEventState (),
+			State = (ModifierKeys) (uint) gesture.GetCurrentEventState (),
 			MouseButton = gesture.GetCurrentMouseButton (),
 			PointDouble = current_canvas_pos,
 			WindowPoint = viewPoint,
@@ -427,7 +427,7 @@ public sealed partial class CanvasWindow
 
 		// Send the mouse release event to the current tool.
 		ToolMouseEventArgs tool_args = new () {
-			State = gesture.GetCurrentEventState (),
+			State = (ModifierKeys) (uint) gesture.GetCurrentEventState (),
 			MouseButton = gesture.GetCurrentMouseButton (),
 			PointDouble = canvasPoint,
 			WindowPoint = viewPoint,
@@ -446,7 +446,7 @@ public sealed partial class CanvasWindow
 			Event = controller.GetCurrentEvent (),
 			Key = args.GetKey (),
 			Text = KeyvalText (args.Keyval),
-			State = args.State,
+			State = (ModifierKeys) (uint) args.State,
 		};
 
 		return tools.DoKeyDown (document, tool_args);
@@ -465,7 +465,7 @@ public sealed partial class CanvasWindow
 		ToolKeyEventArgs tool_args = new () {
 			Event = controller.GetCurrentEvent (),
 			Key = args.GetKey (),
-			State = args.State,
+			State = (ModifierKeys) (uint) args.State,
 		};
 
 		return tools.DoKeyUp (document, tool_args);

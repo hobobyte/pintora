@@ -14,6 +14,12 @@ public interface ICursorService
 	/// (used e.g. by the slash brush cursor). Returns null when unavailable.
 	/// </summary>
 	object? CreateShapedIconCursor (CursorDescriptor baseCursor, CursorShape shape, double scale, int shapeWidth, int angle);
+
+	/// <summary>Gets the cursor currently applied to a native widget.</summary>
+	object? GetWidgetCursor (object nativeWidget);
+
+	/// <summary>Applies a native cursor (or null for the default) to a native widget.</summary>
+	void SetWidgetCursor (object nativeWidget, object? cursor);
 }
 
 /// <summary>

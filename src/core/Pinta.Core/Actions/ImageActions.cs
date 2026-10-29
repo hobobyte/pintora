@@ -124,7 +124,7 @@ public sealed class ImageActions
 		this.view = view;
 	}
 
-	public void RegisterActions (Gtk.Application app, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
 	{
 		Gio.Menu flip_section = Gio.Menu.New ();
 		flip_section.AppendItem (FlipHorizontal.CreateMenuItem ());
@@ -146,7 +146,7 @@ public sealed class ImageActions
 		menu.AppendSection (null, rotate_section);
 		menu.AppendSection (null, flatten_section);
 
-		app.AddCommands ([
+		registrar.AddCommands ([
 			CropToSelection,
 			AutoCrop,
 			Resize,

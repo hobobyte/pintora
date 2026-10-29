@@ -25,7 +25,6 @@
 // THE SOFTWARE.
 
 using System;
-using Gdk;
 
 namespace Pinta.Core;
 
@@ -56,7 +55,7 @@ public sealed class ToolMouseEventArgs : EventArgs
 	/// </summary>
 	public bool IsShiftPressed => State.IsShiftPressed ();
 
-	public ModifierType State { get; init; }
+	public ModifierKeys State { get; init; }
 
 	/// <summary>
 	/// The mouse button being pressed or released, when applicable.
