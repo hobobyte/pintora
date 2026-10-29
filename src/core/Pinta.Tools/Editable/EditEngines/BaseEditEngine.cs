@@ -1323,7 +1323,7 @@ public abstract class BaseEditEngine
 		var tool = tools.CurrentTool!;
 
 		if (hover_handle.Active && !is_drawing && !ctrl_key)
-			tool.SetCursor (GdkExtensions.CursorFromName (grab_cursor));
+			tool.SetCursor (grab_cursor);
 		else
 			tool.SetCursor (tool.DefaultCursor);
 
