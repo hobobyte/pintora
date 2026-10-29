@@ -9,4 +9,8 @@ public interface IToolbarWidgetFactory
 {
 	IToolBarDropDownButton CreateDropDownButton (bool showLabel = false);
 	IDashPatternBox CreateDashPatternBox ();
+	IToolBarLabel CreateLabel (string text);
+	IToolBarSeparator CreateSeparator ();
+	IToolBarSpinButton CreateSpinButton (double min, double max, double step, double initialValue);
+	IToolBarCheckButton CreateCheckButton (string label);
 }

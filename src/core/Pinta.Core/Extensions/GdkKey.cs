@@ -28,4 +28,9 @@ public readonly record struct Key (uint Value)
 		else
 			return Value == Gdk.Constants.KEY_Control_L || Value == Gdk.Constants.KEY_Control_R;
 	}
+
+	/// <summary>
+	/// Returns whether this key matches a platform-neutral <see cref="StandardKey"/>.
+	/// </summary>
+	public bool Is (StandardKey key) => Value == key.ToKeyValue ();
 }

@@ -84,5 +84,11 @@ internal sealed class GtkToolbarSurface : IToolbarSurface
 	public GtkToolbarSurface (Gtk.Box box) => this.box = box;
 	public object NativeToolbar => box;
 	public void Append (object widget) => box.Append ((Gtk.Widget) widget);
+
+	public void InsertAfter (object widget, object afterWidget)
+		=> box.InsertChildAfter ((Gtk.Widget) widget, (Gtk.Widget) afterWidget);
+
+	public void Remove (object widget) => box.Remove ((Gtk.Widget) widget);
+
 	public void RemoveAll () => box.RemoveAll ();
 }
