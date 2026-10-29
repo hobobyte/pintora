@@ -49,7 +49,7 @@ internal sealed class GtkToolUiService : IToolUiService
 			};
 			foreach (string mode in handler.CombineModes.Keys)
 				selection_combo_box.ComboBox.AppendText (mode);
-			selection_combo_box.ComboBox.Active = settings.GetSetting (SettingNames.SELECTION_COMBINE_MODE, 0);
+			selection_combo_box.ComboBox.Active = settings.GetSetting (Pinta.Core.SettingNames.SELECTION_COMBINE_MODE, 0);
 		}
 
 		box.Append (selection_combo_box);
