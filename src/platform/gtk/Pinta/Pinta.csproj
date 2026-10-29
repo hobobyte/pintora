@@ -45,7 +45,7 @@
 
   <!-- Run msgfmt on our translation (po) files -->
   <ItemGroup>
-    <Translation Include="../po/*.po" />
+    <Translation Include="../../../../po/*.po" />
   </ItemGroup>
 
   <Target Name="CompileTranslations" BeforeTargets="Build" Condition="'$(BuildTranslations)' == 'true'" Inputs="@(Translation)" Outputs="$(OutputPath)/locale/%(Translation.Filename)/LC_MESSAGES/pinta.mo">

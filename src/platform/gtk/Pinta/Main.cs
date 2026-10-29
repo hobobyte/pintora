@@ -50,6 +50,7 @@ internal sealed class MainClass
 		string localeDir = Path.Combine (SystemManager.GetDataRootDirectory (), "locale");
 
 		try {
+			Translations.SetProvider (new GtkGettextProvider ());
 			Translations.Init (localeDir, langPref);
 		} catch (Exception ex) {
 			Console.WriteLine (ex);

@@ -34,57 +34,26 @@ namespace Pinta.Core;
 
 public static class Translations
 {
-	private const string PintaTextDomain = "pinta";
 	private static string locale_dir = "";
-	private static bool native_translations_available = true;
+	private static ITranslationProvider provider = new IdentityTranslationProvider ();
+
+	/// <summary>
+	/// Registers the platform's translation backend. Must be called before <see cref="Init"/>.
+	/// </summary>
+	public static void SetProvider (ITranslationProvider translationProvider)
+	{
+		provider = translationProvider;
+	}
 
 	public static void Init (string localeDir, string langPref)
 	{
 		locale_dir = localeDir;
-
-		try {
-		// Note we need to initialize the GLib module since this is called very early in startup,
-		// before GTK is initialized.
-		GLib.Module.Initialize ();
-
-		// If the user has a non-default language preference selected, this overrides any language
-		// setting from the environment.
-		// Otherwise, the default is to follow the dotnet UI culture in the absence of any env vars,
-		// since this correctly picks up system language settings on macOS, for example.
-		// Pinta (along with GTK / libadwaita) use the native version of gettext for translations
-		// so we set the LANGUAGE environment variable to make these consistent.
-		string? langOverride = null;
-		if (!string.IsNullOrEmpty (langPref)) {
-			langOverride = langPref;
-		} else if (GLib.Functions.Getenv ("LANGUAGE") is null) {
-			CultureInfo cultureInfo = CultureInfo.CurrentUICulture;
-			langOverride = cultureInfo.Name.Replace ('-', '_'); // convert names like en-CA to en_CA
-		}
-
-		if (!string.IsNullOrEmpty (langOverride))
-			GLib.Functions.Setenv ("LANGUAGE", langOverride, overwrite: true);
-
-		// Initialize gettext for Pinta's translations.
-		IntlExtensions.BindTextDomain (PintaTextDomain, localeDir);
-		IntlExtensions.BindTextDomainCodeset (PintaTextDomain, "UTF-8");
-		IntlExtensions.TextDomain (PintaTextDomain);
-		} catch (DllNotFoundException) {
-			native_translations_available = false;
-		}
+		provider.Initialize (localeDir, langPref);
 	}
 
 	public static string GetString (string text)
 	{
-		// Just use glib'c gettext wrapper for convenience instead of adding our own binding.
-		if (!native_translations_available)
-			return text;
-
-		try {
-			return GLib.Functions.Dgettext (PintaTextDomain, text);
-		} catch (DllNotFoundException) {
-			native_translations_available = false;
-			return text;
-		}
+		return provider.GetString (text);
 	}
 
 	public static string GetString (string text, params object[] args)
@@ -98,11 +67,14 @@ public static class Translations
 	/// </summary>
 	public static IEnumerable<string> GetAvailableLanguages ()
 	{
-		string moFile = $"{PintaTextDomain}.mo";
+		const string moFile = "pinta.mo";
 
 		// List folders in the locale dir if they contain Pinta's translation file.
 		// On Linux, the folder might e.g. be /usr/share/locale which contains additional languages.
 		DirectoryInfo dirInfo = new (locale_dir);
+		if (!dirInfo.Exists)
+			return [];
+
 		return dirInfo.EnumerateDirectories ()
 			.Where (dir => File.Exists (Path.Combine (dir.FullName, "LC_MESSAGES", moFile)))
 			.Select (dir => dir.Name);
