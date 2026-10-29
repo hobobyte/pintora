@@ -37,10 +37,10 @@ public abstract class SelectTool : BaseTool
 
 	private SelectionHistoryItem? hist = default;
 	private CombineMode combine_mode = default;
-	private Gtk.Separator? mode_sep;
+	private IToolBarSeparator? mode_sep;
 	private IToolBarDropDownButton? auto_scroll_button;
 
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_S);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.S;
 	public override bool IsSelectionTool => true;
 	protected override bool ShowAntialiasingButton => false;
 	private bool IsAutoScroll => AutoScrollButton.SelectedItem.GetTagOrDefault (true);
@@ -61,10 +61,9 @@ public abstract class SelectTool : BaseTool
 
 	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
 		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb.NativeToolbar, workspace.SelectionHandler, Settings);
 
-		tb.Append (Separator);
+		tb.Append (Separator.NativeWidget);
 
 		tb.Append (AutoScrollButton.NativeWidget);
 	}
@@ -118,9 +117,12 @@ public abstract class SelectTool : BaseTool
 		if (!IsAutoScroll)
 			return;
 
-		var view = (Gtk.Viewport) document.Workspace.Canvas.Parent!;
-		var h_adjust = view.GetHadjustment ()!.PageSize;
-		var v_adjust = view.GetVadjustment ()!.PageSize;
+		var viewport = document.Workspace.CanvasViewportSize;
+		if (viewport is null)
+			return;
+
+		var h_adjust = (double) viewport.Value.Width;
+		var v_adjust = (double) viewport.Value.Height;
 
 		//step of 10 pixels or of 1% of visible area, whichever is greater
 		int canvasStep = (int) Math.Max (10, h_adjust * 0.01);
@@ -253,7 +255,7 @@ public abstract class SelectTool : BaseTool
 		ShowHandles (document.Selection.Visible && tools.CurrentTool == this);
 	}
 
-	private Gtk.Separator Separator => mode_sep ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarSeparator Separator => mode_sep ??= WidgetFactory.CreateSeparator ();
 
 	private IToolBarDropDownButton AutoScrollButton {
 		get {

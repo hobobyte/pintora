@@ -3,6 +3,7 @@ namespace Pinta.Core;
 /// <summary>
 /// Platform-neutral key identifiers for keys handled by tools,
 /// mapped to native key values by each platform (see StandardKeyExtensions).
+/// Letter members match the un-shifted GDK key values of the same letters.
 /// </summary>
 public enum StandardKey
 {
@@ -25,7 +26,18 @@ public enum StandardKey
 	Insert,
 	A,
 	B,
+	E,
+	F,
+	G,
+	H,
 	I,
+	K,
+	L,
+	M,
+	O,
+	P,
+	R,
+	S,
 	T,
 	U,
 	Z,

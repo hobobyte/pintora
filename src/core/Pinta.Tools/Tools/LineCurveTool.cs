@@ -33,7 +33,6 @@ public sealed class LineCurveTool : ShapeTool
 {
 	public LineCurveTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Line.png", 9, 18))!;
 
 		BaseEditEngine.CorrespondingTools[ShapeType] = this;
 		EditEngine = new LineCurveEditEngine (services, this);
@@ -41,7 +40,7 @@ public sealed class LineCurveTool : ShapeTool
 
 	public override string Name => Translations.GetString ("Line/Curve");
 	public override string Icon => Pinta.Resources.Icons.ToolLine;
-	public override Gdk.Cursor? DefaultCursor { get; set; }
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.Line.png", 9, 18);
 	public override int Priority => 37;
 
 	public override BaseEditEngine EditEngine { get; }

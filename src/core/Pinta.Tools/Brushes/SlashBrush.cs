@@ -136,7 +136,7 @@ internal sealed class SlashBrush : BasePaintBrush
 		CursorChanged ();
 	}
 
-	public override Gdk.Cursor GetCursor ()
+	public override object? GetCursorNative ()
 	{
 		double scale = workspace.GetScale ();
 		/*
@@ -149,7 +149,7 @@ internal sealed class SlashBrush : BasePaintBrush
 						CursorShape.Rectangle, scale, 2, line_width, angle == 0 ? 180 : angle, 8, 24,
 						out var iconOffsetX, out var iconOffsetY);
 
-		return Gdk.Cursor.NewFromTexture (icon, iconOffsetX, iconOffsetY, null);
+		return GdkExtensions.CreateCursorFromTexture (icon, iconOffsetX, iconOffsetY);
 	}
 
 	private PointD OffsetPoint (PointD point, double multiplier, double offset, float angle_in_degrees)

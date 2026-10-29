@@ -35,7 +35,6 @@
 
 using System;
 using Cairo;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -57,19 +56,19 @@ public class RecolorTool : BaseBrushTool
 	public override string StatusBarText => Translations.GetString (
 		"Left click to replace the secondary color with the primary color." +
 		"\nRight click to reverse.");
-	public override Gdk.Cursor DefaultCursor => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Recolor.png", 9, 18))!;
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_R);
-	protected float Tolerance => (float) (ToleranceSlider.GetValue () / 100);
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.Recolor.png", 9, 18);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.R;
+	protected float Tolerance => (float) (ToleranceSlider.Value / 100);
 	public override int Priority => 49;
 
-	protected override void OnBuildToolBar (Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
 		base.OnBuildToolBar (tb);
 
-		tb.Append (Separator);
+		tb.Append (Separator.NativeWidget);
 
-		tb.Append (ToleranceLabel);
-		tb.Append (ToleranceSlider);
+		tb.Append (ToleranceLabel.NativeWidget);
+		tb.Append (ToleranceSlider.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -166,7 +165,7 @@ public class RecolorTool : BaseBrushTool
 		base.OnSaveSettings (settings);
 
 		if (tolerance_slider is not null)
-			settings.PutSetting (SettingNames.RECOLOR_TOLERANCE, (int) tolerance_slider.GetValue ());
+			settings.PutSetting (SettingNames.RECOLOR_TOLERANCE, (int) tolerance_slider.Value);
 	}
 
 	#region Private PDN Methods
@@ -189,11 +188,11 @@ public class RecolorTool : BaseBrushTool
 	}
 	#endregion
 
-	private Label? tolerance_label;
-	private Scale? tolerance_slider;
-	private Separator? separator;
+	private IToolBarLabel? tolerance_label;
+	private IToolBarSlider? tolerance_slider;
+	private IToolBarSeparator? separator;
 
-	private Label ToleranceLabel => tolerance_label ??= Label.New (string.Format ("  {0}: ", Translations.GetString ("Tolerance")));
-	private Scale ToleranceSlider => tolerance_slider ??= GtkExtensions.CreateToolBarSlider (0, 100, 1, Settings.GetSetting (SettingNames.RECOLOR_TOLERANCE, 50));
-	private Separator Separator => separator ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarLabel ToleranceLabel => tolerance_label ??= WidgetFactory.CreateLabel (string.Format ("  {0}: ", Translations.GetString ("Tolerance")));
+	private IToolBarSlider ToleranceSlider => tolerance_slider ??= WidgetFactory.CreateSlider (0, 100, 1, Settings.GetSetting (SettingNames.RECOLOR_TOLERANCE, 50));
+	private IToolBarSeparator Separator => separator ??= WidgetFactory.CreateSeparator ();
 }

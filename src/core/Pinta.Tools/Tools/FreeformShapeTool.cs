@@ -26,7 +26,6 @@
 
 using System;
 using Cairo;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -48,16 +47,16 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	public override string Name => Translations.GetString ("Freeform Shape");
 	public override string Icon => Pinta.Resources.Icons.ToolFreeformShape;
 	public override string StatusBarText => Translations.GetString ("Left click to draw with primary color, right click to draw with secondary color.");
-	public override Gdk.Cursor DefaultCursor => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.FreeformShape.png", 9, 18))!;
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_O);
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.FreeformShape.png", 9, 18);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.O;
 	public override int Priority => 45;
 
 	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		tb.Append (FillLabel);
+		tb.Append (FillLabel.NativeWidget);
 		tb.Append (FillDropDown.NativeWidget);
-		tb.Append (Separator);
-		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
+		tb.Append (Separator.NativeWidget);
+		base.OnBuildToolBar (tb);
 
 		if (dash_p_box is null) {
 			dash_p_box = PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDashPatternBox ();
@@ -208,12 +207,12 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	private bool StrokeShape => FillDropDown.SelectedItem.GetTagOrDefault (0) % 2 == 0;
 	private bool FillShape => FillDropDown.SelectedItem.GetTagOrDefault (0) >= 1;
 
-	private Label? fill_label;
+	private IToolBarLabel? fill_label;
 	private IToolBarDropDownButton? fill_button;
-	private Separator? fill_sep;
+	private IToolBarSeparator? fill_sep;
 
-	private Separator Separator => fill_sep ??= GtkExtensions.CreateToolBarSeparator ();
-	private Label FillLabel => fill_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Fill Style")));
+	private IToolBarSeparator Separator => fill_sep ??= WidgetFactory.CreateSeparator ();
+	private IToolBarLabel FillLabel => fill_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Fill Style")));
 	private IToolBarDropDownButton FillDropDown {
 		get {
 			if (fill_button == null) {

@@ -33,7 +33,6 @@ public sealed class RectangleTool : ShapeTool
 {
 	public RectangleTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Rectangle.png", 9, 18))!;
 
 		BaseEditEngine.CorrespondingTools[ShapeType] = this;
 		EditEngine = new RectangleEditEngine (services, this);
@@ -41,7 +40,7 @@ public sealed class RectangleTool : ShapeTool
 
 	public override string Name => Translations.GetString ("Rectangle");
 	public override string Icon => Pinta.Resources.Icons.ToolRectangle;
-	public override Gdk.Cursor? DefaultCursor { get; set; }
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.Rectangle.png", 9, 18);
 	public override int Priority => 39;
 
 	public override BaseEditEngine EditEngine { get; }

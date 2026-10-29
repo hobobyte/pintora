@@ -29,7 +29,6 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Cairo;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -62,9 +61,8 @@ public sealed class GradientTool : BaseTool
 	public override string StatusBarText => Translations.GetString ("Click and drag to draw gradient from primary to secondary color." +
 									"\nRight click to reverse." +
 									"\nClick on a control point and drag to move it.");
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_G);
-	public override Gdk.Cursor DefaultCursor
-		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Gradient.png", 9, 18))!;
+	public override StandardKey? ShortcutKeyStandard => StandardKey.G;
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.Gradient.png", 9, 18);
 	public override int Priority => 31;
 	protected override bool ShowAlphaBlendingButton => true;
 	private GradientType SelectedGradientType => GradientDropDown.SelectedItem.GetTagOrDefault (GradientType.Linear);
@@ -73,12 +71,10 @@ public sealed class GradientTool : BaseTool
 
 	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
-
-		tb.Append (GradientLabel);
+		tb.Append (GradientLabel.NativeWidget);
 		tb.Append (GradientDropDown.NativeWidget);
 		tb.Append (GtkExtensions.CreateToolBarSeparator ());
-		tb.Append (ModeLabel);
+		tb.Append (ModeLabel.NativeWidget);
 		tb.Append (ColorModeDropDown.NativeWidget);
 
 		AlphaBlendingDropDown.SelectedItemChanged += HandleGradientTypeChanged;
@@ -149,7 +145,7 @@ public sealed class GradientTool : BaseTool
 
 	protected override bool OnKeyDown (Document document, ToolKeyEventArgs e)
 	{
-		if (e.Key.Value == Gdk.Constants.KEY_Return) {
+		if (e.Key.Is (StandardKey.Return)) {
 			Finalize (document);
 		}
 		return base.OnKeyDown (document, e);
@@ -281,12 +277,12 @@ public sealed class GradientTool : BaseTool
 		}
 	}
 
-	private Gtk.Label? gradient_label;
+	private IToolBarLabel? gradient_label;
 	private IToolBarDropDownButton? gradient_button;
-	private Gtk.Label? color_mode_label;
+	private IToolBarLabel? color_mode_label;
 	private IToolBarDropDownButton? color_mode_button;
 
-	private Gtk.Label GradientLabel => gradient_label ??= Gtk.Label.New (string.Format (" {0}: ", Translations.GetString ("Gradient")));
+	private IToolBarLabel GradientLabel => gradient_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Gradient")));
 	private IToolBarDropDownButton GradientDropDown {
 		get {
 			if (gradient_button == null) {
@@ -320,7 +316,7 @@ public sealed class GradientTool : BaseTool
 		}
 	}
 
-	private Gtk.Label ModeLabel => color_mode_label ??= Gtk.Label.New (string.Format (" {0}: ", Translations.GetString ("Mode")));
+	private IToolBarLabel ModeLabel => color_mode_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Mode")));
 	private IToolBarDropDownButton ColorModeDropDown {
 		get {
 			if (color_mode_button == null) {

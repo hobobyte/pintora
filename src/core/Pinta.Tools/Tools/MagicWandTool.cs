@@ -50,23 +50,20 @@ public sealed class MagicWandTool : FloodTool
 		};
 	}
 
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_S);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.S;
 	public override string Name => Translations.GetString ("Magic Wand Select");
 	public override string Icon => Pinta.Resources.Icons.ToolSelectMagicWand;
 	public override string StatusBarText => Translations.GetString (
 		"Click to select region of similar color." +
 		"\nHold shift to use Global mode."
 	);
-	public override Gdk.Cursor DefaultCursor
-		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.MagicWand.png", 21, 10))!;
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.MagicWand.png", 21, 10);
 	public override int Priority => 19;
 	public override bool IsSelectionTool => true;
 
 	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
-
-		tb.Append (SelectionSeparator);
+		tb.Append (SelectionSeparator.NativeWidget);
 
 		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb.NativeToolbar, workspace.SelectionHandler, Settings);
 	}
@@ -101,6 +98,6 @@ public sealed class MagicWandTool : FloodTool
 		workspace.SelectionHandler.OnSaveSettings (settings);
 	}
 
-	private Separator? selection_sep;
-	private Separator SelectionSeparator => selection_sep ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarSeparator? selection_sep;
+	private IToolBarSeparator SelectionSeparator => selection_sep ??= WidgetFactory.CreateSeparator ();
 }

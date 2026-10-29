@@ -26,7 +26,6 @@
 
 using System;
 using Cairo;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -48,25 +47,25 @@ public abstract class BaseBrushTool : BaseTool
 			+ "\n" + Translations.GetString ("Shortcut keys:")
 			+ "\n" + Translations.GetString ("Press {0} to decrease brush width", "\"[\"")
 			+ "\n" + Translations.GetString ("Press {0} to increase brush width", "\"]\"");
-		BrushWidthSpinButton.OnValueChanged += (_, _) => OnBrushWidthChanged ();
+		BrushWidthSpinButton.ValueChanged += (_, _) => OnBrushWidthChanged ();
 	}
 
 	protected override bool ShowAntialiasingButton => true;
 
 	protected int BrushWidth {
-		get => brush_width?.GetValueAsInt () ?? DEFAULT_BRUSH_WIDTH;
+		get => brush_width is not null ? (int) brush_width.Value : DEFAULT_BRUSH_WIDTH;
 		set {
 			if (brush_width is not null)
 				brush_width.Value = value;
 		}
 	}
 
-	protected override void OnBuildToolBar (Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
 		base.OnBuildToolBar (tb);
 
-		tb.Append (BrushWidthLabel);
-		tb.Append (BrushWidthSpinButton);
+		tb.Append (BrushWidthLabel.NativeWidget);
+		tb.Append (BrushWidthSpinButton.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -95,13 +94,13 @@ public abstract class BaseBrushTool : BaseTool
 
 	protected override bool OnKeyDown (Document document, ToolKeyEventArgs e)
 	{
-		switch (e.Key.Value) {
-			case Gdk.Constants.KEY_bracketleft:
-				BrushWidth--;
-				return true;
-			case Gdk.Constants.KEY_bracketright:
-				BrushWidth++;
-				return true;
+		if (e.Key.Is (StandardKey.BracketLeft)) {
+			BrushWidth--;
+			return true;
+		}
+		if (e.Key.Is (StandardKey.BracketRight)) {
+			BrushWidth++;
+			return true;
 		}
 
 		return base.OnKeyDown (document, e);
@@ -112,7 +111,7 @@ public abstract class BaseBrushTool : BaseTool
 		base.OnSaveSettings (settings);
 
 		if (brush_width is not null)
-			settings.PutSetting (SettingNames.BrushWidth (this), brush_width.GetValueAsInt ());
+			settings.PutSetting (SettingNames.BrushWidth (this), (int) brush_width.Value);
 	}
 
 	protected virtual void OnBrushWidthChanged ()
@@ -122,9 +121,9 @@ public abstract class BaseBrushTool : BaseTool
 	}
 
 
-	private SpinButton? brush_width;
-	private Label? brush_width_label;
+	private IToolBarSpinButton? brush_width;
+	private IToolBarLabel? brush_width_label;
 
-	protected SpinButton BrushWidthSpinButton => brush_width ??= GtkExtensions.CreateToolBarSpinButton (1, 1e5, 1, Settings.GetSetting (SettingNames.BrushWidth (this), DEFAULT_BRUSH_WIDTH));
-	protected Label BrushWidthLabel => brush_width_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Brush width")));
+	protected IToolBarSpinButton BrushWidthSpinButton => brush_width ??= WidgetFactory.CreateSpinButton (1, 1e5, 1, Settings.GetSetting (SettingNames.BrushWidth (this), DEFAULT_BRUSH_WIDTH));
+	protected IToolBarLabel BrushWidthLabel => brush_width_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Brush width")));
 }
