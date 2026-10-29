@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Linq;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -24,7 +23,7 @@ public class LineHandle : IToolHandle
 	public PointD StartPosition => start_position;
 	public PointD EndPosition => end_position;
 
-	private readonly Gdk.Cursor grab_cursor = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.Grab);
+	private readonly string grab_cursor = Pinta.Resources.StandardCursors.Grab;
 
 	public LineHandle (IWorkspaceService workspace)
 	{
@@ -35,11 +34,11 @@ public class LineHandle : IToolHandle
 	public bool ContainsPoint (PointD windowPoint)
 		=> handles.Any (c => c.ContainsPoint (windowPoint));
 
-	public void Draw (Snapshot snapshot)
+	public void Draw (IToolHandleRenderer renderer)
 	{
 		foreach (MoveHandle handle in handles) {
 			handle.Selected = (handle == hover_handle);
-			handle.Draw (snapshot);
+			handle.Draw (renderer);
 		}
 	}
 
@@ -53,7 +52,7 @@ public class LineHandle : IToolHandle
 		return active_handle is not null;
 	}
 
-	public Gdk.Cursor? UpdateHoverHandle (PointD canvasPos, out RectangleI dirty)
+	public string? UpdateHoverHandle (PointD canvasPos, out RectangleI dirty)
 	{
 		if (!Active) {
 			dirty = RectangleI.Zero;

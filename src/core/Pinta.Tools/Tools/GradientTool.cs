@@ -195,8 +195,8 @@ public sealed class GradientTool : BaseTool
 
 	private void UpdateCursorAndHandle (PointD canvasPoint, Document document)
 	{
-		Gdk.Cursor? cursor = handle.UpdateHoverHandle (canvasPoint, out RectangleI handleDirtyRegion);
-		SetCursor (cursor ?? DefaultCursor);
+		string? cursorName = handle.UpdateHoverHandle (canvasPoint, out RectangleI handleDirtyRegion);
+		SetCursor (cursorName is null ? DefaultCursor : GdkExtensions.CursorFromName (cursorName));
 		document.Workspace.InvalidateWindowRect (handleDirtyRegion);
 	}
 

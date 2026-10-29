@@ -278,8 +278,9 @@ internal sealed partial class PintaCanvas
 
 		snapshot.PushClip (canvasViewBounds);
 
+		GtkToolHandleRenderer handleRenderer = new (snapshot);
 		foreach (IToolHandle control in tool.Handles.Where (c => c.Active)) {
-			control.Draw (snapshot);
+			control.Draw (handleRenderer);
 		}
 
 		snapshot.Pop ();

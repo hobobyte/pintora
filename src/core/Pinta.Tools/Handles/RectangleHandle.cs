@@ -37,14 +37,14 @@ public sealed class RectangleHandle : IToolHandle
 
 		handles = new Dictionary<HandlePoint, MoveHandle>
 		{
-			{ HandlePoint.UpperLeft, new (workspace) { Cursor = GdkExtensions.CursorFromName (Resources.StandardCursors.ResizeNW) } },
-			{ HandlePoint.LowerLeft, new (workspace) { Cursor = GdkExtensions.CursorFromName (Resources.StandardCursors.ResizeSW) } },
-			{ HandlePoint.UpperRight, new (workspace) { Cursor = GdkExtensions.CursorFromName (Resources.StandardCursors.ResizeNE) } },
-			{ HandlePoint.LowerRight, new (workspace) { Cursor = GdkExtensions.CursorFromName (Resources.StandardCursors.ResizeSE) } },
-			{ HandlePoint.Left, new (workspace) { Cursor = GdkExtensions.CursorFromName (Resources.StandardCursors.ResizeW) } },
-			{ HandlePoint.Up, new (workspace) { Cursor = GdkExtensions.CursorFromName (Resources.StandardCursors.ResizeN) } },
-			{ HandlePoint.Right, new (workspace) { Cursor = GdkExtensions.CursorFromName (Resources.StandardCursors.ResizeE) } },
-			{ HandlePoint.Down, new (workspace) { Cursor = GdkExtensions.CursorFromName (Resources.StandardCursors.ResizeS) } },
+			{ HandlePoint.UpperLeft, new (workspace) { Cursor = Resources.StandardCursors.ResizeNW } },
+			{ HandlePoint.LowerLeft, new (workspace) { Cursor = Resources.StandardCursors.ResizeSW } },
+			{ HandlePoint.UpperRight, new (workspace) { Cursor = Resources.StandardCursors.ResizeNE } },
+			{ HandlePoint.LowerRight, new (workspace) { Cursor = Resources.StandardCursors.ResizeSE } },
+			{ HandlePoint.Left, new (workspace) { Cursor = Resources.StandardCursors.ResizeW } },
+			{ HandlePoint.Up, new (workspace) { Cursor = Resources.StandardCursors.ResizeN } },
+			{ HandlePoint.Right, new (workspace) { Cursor = Resources.StandardCursors.ResizeE } },
+			{ HandlePoint.Down, new (workspace) { Cursor = Resources.StandardCursors.ResizeS } },
 		};
 
 		foreach (var handle in handles.Values)
@@ -57,10 +57,10 @@ public sealed class RectangleHandle : IToolHandle
 	public bool ContainsPoint (PointD windowPoint)
 		=> handles.Values.Any (c => c.ContainsPoint (windowPoint));
 
-	public void Draw (Gtk.Snapshot snapshot)
+	public void Draw (IToolHandleRenderer renderer)
 	{
 		foreach (MoveHandle handle in handles.Values)
-			handle.Draw (snapshot);
+			handle.Draw (renderer);
 	}
 	#endregion
 
@@ -166,9 +166,9 @@ public sealed class RectangleHandle : IToolHandle
 	}
 
 	/// <summary>
-	/// The cursor to display, if the cursor is over a corner of the rectangle.
+	/// The name of the cursor to display, if the cursor is over a corner of the rectangle.
 	/// </summary>
-	public Gdk.Cursor? GetCursorAtPoint (PointD viewPos)
+	public string? GetCursorAtPoint (PointD viewPos)
 		=> handles.Values.FirstOrDefault (c => c.ContainsPoint (viewPos))?.Cursor;
 
 	private void UpdateHandlePositions ()
