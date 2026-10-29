@@ -33,12 +33,6 @@ namespace Pinta.Core;
 public interface IChromeService
 {
 	Task<bool> LaunchSimpleEffectDialog (
-		Gtk.Window parent,
-		BaseEffect effect,
-		IAddinLocalizer localizer,
-		IWorkspaceService workspace,
-		Action<string?> onChanged);
-	Task<bool> LaunchSimpleEffectDialog (
 		BaseEffect effect,
 		IAddinLocalizer localizer,
 		IWorkspaceService workspace,
@@ -52,26 +46,6 @@ public interface IChromeService
 	Task ShowMessageDialog (string message, string body);
 }
 
-public static class ChromeExtensions
-{
-	/// <remarks>Notifies of property changes, so not equivalent to an empty handler</remarks>
-	[Obsolete ("Use overload with onChanged parameter instead")]
-	public static Task<bool> LaunchSimpleEffectDialog (
-		this IChromeService chrome,
-		Gtk.Window parent,
-		BaseEffect effect,
-		IAddinLocalizer localizer,
-		IWorkspaceService workspace)
-	{
-		return chrome.LaunchSimpleEffectDialog (
-			parent,
-			effect,
-			localizer,
-			workspace,
-			onChanged: p => effect.EffectData?.FirePropertyChanged (p));
-	}
-}
-
 public sealed class ChromeManager : IChromeService
 {
 	private PointI last_canvas_cursor_point;
@@ -79,7 +53,6 @@ public sealed class ChromeManager : IChromeService
 
 	// NRT - These are all initialized via the Initialize* functions
 	// but it would be nice to rewrite it to provably non-null.
-	public Gtk.Window MainWindow { get; set; } = null!;
 	private IProgressDialog progress_dialog = null!;
 	private ErrorDialogHandler error_dialog_handler = null!;
 	private MessageDialogHandler message_dialog_handler = null!;
@@ -173,13 +146,9 @@ public sealed class ChromeManager : IChromeService
 		simple_effect_dialog_handler = handler;
 	}
 
-	public async Task ShowErrorDialog (
-		Gtk.Window parent,
-		string message,
-		string body,
-		string details)
+	public async Task ShowErrorDialog (string message, string body, string details)
 	{
-		ErrorDialogResponse response = await error_dialog_handler (parent, message, body, details);
+		ErrorDialogResponse response = await error_dialog_handler (message, body, details);
 		switch (response) {
 			case ErrorDialogResponse.Bug:
 				PintaCore.Actions.Help.Bugs.Activate ();
@@ -187,16 +156,8 @@ public sealed class ChromeManager : IChromeService
 		}
 	}
 
-	public Task ShowMessageDialog (Gtk.Window parent, string message, string body)
-	{
-		return message_dialog_handler (parent, message, body);
-	}
-
-	public Task ShowErrorDialog (string message, string body, string details)
-		=> ShowErrorDialog (MainWindow, message, body, details);
-
 	public Task ShowMessageDialog (string message, string body)
-		=> ShowMessageDialog (MainWindow, message, body);
+		=> message_dialog_handler (message, body);
 
 	public void SetStatusBarText (string text)
 	{
@@ -216,27 +177,11 @@ public sealed class ChromeManager : IChromeService
 	public Pango.Context TextContext => text_context?.Invoke () ?? throw new InvalidOperationException ("Text context is not initialized.");
 
 	public Task<bool> LaunchSimpleEffectDialog (
-		Gtk.Window parent,
 		BaseEffect effect,
 		IAddinLocalizer localizer,
 		IWorkspaceService workspace,
 		Action<string?> onChanged)
-
-	{
-		return simple_effect_dialog_handler (
-			parent,
-			effect,
-			localizer,
-			workspace,
-			onChanged);
-	}
-
-	public Task<bool> LaunchSimpleEffectDialog (
-		BaseEffect effect,
-		IAddinLocalizer localizer,
-		IWorkspaceService workspace,
-		Action<string?> onChanged)
-		=> LaunchSimpleEffectDialog (MainWindow, effect, localizer, workspace, onChanged);
+		=> simple_effect_dialog_handler (effect, localizer, workspace, onChanged);
 
 	private void OnLastCanvasCursorPointChanged ()
 	{
@@ -262,10 +207,9 @@ public interface IProgressDialog
 	event EventHandler Canceled;
 }
 
-public delegate Task<ErrorDialogResponse> ErrorDialogHandler (Gtk.Window parent, string message, string body, string details);
-public delegate Task MessageDialogHandler (Gtk.Window parent, string message, string body);
+public delegate Task<ErrorDialogResponse> ErrorDialogHandler (string message, string body, string details);
+public delegate Task MessageDialogHandler (string message, string body);
 public delegate Task<bool> SimpleEffectDialogHandler (
-	Gtk.Window parent,
 	BaseEffect effect,
 	IAddinLocalizer localizer,
 	IWorkspaceService workspace,

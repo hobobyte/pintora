@@ -136,7 +136,7 @@ internal sealed partial class AddinInfoView
 		if (current_item.RepositoryEntry is null)
 			throw new InvalidOperationException ("The install button should not be available unless there is a repository entry");
 
-		InstallDialog dialog = InstallDialog.New (chrome.MainWindow, current_item.Service);
+		InstallDialog dialog = InstallDialog.New (chrome.GetMainWindow (), current_item.Service);
 		dialog.OnSuccess += (_, _) => OnAddinChanged?.Invoke (this, EventArgs.Empty);
 		dialog.InitForInstall ([current_item.RepositoryEntry]);
 		dialog.Show ();
@@ -150,7 +150,7 @@ internal sealed partial class AddinInfoView
 		if (current_item.RepositoryEntry is null)
 			throw new InvalidOperationException ("The update button should not be available unless there is a repository entry");
 
-		InstallDialog dialog = InstallDialog.New (chrome.MainWindow, current_item.Service);
+		InstallDialog dialog = InstallDialog.New (chrome.GetMainWindow (), current_item.Service);
 		dialog.OnSuccess += (_, _) => OnAddinChanged?.Invoke (this, EventArgs.Empty);
 		dialog.InitForInstall ([current_item.RepositoryEntry]);
 		dialog.Show ();
@@ -164,7 +164,7 @@ internal sealed partial class AddinInfoView
 		if (current_item.Addin is null)
 			throw new InvalidOperationException ("The uninstall button should not be available unless there is an installed addin");
 
-		InstallDialog dialog = InstallDialog.New (chrome.MainWindow, current_item.Service);
+		InstallDialog dialog = InstallDialog.New (chrome.GetMainWindow (), current_item.Service);
 		dialog.OnSuccess += (_, _) => OnAddinChanged?.Invoke (this, EventArgs.Empty);
 		dialog.InitForUninstall ([current_item.Addin]);
 		dialog.Show ();

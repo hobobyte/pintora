@@ -19,35 +19,15 @@ public sealed class AlignObjectEffect : BaseEffect
 
 	public AlignObjectData Data => (AlignObjectData) EffectData!; // NRT - Set in constructor
 
-	private readonly ChromeManager chrome;
 	private readonly IEffectConfigurationService? configurationService;
 
 	public AlignObjectEffect (IServiceProvider services)
 	{
-		chrome = (ChromeManager) services.GetService<IChromeService> ();
 		configurationService = services.GetService<IEffectConfigurationService> ();
 		EffectData = new AlignObjectData ();
 	}
-	public override async Task<bool> LaunchConfiguration ()
-	{
-		if (configurationService is not null)
-			return await configurationService.ConfigureAsync (this);
-
-		using AlignmentDialog dialog = AlignmentDialog.New (chrome);
-
-		// Align to the default position
-		Data.Position = dialog.SelectedPosition;
-
-		dialog.PositionChanged += (_, _) => {
-			Data.Position = dialog.SelectedPosition;
-		};
-
-		Gtk.ResponseType response = await dialog.RunAsync ();
-
-		dialog.Destroy ();
-
-		return Gtk.ResponseType.Ok == response;
-	}
+	public override Task<bool> LaunchConfiguration ()
+		=> configurationService?.ConfigureAsync (this) ?? Task.FromResult (false);
 
 	public override void Render (ImageSurface src, ImageSurface dest, ReadOnlySpan<RectangleI> rois)
 	{

@@ -117,6 +117,6 @@ public class GdkPixbufFormat : IImageImporter, IImageExporter
 	{
 		if (file is not PathFileReference path)
 			throw new InvalidOperationException ("The exported file is not path-backed.");
-		Export (document, Gio.FileHelper.NewForPath (path.Path), PintaCore.Chrome.MainWindow);
+		Export (document, Gio.FileHelper.NewForPath (path.Path), PintaCore.Chrome.GetMainWindow ());
 	}
 }

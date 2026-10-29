@@ -30,7 +30,7 @@ public sealed partial class CanvasGridSettingsDialog
 		dialog.grid_axonometric_angle_picker.Value = initialSettings.AxonometricAngle;
 		dialog.grid_axonometric_width_spinner.Value = initialSettings.AxonometricWidth;
 
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 
 		return dialog;
 	}

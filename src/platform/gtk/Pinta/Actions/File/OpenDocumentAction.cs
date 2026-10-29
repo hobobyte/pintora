@@ -78,7 +78,7 @@ internal sealed class OpenDocumentAction : IActionHandler
 		if (recent_files.GetDialogDirectory () is PathFileReference dir)
 			fileDialog.SetInitialFolder (Gio.FileHelper.NewForPath (dir.Path));
 
-		var selection = await fileDialog.OpenFilesAsync (chrome.MainWindow);
+		var selection = await fileDialog.OpenFilesAsync (chrome.GetMainWindow ());
 
 		if (selection is null)
 			return;

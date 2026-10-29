@@ -40,7 +40,7 @@ public sealed partial class OffsetSelectionDialog
 	public static OffsetSelectionDialog New (ChromeManager chrome)
 	{
 		OffsetSelectionDialog dialog = NewWithProperties ([]);
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		return dialog;
 	}
 

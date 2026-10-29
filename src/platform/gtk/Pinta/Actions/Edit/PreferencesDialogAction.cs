@@ -35,6 +35,6 @@ internal sealed class PreferencesDialogAction : IActionHandler
 	private void Activated (object sender, EventArgs e)
 	{
 		using PreferencesDialog dialog = PreferencesDialog.New (chrome, palette, settings);
-		dialog.Present (chrome.MainWindow);
+		dialog.Present (chrome.GetMainWindow ());
 	}
 }

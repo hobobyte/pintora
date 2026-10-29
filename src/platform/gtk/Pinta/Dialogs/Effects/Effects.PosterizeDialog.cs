@@ -83,7 +83,7 @@ public sealed partial class PosterizeDialog
 	public static PosterizeDialog New (ChromeManager chrome)
 	{
 		PosterizeDialog dialog = NewWithProperties ([]);
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		return dialog;
 	}
 

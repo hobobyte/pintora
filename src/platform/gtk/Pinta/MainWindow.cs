@@ -80,9 +80,9 @@ internal sealed class MainWindow
 		_ = new ActionHandlers ();
 
 		PintaCore.Chrome.InitializeProgessDialog (ProgressDialog.New (PintaCore.Chrome));
-		PintaCore.Chrome.InitializeErrorDialogHandler (ErrorDialog.ShowError);
-		PintaCore.Chrome.InitializeMessageDialog (ErrorDialog.ShowMessage);
-		PintaCore.Chrome.InitializeSimpleEffectDialog (SimpleEffectDialog.Launch);
+		PintaCore.Chrome.InitializeErrorDialogHandler ((message, body, details) => ErrorDialog.ShowError (PintaCore.Chrome.GetMainWindow (), message, body, details));
+		PintaCore.Chrome.InitializeMessageDialog ((message, body) => ErrorDialog.ShowMessage (PintaCore.Chrome.GetMainWindow (), message, body));
+		PintaCore.Chrome.InitializeSimpleEffectDialog ((effect, localizer, workspace, onChanged) => SimpleEffectDialog.Launch (PintaCore.Chrome.GetMainWindow (), effect, localizer, workspace, onChanged));
 
 		PintaCore.Initialize ();
 		PintaCore.Services.ReplaceService<IFileDialogService> (new GtkFileDialogService (window_shell.Window));
@@ -335,7 +335,6 @@ internal sealed class MainWindow
 				// Translators: {0} is the name of an add-in.
 				string body = Translations.GetString ("The '{0}' add-in may not be compatible with this version of Pinta", args.ExtensionNode.Addin.Id);
 				_ = PintaCore.Chrome.ShowErrorDialog (
-					PintaCore.Chrome.MainWindow,
 					Translations.GetString ("Failed to initialize add-in"),
 					body, e.ToString ());
 			}
@@ -371,7 +370,7 @@ internal sealed class MainWindow
 
 		app.AddWindow (window_shell.Window);
 
-		PintaCore.Chrome.MainWindow = window_shell.Window;
+		PintaCore.Chrome.SetMainWindow (window_shell.Window);
 		PintaCore.Chrome.InitializeWindowHost (
 			title => window_shell.Window.Title = title,
 			fullscreen => { if (fullscreen) window_shell.Window.Fullscreen (); else window_shell.Window.Unfullscreen (); },
