@@ -36,11 +36,13 @@ public static class Translations
 {
 	private const string PintaTextDomain = "pinta";
 	private static string locale_dir = "";
+	private static bool native_translations_available = true;
 
 	public static void Init (string localeDir, string langPref)
 	{
 		locale_dir = localeDir;
 
+		try {
 		// Note we need to initialize the GLib module since this is called very early in startup,
 		// before GTK is initialized.
 		GLib.Module.Initialize ();
@@ -66,12 +68,23 @@ public static class Translations
 		IntlExtensions.BindTextDomain (PintaTextDomain, localeDir);
 		IntlExtensions.BindTextDomainCodeset (PintaTextDomain, "UTF-8");
 		IntlExtensions.TextDomain (PintaTextDomain);
+		} catch (DllNotFoundException) {
+			native_translations_available = false;
+		}
 	}
 
 	public static string GetString (string text)
 	{
 		// Just use glib'c gettext wrapper for convenience instead of adding our own binding.
-		return GLib.Functions.Dgettext (PintaTextDomain, text);
+		if (!native_translations_available)
+			return text;
+
+		try {
+			return GLib.Functions.Dgettext (PintaTextDomain, text);
+		} catch (DllNotFoundException) {
+			native_translations_available = false;
+			return text;
+		}
 	}
 
 	public static string GetString (string text, params object[] args)
