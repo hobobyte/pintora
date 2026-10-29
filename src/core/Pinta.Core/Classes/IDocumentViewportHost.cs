@@ -14,6 +14,9 @@ public interface IDocumentViewportHost
 	PointD ViewCenter { get; }
 	PointD ScrollOffset { get; }
 
+	/// <summary>Size of the visible viewport area (inside the scrollbars).</summary>
+	Size ViewportSize { get; }
+
 	void GrabFocus ();
 	void Recenter (PointD point, double scale);
 	void Scroll (PointI delta);

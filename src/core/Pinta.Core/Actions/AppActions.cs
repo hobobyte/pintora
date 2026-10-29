@@ -63,9 +63,9 @@ public sealed class AppActions
 			shortcuts: ["<Primary>Q"]);
 	}
 
-	public void RegisterActions (Gtk.Application app)
+	public void RegisterActions (IActionRegistrar registrar)
 	{
-		app.AddCommands ([
+		registrar.AddCommands ([
 			About,
 			Preferences,
 			KeyboardShortcuts,

@@ -23,7 +23,6 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -148,7 +147,7 @@ internal sealed class MainWindow
 
 	private void Workspace_DocumentClosed (object? sender, DocumentEventArgs e)
 	{
-		var tab = FindTabWithCanvas ((CanvasWindow) e.Document.Workspace.CanvasWindow);
+		var tab = FindTabWithCanvas ((CanvasWindow) e.Document.Workspace.CanvasWindow!);
 
 		if (tab != null)
 			canvas_pad.Notebook.RemoveTab (tab);
@@ -183,7 +182,7 @@ internal sealed class MainWindow
 
 		int index = PintaCore.Workspace.OpenDocuments.IndexOf (view.Document);
 		PintaCore.Workspace.SetActiveDocument (index);
-		((CanvasWindow) view.Widget).Canvas.Cursor = PintaCore.Tools.CurrentTool?.CurrentCursor;
+		PintaCore.Services.GetService<ICursorService> ().SetWidgetCursor (((CanvasWindow) view.Widget).Canvas, PintaCore.Tools.CurrentTool?.CurrentCursor);
 	}
 
 	private void Workspace_DocumentCreated (object? sender, DocumentEventArgs e)
@@ -216,7 +215,7 @@ internal sealed class MainWindow
 
 		bool canvasHasBeenShown = false;
 
-		Gtk.Viewport view = (Gtk.Viewport) doc.Workspace.Canvas.Parent!;
+		Gtk.Viewport view = (Gtk.Viewport) ((Gtk.Widget) doc.Workspace.Canvas!).Parent!;
 		view.Hadjustment!.OnChanged += (o, e2) => {
 			if (canvasHasBeenShown)
 				return;
@@ -261,7 +260,7 @@ internal sealed class MainWindow
 		// first shot at handling the event if
 		// the mouse pointer is on the canvas
 		if (PintaCore.Workspace.HasOpenDocuments) {
-			var canvas_window = (CanvasWindow) PintaCore.Workspace.ActiveWorkspace.CanvasWindow;
+			var canvas_window = (CanvasWindow) PintaCore.Workspace.ActiveWorkspace.CanvasWindow!;
 
 			if ((canvas_window.HasFocus || canvas_window.IsMouseOnCanvas) &&
 				 canvas_window.DoKeyPressEvent (controller, args)) {
@@ -270,11 +269,11 @@ internal sealed class MainWindow
 		}
 
 		// If the canvas/tool didn't consume it, see if its a toolbox shortcut
-		if (!args.State.HasModifierKey () && PintaCore.Tools.SetCurrentTool (args.GetKey ()))
+		if (!((ModifierKeys) (uint) args.State).HasModifierKey () && PintaCore.Tools.SetCurrentTool (args.GetKey ()))
 			return true;
 
 		// Finally, see if the palette widget wants it.
-		bool shouldSwapColors = !args.State.HasModifierKey () && args.GetKey ().ToUpper ().Value == Gdk.Constants.KEY_X;
+		bool shouldSwapColors = !((ModifierKeys) (uint) args.State).HasModifierKey () && args.GetKey ().ToUpper ().Value == 'X';
 
 		if (shouldSwapColors) {
 			PintaCore.Palette.SwapColors ();
@@ -295,7 +294,7 @@ internal sealed class MainWindow
 		// Give the Canvas (and by extension the tools)
 		// first shot at handling the event if
 		// the mouse pointer is on the canvas
-		var canvas_window = (CanvasWindow) PintaCore.Workspace.ActiveWorkspace.CanvasWindow;
+		var canvas_window = (CanvasWindow) PintaCore.Workspace.ActiveWorkspace.CanvasWindow!;
 
 		if (canvas_window.HasFocus || canvas_window.IsMouseOnCanvas)
 			canvas_window.DoKeyReleaseEvent (controller, args);
@@ -380,7 +379,8 @@ internal sealed class MainWindow
 		PintaCore.Chrome.InitializeWindowBusy (busy => window_shell.Window.Cursor = Gdk.Cursor.NewFromName (
 			busy ? Resources.StandardCursors.Progress : Resources.StandardCursors.Default, null));
 		PintaCore.Chrome.InitializeTextContext (() => window_shell.Window.GetPangoContext ());
-		PintaCore.Chrome.InitializeApplicationCommandSink (app.AddCommand);
+		GtkActionRegistrar actionRegistrar = new (app);
+		PintaCore.Chrome.InitializeApplicationCommandSink (actionRegistrar.AddCommand);
 		PintaCore.Chrome.InitializeApplicationQuit (app.Quit);
 	}
 
@@ -432,16 +432,17 @@ internal sealed class MainWindow
 		// to register actions with matching names for About, Quit, etc
 		// https://gitlab.gnome.org/GNOME/gtk/-/issues/6762
 		// For non-macOS, we still register the commands here and then other menus add the items.
-		PintaCore.Actions.App.RegisterActions (app);
+		IActionRegistrar actionRegistrar = new GtkActionRegistrar (app);
+		PintaCore.Actions.App.RegisterActions (actionRegistrar);
 
-		PintaCore.Actions.File.RegisterActions (app, fileMenu);
-		PintaCore.Actions.Edit.RegisterActions (app, editMenu);
-		PintaCore.Actions.View.RegisterActions (app, viewMenu);
-		PintaCore.Actions.Image.RegisterActions (app, imageMenu);
-		PintaCore.Actions.Layers.RegisterActions (app);
-		PintaCore.Actions.Addins.RegisterActions (app, addinsMenu);
-		PintaCore.Actions.Window.RegisterActions (app, windowMenu);
-		PintaCore.Actions.Help.RegisterActions (app, helpMenu);
+		PintaCore.Actions.File.RegisterActions (actionRegistrar, fileMenu);
+		PintaCore.Actions.Edit.RegisterActions (actionRegistrar, editMenu);
+		PintaCore.Actions.View.RegisterActions (actionRegistrar, viewMenu);
+		PintaCore.Actions.Image.RegisterActions (actionRegistrar, imageMenu);
+		PintaCore.Actions.Layers.RegisterActions (actionRegistrar);
+		PintaCore.Actions.Addins.RegisterActions (actionRegistrar, addinsMenu);
+		PintaCore.Actions.Window.RegisterActions (actionRegistrar, windowMenu);
+		PintaCore.Actions.Help.RegisterActions (actionRegistrar, helpMenu);
 
 		// When using a header bar, show preferences in the main menu.
 		// Otherwise, add it to the Edit menu (except for macOS, which shows this in the App menu).
@@ -694,7 +695,7 @@ internal sealed class MainWindow
 			int image_x = PintaCore.Workspace.ImageSize.Width;
 			int image_y = PintaCore.Workspace.ImageSize.Height;
 
-			var canvas_viewport = PintaCore.Workspace.ActiveWorkspace.Canvas.Parent!;
+			var canvas_viewport = ((Gtk.Widget) PintaCore.Workspace.ActiveWorkspace.Canvas!).Parent!;
 
 			int window_x = canvas_viewport.GetAllocatedWidth ();
 			int window_y = canvas_viewport.GetAllocatedHeight ();
@@ -708,7 +709,7 @@ internal sealed class MainWindow
 
 			PintaCore.Workspace.Scale = ratio;
 			PintaCore.Actions.View.SuspendZoomUpdate ();
-			PintaCore.Actions.View.ZoomComboBox.ComboBox.GetEntry ().SetText (ViewActions.ToPercent (PintaCore.Workspace.Scale));
+			PintaCore.Actions.View.ZoomComboBox.SetEntryText (ViewActions.ToPercent (PintaCore.Workspace.Scale));
 			PintaCore.Actions.View.ResumeZoomUpdate ();
 		}
 
@@ -723,11 +724,11 @@ internal sealed class MainWindow
 			return;
 
 		PintaCore.Actions.View.SuspendZoomUpdate ();
-		PintaCore.Actions.View.ZoomComboBox.ComboBox.GetEntry ().SetText (ViewActions.ToPercent (PintaCore.Workspace.Scale));
+		PintaCore.Actions.View.ZoomComboBox.SetEntryText (ViewActions.ToPercent (PintaCore.Workspace.Scale));
 		PintaCore.Actions.View.ResumeZoomUpdate ();
 
 		var doc = PintaCore.Workspace.ActiveDocument;
-		var tab = FindTabWithCanvas ((CanvasWindow) doc.Workspace.CanvasWindow);
+		var tab = FindTabWithCanvas ((CanvasWindow) doc.Workspace.CanvasWindow!);
 
 		if (tab != null)
 			canvas_pad.Notebook.ActiveItem = tab;
@@ -740,3 +741,4 @@ internal sealed class MainWindow
 		.Where (i => ((CanvasWindow) i.Widget) == canvas_window)
 		.FirstOrDefault ();
 }
+

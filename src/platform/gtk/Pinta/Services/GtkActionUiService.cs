@@ -75,7 +75,7 @@ internal sealed class GtkActionUiService : IActionUiService
 			selection.SetText ($"{bounds.Width}, {bounds.Height}");
 		};
 		target.Append (actions.View.ZoomOut.CreateToolBarItem ());
-		target.Append (actions.View.ZoomComboBox);
+		target.Append ((Gtk.Widget) actions.View.ZoomComboBox.NativeWidget);
 		target.Append (actions.View.ZoomIn.CreateToolBarItem ());
 	}
 }

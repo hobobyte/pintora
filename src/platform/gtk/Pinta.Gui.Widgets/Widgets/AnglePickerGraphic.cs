@@ -34,12 +34,12 @@ public sealed partial class AnglePickerGraphic
 
 		gesture.OnDragBegin += (_, args) => {
 			drag_start = new PointD (args.StartX, args.StartY);
-			ProcessMouseEvent (drag_start, gesture.GetCurrentEventState ().IsShiftPressed ());
+			ProcessMouseEvent (drag_start, ((Pinta.Core.ModifierKeys) (uint) gesture.GetCurrentEventState ()).IsShiftPressed ());
 			gesture.SetState (Gtk.EventSequenceState.Claimed);
 		};
 		gesture.OnDragUpdate += (_, args) => {
 			var drag_offset = new PointD (args.OffsetX, args.OffsetY);
-			ProcessMouseEvent (drag_start + drag_offset, gesture.GetCurrentEventState ().IsShiftPressed ());
+			ProcessMouseEvent (drag_start + drag_offset, ((Pinta.Core.ModifierKeys) (uint) gesture.GetCurrentEventState ()).IsShiftPressed ());
 			gesture.SetState (Gtk.EventSequenceState.Claimed);
 		};
 		AddController (gesture);

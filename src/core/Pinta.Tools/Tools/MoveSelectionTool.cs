@@ -52,7 +52,7 @@ public sealed class MoveSelectionTool : BaseTransformTool
 		"\nRight click and drag the selection to rotate selection outline." +
 		"\nHold Shift to rotate in steps." +
 		"\nUse arrow keys to move selection outline by a single pixel.",
-		system_manager.CtrlLabel ());
+		system_manager.CtrlLabel);
 
 	public override CursorDescriptor? DefaultCursorDescriptor => new (Pinta.Resources.Icons.ToolMoveSelection);
 	public override StandardKey? ShortcutKeyStandard => StandardKey.M;

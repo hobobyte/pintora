@@ -156,7 +156,7 @@ public sealed class EraserTool : BaseBrushTool
 		base.OnSaveSettings (settings);
 
 		if (type_combobox is not null)
-			settings.PutSetting (SettingNames.ERASER_ERASE_TYPE, type_combobox.ComboBox.Active);
+			settings.PutSetting (SettingNames.ERASER_ERASE_TYPE, type_combobox.Active);
 	}
 
 	private static byte[,] CreateLookupTable ()
@@ -321,19 +321,19 @@ public sealed class EraserTool : BaseBrushTool
 	}
 
 	private IToolBarLabel? type_label;
-	private ToolBarComboBox? type_combobox;
+	private IToolBarComboBox? type_combobox;
 
 	private IToolBarLabel TypeLabel => type_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Type")));
-	private ToolBarComboBox TypeComboBox {
+	private IToolBarComboBox TypeComboBox {
 		get {
 			if (type_combobox is null) {
-				type_combobox = ToolBarComboBox.New (100, 0, false, Translations.GetString ("Normal"), Translations.GetString ("Smooth"));
+				type_combobox = WidgetFactory.CreateComboBox (100, 0, false, [Translations.GetString ("Normal"), Translations.GetString ("Smooth")]);
 
-				type_combobox.ComboBox.OnChanged += (o, e) => {
-					eraser_type = (EraserType) type_combobox.ComboBox.Active;
+				type_combobox.Changed += (o, e) => {
+					eraser_type = (EraserType) type_combobox.Active;
 				};
 
-				type_combobox.ComboBox.Active = Settings.GetSetting (SettingNames.ERASER_ERASE_TYPE, 0);
+				type_combobox.Active = Settings.GetSetting (SettingNames.ERASER_ERASE_TYPE, 0);
 			}
 
 			return type_combobox;

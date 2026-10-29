@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Pinta.Core;
 
 /// <summary>
@@ -29,4 +31,10 @@ public interface IToolbarWidgetFactory
 	/// that can hold native option views. Append/RemoveAll via <see cref="IToolbarContainer"/>.
 	/// </summary>
 	IToolbarContainer CreateBox (int spacing, int marginStart);
+
+	/// <summary>Create a toolbar combo box (optionally editable), pre-populated with items.</summary>
+	IToolBarComboBox CreateComboBox (int width, int initialIndex, bool withEntry, IEnumerable<string>? items = null);
+
+	/// <summary>Create a toolbar button bound to a command action (icon, tooltip, accelerator).</summary>
+	object CreateToolBarItem (Command action, bool forceIconOnly = false);
 }

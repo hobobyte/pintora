@@ -139,9 +139,9 @@ public sealed class LayerActions
 		this.image = image;
 	}
 
-	public void RegisterActions (Gtk.Application app)
+	public void RegisterActions (IActionRegistrar registrar)
 	{
-		app.AddCommands ([
+		registrar.AddCommands ([
 			AddNewLayer,
 			DeleteLayer,
 			DuplicateLayer,

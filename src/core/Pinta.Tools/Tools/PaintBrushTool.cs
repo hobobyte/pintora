@@ -216,7 +216,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 		base.OnSaveSettings (settings);
 
 		if (brush_combo_box is not null)
-			settings.PutSetting (SettingNames.PAINT_BRUSH_BRUSH, brush_combo_box.ComboBox.Active);
+			settings.PutSetting (SettingNames.PAINT_BRUSH_BRUSH, brush_combo_box.Active);
 
 		if (active_brush is not null) {
 			foreach (var option in active_brush.Options) {
@@ -235,19 +235,19 @@ public sealed class PaintBrushTool : BaseBrushTool
 	}
 
 	private IToolBarLabel? brush_label;
-	private ToolBarComboBox? brush_combo_box;
+	private IToolBarComboBox? brush_combo_box;
 	private IToolBarSeparator? separator;
 
 	private IToolBarSeparator Separator => separator ??= WidgetFactory.CreateSeparator ();
 	private IToolBarLabel BrushLabel => brush_label ??= WidgetFactory.CreateLabel (string.Format (" {0}:  ", Translations.GetString ("Type")));
 
 
-	private ToolBarComboBox BrushComboBox {
+	private IToolBarComboBox BrushComboBox {
 		get {
 			if (brush_combo_box is null) {
-				brush_combo_box = ToolBarComboBox.New (100, 0, false);
-				brush_combo_box.ComboBox.OnChanged += (o, e) => {
-					var brush_name = brush_combo_box.ComboBox.GetActiveText ();
+				brush_combo_box = WidgetFactory.CreateComboBox (100, 0, false);
+				brush_combo_box.Changed += (o, e) => {
+					var brush_name = brush_combo_box.ActiveText;
 					active_brush = brushes.SingleOrDefault (brush => brush.Name == brush_name) ?? default_brush;
 					if (active_brush is not null) {
 						active_brush.UpdateLineWidth (BrushWidth);
@@ -258,8 +258,8 @@ public sealed class PaintBrushTool : BaseBrushTool
 
 				var brush = Settings.GetSetting (SettingNames.PAINT_BRUSH_BRUSH, 0);
 
-				if (brush < brush_combo_box.ComboBox.Model.IterNChildren (null))
-					brush_combo_box.ComboBox.Active = brush;
+				if (brush < brush_combo_box.ItemCount)
+					brush_combo_box.Active = brush;
 			}
 
 			return brush_combo_box;
@@ -273,13 +273,13 @@ public sealed class PaintBrushTool : BaseBrushTool
 	{
 		default_brush = brushes.FirstOrDefault ();
 
-		BrushComboBox.ComboBox.RemoveAll ();
+		BrushComboBox.RemoveAllItems ();
 
 		foreach (var brush in brushes)
-			BrushComboBox.ComboBox.AppendText (brush.Name);
+			BrushComboBox.AppendItem (brush.Name);
 
-		BrushComboBox.ComboBox.Active = 0;
-		BrushComboBox.ComboBox.OnChanged += (cbx, ev) => RebuildBrushSpecificOptions ();
+		BrushComboBox.Active = 0;
+		BrushComboBox.Changed += (cbx, ev) => RebuildBrushSpecificOptions ();
 	}
 
 	private void CancelRepeatingDraw ()

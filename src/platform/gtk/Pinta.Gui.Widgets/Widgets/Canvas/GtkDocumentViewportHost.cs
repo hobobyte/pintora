@@ -35,6 +35,10 @@ public sealed class GtkDocumentViewportHost : IDocumentViewportHost
 		Viewport.GetHadjustment ()!.Value,
 		Viewport.GetVadjustment ()!.Value);
 
+	public Size ViewportSize => new (
+		(int) Viewport.GetHadjustment ()!.PageSize,
+		(int) Viewport.GetVadjustment ()!.PageSize);
+
 	public void GrabFocus ()
 	{
 		if (!canvas_window.GrabFocus ())

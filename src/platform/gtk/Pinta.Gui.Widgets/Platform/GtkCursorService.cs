@@ -47,4 +47,10 @@ public sealed class GtkCursorService : ICursorService
 			out int hotspotY);
 		return Cursor.NewFromTexture (texture, hotspotX, hotspotY, null);
 	}
+
+	public object? GetWidgetCursor (object nativeWidget)
+		=> ((Gtk.Widget) nativeWidget).Cursor;
+
+	public void SetWidgetCursor (object nativeWidget, object? cursor)
+		=> ((Gtk.Widget) nativeWidget).Cursor = (Gdk.Cursor?) cursor;
 }

@@ -79,7 +79,7 @@ public interface IToolService
 	/// <summary>
 	/// Sets the current tool to the next tool with the specified shortcut.
 	/// </summary>
-	bool SetCurrentTool (Gdk.Key shortcut);
+	bool SetCurrentTool (ToolKey shortcut);
 }
 
 public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
@@ -99,7 +99,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 	}
 
 	private bool is_panning;
-	private Gdk.Cursor? stored_cursor;
+	private object? stored_cursor;
 
 	public event EventHandler<ToolEventArgs>? ToolAdded;
 	public event EventHandler<ToolEventArgs>? ToolRemoved;
@@ -108,6 +108,9 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 	public BaseTool? CurrentTool { get; private set; }
 
 	public BaseTool? PreviousTool { get; private set; }
+
+	private static ICursorService CursorService => PintaCore.Services.GetService<ICursorService> ();
+
 
 	public void AddTool (BaseTool tool)
 	{
@@ -193,7 +196,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		return true;
 	}
 
-	public bool SetCurrentTool (Gdk.Key shortcut)
+	public bool SetCurrentTool (ToolKey shortcut)
 	{
 		if (FindNextTool (shortcut) is not BaseTool tool)
 			return false;
@@ -202,7 +205,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		return true;
 	}
 
-	private BaseTool? FindNextTool (Gdk.Key shortcut)
+	private BaseTool? FindNextTool (ToolKey shortcut)
 	{
 		// Find all tools with this shortcut
 		var shortcut_tools =
@@ -280,8 +283,8 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 			return false;
 
 		is_panning = true;
-		stored_cursor = document.Workspace.Canvas.Cursor;
-		document.Workspace.Canvas.Cursor = pan.DefaultCursor;
+		stored_cursor = CursorService.GetWidgetCursor (document.Workspace.Canvas!);
+		CursorService.SetWidgetCursor (document.Workspace.Canvas!, pan.DefaultCursor);
 		pan.DoMouseDown (document, args);
 		return true;
 	}
@@ -306,7 +309,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 
 		is_panning = false;
 		pan.DoMouseUp (document, args);
-		document.Workspace.Canvas.Cursor = stored_cursor;
+		CursorService.SetWidgetCursor (document.Workspace.Canvas!, stored_cursor);
 		return true;
 	}
 

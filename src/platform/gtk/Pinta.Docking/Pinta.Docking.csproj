@@ -7,5 +7,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\core\Pinta.Core\Pinta.Core.csproj" />
+      <ProjectReference Include="../Pinta.Gui.Widgets/Pinta.Gui.Widgets.csproj" />
   </ItemGroup>
 </Project>

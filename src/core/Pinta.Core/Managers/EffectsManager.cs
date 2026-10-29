@@ -63,10 +63,6 @@ public sealed class EffectsManager
 	/// <returns>The action created for this adjustment</returns>
 	public void RegisterAdjustment<T> (T adjustment) where T : BaseEffect
 	{
-#if false // For testing purposes to detect any missing icons. This implies more disk accesses on startup so we may not want this on by default.
-		if (!GtkExtensions.GetDefaultIconTheme ().HasIcon (adjustment.Icon))
-			Console.Error.WriteLine ($"Icon {adjustment.Icon} for adjustment {adjustment.Name} not found");
-#endif
 		Type adjustmentType = typeof (T);
 
 		if (adjustments.ContainsKey (adjustmentType))
@@ -101,10 +97,6 @@ public sealed class EffectsManager
 	/// <returns>The action created for this effect</returns>
 	public void RegisterEffect<T> (T effect) where T : BaseEffect
 	{
-#if false // For testing purposes to detect any missing icons. This implies more disk accesses on startup so we may not want this on by default.
-		if (!GtkExtensions.GetDefaultIconTheme ().HasIcon (effect.Icon))
-			Console.Error.WriteLine ($"Icon {effect.Icon} for effect {effect.Name} not found");
-#endif
 		Type effectType = typeof (T);
 
 		if (effects.ContainsKey (effectType))

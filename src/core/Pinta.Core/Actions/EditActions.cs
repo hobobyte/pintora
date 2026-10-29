@@ -201,7 +201,7 @@ public sealed class EditActions
 		this.workspace = workspace;
 	}
 
-	public void RegisterActions (Gtk.Application app, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
 	{
 		Gio.Menu paste_section = Gio.Menu.New ();
 		paste_section.AppendItem (Cut.CreateMenuItem ());
@@ -237,7 +237,7 @@ public sealed class EditActions
 		menu.AppendSection (null, palette_section);
 		menu.AppendSubmenu (Translations.GetString ("Palette"), palette_menu);
 
-		app.AddCommands ([
+		registrar.AddCommands ([
 
 			Undo,
 			Redo,
@@ -262,10 +262,11 @@ public sealed class EditActions
 			ResizePalette]);
 	}
 
-	public void CreateHistoryWindowToolBar (Gtk.Box toolbar)
+	public void CreateHistoryWindowToolBar (IToolbarSurface toolbar)
 	{
-		toolbar.Append (Undo.CreateToolBarItem ());
-		toolbar.Append (Redo.CreateToolBarItem ());
+		IToolbarWidgetFactory widgetFactory = PintaCore.Services.GetService<IToolbarWidgetFactory> ();
+		toolbar.Append (widgetFactory.CreateToolBarItem (Undo));
+		toolbar.Append (widgetFactory.CreateToolBarItem (Redo));
 	}
 
 	public void RegisterHandlers ()
