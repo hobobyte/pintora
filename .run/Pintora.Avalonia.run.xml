@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Pintora.Avalonia" type="DotNetProject" factoryName=".NET Project">
+    <option name="EXE_PATH" value="$PROJECT_DIR$/src/platform/avalonia/Pintora.Avalonia/bin/Debug/net10.0/Pintora.dll" />
+    <option name="PROGRAM_PARAMS" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/platform/avalonia/Pintora.Avalonia" />
+    <method v="2">
+      <option name="Build" default="true" />
+    </method>
+  </configuration>
+</component>
