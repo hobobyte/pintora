@@ -71,15 +71,15 @@ public abstract class BaseEditEngine
 
 	// NRT - Created by HandleBuildToolBar
 	protected IToolBarDropDownButton shape_type_button = null!;
-	protected Gtk.Label shape_type_label = null!;
+	protected IToolBarLabel shape_type_label = null!;
 
-	protected Gtk.Label fill_label = null!;
+	protected IToolBarLabel fill_label = null!;
 	protected IToolBarDropDownButton fill_button = null!;
-	protected Gtk.Separator fill_sep = null!;
+	protected IToolBarSeparator fill_sep = null!;
 
-	protected Gtk.SpinButton outline_width = null!;
-	protected Gtk.Label outline_width_label = null!;
-	protected Gtk.Separator outline_width_sep = null!;
+	protected IToolBarSpinButton outline_width = null!;
+	protected IToolBarLabel outline_width_label = null!;
+	protected IToolBarSeparator outline_width_sep = null!;
 
 	protected IDashPatternBox? dash_pattern_box;
 	private string prev_dash_pattern = "-";
@@ -87,7 +87,7 @@ public abstract class BaseEditEngine
 	private bool prev_antialiasing = true;
 
 	public int BrushWidth {
-		get => outline_width?.GetValueAsInt () ?? BaseTool.DEFAULT_BRUSH_WIDTH;
+		get => outline_width is not null ? (int) outline_width.Value : BaseTool.DEFAULT_BRUSH_WIDTH;
 		set {
 			if (outline_width is not null)
 				outline_width.Value = value;
@@ -171,7 +171,7 @@ public abstract class BaseEditEngine
 
 	private readonly MoveHandle hover_handle;
 
-	private readonly Gdk.Cursor grab_cursor = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.Grab);
+	private readonly string grab_cursor = Pinta.Resources.StandardCursors.Grab;
 
 	protected bool changing_tension = false;
 	protected PointD last_mouse_pos = new (0d, 0d);
@@ -260,14 +260,16 @@ public abstract class BaseEditEngine
 			settings.PutSetting (SettingNames.DashPattern (toolPrefix), dash_pattern_box.Pattern);
 	}
 
-	public void HandleBuildToolBar (Gtk.Box tb, ISettingsService settings, string toolPrefix)
+	protected IToolbarWidgetFactory WidgetFactory => PintaCore.Services.GetService<IToolbarWidgetFactory> ();
+
+	public void HandleBuildToolBar (IToolbarSurface tb, ISettingsService settings, string toolPrefix)
 	{
 		if (shape_type_label == null) {
 			string shapeTypeText = Translations.GetString ("Shape Type");
-			shape_type_label = Gtk.Label.New ($" {shapeTypeText}: ");
+			shape_type_label = WidgetFactory.CreateLabel ($" {shapeTypeText}: ");
 		}
 
-		tb.Append (shape_type_label);
+		tb.Append (shape_type_label.NativeWidget);
 
 		if (shape_type_button == null) {
 			shape_type_button = owner.CreateToolDropDownButton ();
@@ -313,23 +315,23 @@ public abstract class BaseEditEngine
 
 		shape_type_button.SelectedItem = shape_type_button.Items[(int) owner.ShapeType];
 
-		tb.Append ((Gtk.Widget) shape_type_button.NativeWidget);
+		tb.Append (shape_type_button.NativeWidget);
 
 		BuildShapeToolBar (tb, settings, toolPrefix);
 	}
 
-	protected virtual void BuildShapeToolBar (Gtk.Box tb, ISettingsService settings, string toolPrefix)
+	protected virtual void BuildShapeToolBar (IToolbarSurface tb, ISettingsService settings, string toolPrefix)
 	{
-		fill_sep ??= GtkExtensions.CreateToolBarSeparator ();
+		fill_sep ??= WidgetFactory.CreateSeparator ();
 
-		tb.Append (fill_sep);
+		tb.Append (fill_sep.NativeWidget);
 
 		if (fill_label == null) {
 			string fillStyleText = Translations.GetString ("Fill Style");
-			fill_label = Gtk.Label.New ($" {fillStyleText}: ");
+			fill_label = WidgetFactory.CreateLabel ($" {fillStyleText}: ");
 		}
 
-		tb.Append (fill_label);
+		tb.Append (fill_label.NativeWidget);
 
 		if (fill_button == null) {
 			fill_button = owner.CreateToolDropDownButton ();
@@ -344,22 +346,22 @@ public abstract class BaseEditEngine
 			fill_button.SelectedItemChanged += OnFillStyleChanged;
 		}
 
-		tb.Append ((Gtk.Widget) fill_button.NativeWidget);
+		tb.Append (fill_button.NativeWidget);
 
-		outline_width_sep ??= GtkExtensions.CreateToolBarSeparator ();
+		outline_width_sep ??= WidgetFactory.CreateSeparator ();
 
-		tb.Append (outline_width_sep);
+		tb.Append (outline_width_sep.NativeWidget);
 
 		if (outline_width_label == null) {
 			string outlineWidthText = Translations.GetString ("Outline width");
-			outline_width_label = Gtk.Label.New ($" {outlineWidthText}: ");
+			outline_width_label = WidgetFactory.CreateLabel ($" {outlineWidthText}: ");
 		}
 
-		tb.Append (outline_width_label);
+		tb.Append (outline_width_label.NativeWidget);
 
 		if (outline_width == null) {
 
-			outline_width = GtkExtensions.CreateToolBarSpinButton (
+			outline_width = WidgetFactory.CreateSpinButton (
 				1,
 				1e5,
 				1,
@@ -373,7 +375,7 @@ public abstract class BaseEditEngine
 				+ "\n" + Translations.GetString ("Press {0} to decrease outline width", "\"[\"")
 				+ "\n" + Translations.GetString ("Press {0} to increase outline width", "\"]\"");
 
-			outline_width.OnValueChanged += (o, e) => {
+			outline_width.ValueChanged += (o, e) => {
 
 				ShapeEngine? selEngine = SelectedShapeEngine;
 				if (selEngine == null) return;
@@ -383,10 +385,10 @@ public abstract class BaseEditEngine
 			};
 		}
 
-		tb.Append (outline_width);
+		tb.Append (outline_width.NativeWidget);
 
 		if (dash_pattern_box is null) {
-			dash_pattern_box = PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDashPatternBox ();
+			dash_pattern_box = WidgetFactory.CreateDashPatternBox ();
 			dash_pattern_box.Pattern = settings.GetSetting (SettingNames.DashPattern (toolPrefix), "-");
 			dash_pattern_box.PatternChanged += (o, e) => {
 				ShapeEngine? selEngine = SelectedShapeEngine;
@@ -397,7 +399,7 @@ public abstract class BaseEditEngine
 			};
 		}
 
-		tb.Append ((Gtk.Widget) dash_pattern_box.NativeWidget);
+		tb.Append (dash_pattern_box.NativeWidget);
 
 		outline_width.Visible = outline_width_label.Visible = outline_width_sep.Visible = StrokeShape;
 		dash_pattern_box.Visible = StrokeShape;
@@ -472,45 +474,50 @@ public abstract class BaseEditEngine
 
 	public virtual bool HandleKeyDown (Document document, ToolKeyEventArgs e)
 	{
-		Gdk.Key keyPressed = e.Key;
-		switch (keyPressed.Value) {
-			case Gdk.Constants.KEY_Delete:
-				HandleDelete ();
-				return true;
-			case Gdk.Constants.KEY_Return:
-			case Gdk.Constants.KEY_KP_Enter:
-				FinalizeAllShapes ();
-				return true;
-			case Gdk.Constants.KEY_space:
-				HandleSpace (e);
-				return true;
-			case Gdk.Constants.KEY_Up:
-				HandleUp ();
-				return true;
-			case Gdk.Constants.KEY_Down:
-				HandleDown ();
-				return true;
-			case Gdk.Constants.KEY_Left:
-				HandleLeft (e);
-				return true;
-			case Gdk.Constants.KEY_Right:
-				HandleRight (e);
-				return true;
-			case Gdk.Constants.KEY_bracketleft:
-				BrushWidth--;
-				return true;
-			case Gdk.Constants.KEY_bracketright:
-				BrushWidth++;
-				return true;
-			default:
-				if (keyPressed.IsControlKey ()) {
-					// Redraw since the Ctrl key affects the hover cursor, etc
-					DrawActiveShape (false, false, true, e.IsShiftPressed, false, true);
-					return true;
-				} else {
-					return false;
-				}
+		if (e.Key.Is (StandardKey.Delete)) {
+			HandleDelete ();
+			return true;
 		}
+		if (e.Key.Is (StandardKey.Return) || e.Key.Is (StandardKey.KeypadEnter)) {
+			FinalizeAllShapes ();
+			return true;
+		}
+		if (e.Key.Is (StandardKey.Space)) {
+			HandleSpace (e);
+			return true;
+		}
+		if (e.Key.Is (StandardKey.Up)) {
+			HandleUp ();
+			return true;
+		}
+		if (e.Key.Is (StandardKey.Down)) {
+			HandleDown ();
+			return true;
+		}
+		if (e.Key.Is (StandardKey.Left)) {
+			HandleLeft (e);
+			return true;
+		}
+		if (e.Key.Is (StandardKey.Right)) {
+			HandleRight (e);
+			return true;
+		}
+		if (e.Key.Is (StandardKey.BracketLeft)) {
+			BrushWidth--;
+			return true;
+		}
+		if (e.Key.Is (StandardKey.BracketRight)) {
+			BrushWidth++;
+			return true;
+		}
+
+		if (e.Key.IsControlKey ()) {
+			// Redraw since the Ctrl key affects the hover cursor, etc
+			DrawActiveShape (false, false, true, e.IsShiftPressed, false, true);
+			return true;
+		}
+
+		return false;
 	}
 
 	private void HandleRight (ToolKeyEventArgs e)
@@ -714,24 +721,20 @@ public abstract class BaseEditEngine
 
 	public virtual bool HandleKeyUp (Document document, ToolKeyEventArgs e)
 	{
-		Gdk.Key keyReleased = e.Key;
-
-		if (keyReleased.IsControlKey ())
+		if (e.Key.IsControlKey ())
 			DrawActiveShape (false, false, true, e.IsShiftPressed, false, false);
 
-		switch (keyReleased.Value) {
-			case Gdk.Constants.KEY_Delete:
-			case Gdk.Constants.KEY_Return:
-			case Gdk.Constants.KEY_KP_Enter:
-			case Gdk.Constants.KEY_space:
-			case Gdk.Constants.KEY_Up:
-			case Gdk.Constants.KEY_Down:
-			case Gdk.Constants.KEY_Left:
-			case Gdk.Constants.KEY_Right:
-				return true;
-			default:
-				return false;
-		}
+		if (e.Key.Is (StandardKey.Delete)
+			|| e.Key.Is (StandardKey.Return)
+			|| e.Key.Is (StandardKey.KeypadEnter)
+			|| e.Key.Is (StandardKey.Space)
+			|| e.Key.Is (StandardKey.Up)
+			|| e.Key.Is (StandardKey.Down)
+			|| e.Key.Is (StandardKey.Left)
+			|| e.Key.Is (StandardKey.Right))
+			return true;
+
+		return false;
 	}
 
 	public virtual void HandleMouseDown (Document document, ToolMouseEventArgs e)
@@ -1320,7 +1323,7 @@ public abstract class BaseEditEngine
 		var tool = tools.CurrentTool!;
 
 		if (hover_handle.Active && !is_drawing && !ctrl_key)
-			tool.SetCursor (grab_cursor);
+			tool.SetCursor (GdkExtensions.CursorFromName (grab_cursor));
 		else
 			tool.SetCursor (tool.DefaultCursor);
 

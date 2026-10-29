@@ -18,8 +18,8 @@
 //
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
@@ -33,18 +33,18 @@ namespace Pinta.Tools;
 
 public abstract class ArrowedEditEngine : BaseEditEngine
 {
-	private Gtk.Separator? arrow_sep;
-	private Gtk.Label? arrow_label;
-	private Gtk.CheckButton? show_arrow_one_box, show_arrow_two_box;
+	private IToolBarSeparator? arrow_sep;
+	private IToolBarLabel? arrow_label;
+	private IToolBarCheckButton? show_arrow_one_box, show_arrow_two_box;
 
-	private Gtk.SpinButton? arrow_size;
-	private Gtk.Label? arrow_size_label;
+	private IToolBarSpinButton? arrow_size;
+	private IToolBarLabel? arrow_size_label;
 
-	private Gtk.SpinButton? arrow_angle_offset;
-	private Gtk.Label? arrow_angle_offset_label;
+	private IToolBarSpinButton? arrow_angle_offset;
+	private IToolBarLabel? arrow_angle_offset_label;
 
-	private Gtk.SpinButton? arrow_length_offset;
-	private Gtk.Label? arrow_length_offset_label;
+	private IToolBarSpinButton? arrow_length_offset;
+	private IToolBarLabel? arrow_length_offset_label;
 
 	private Arrow previous_settings_1 = new ();
 	private Arrow previous_settings_2 = new ();
@@ -52,7 +52,7 @@ public abstract class ArrowedEditEngine : BaseEditEngine
 	// NRT - These are all set by HandleBuildToolBar
 	private ISettingsService settings = null!;
 	private string tool_prefix = null!;
-	private Gtk.Box toolbar = null!;
+	private IToolbarSurface toolbar = null!;
 	private bool extra_toolbar_items_added = false;
 
 	private bool ArrowOneEnabled => ArrowOneEnabledCheckBox.Active;
@@ -74,16 +74,16 @@ public abstract class ArrowedEditEngine : BaseEditEngine
 			settings.PutSetting (SettingNames.Arrow2 (toolPrefix), show_arrow_two_box.Active);
 
 		if (arrow_size is not null)
-			settings.PutSetting (SettingNames.ArrowSize (toolPrefix), arrow_size.GetValueAsInt ());
+			settings.PutSetting (SettingNames.ArrowSize (toolPrefix), (int) arrow_size.Value);
 
 		if (arrow_angle_offset is not null)
-			settings.PutSetting (SettingNames.ArrowAngle (toolPrefix), arrow_angle_offset.GetValueAsInt ());
+			settings.PutSetting (SettingNames.ArrowAngle (toolPrefix), (int) arrow_angle_offset.Value);
 
 		if (arrow_length_offset is not null)
-			settings.PutSetting (SettingNames.ArrowLength (toolPrefix), arrow_length_offset.GetValueAsInt ());
+			settings.PutSetting (SettingNames.ArrowLength (toolPrefix), (int) arrow_length_offset.Value);
 	}
 
-	protected override void BuildShapeToolBar (Gtk.Box tb, ISettingsService settings, string toolPrefix)
+	protected override void BuildShapeToolBar (IToolbarSurface tb, ISettingsService settings, string toolPrefix)
 	{
 		base.BuildShapeToolBar (tb, settings, toolPrefix);
 
@@ -91,10 +91,10 @@ public abstract class ArrowedEditEngine : BaseEditEngine
 		tool_prefix = toolPrefix;
 		toolbar = tb;
 
-		tb.Append (ArrowSeparator);
-		tb.Append (ArrowLabel);
-		tb.Append (ArrowOneEnabledCheckBox);
-		tb.Append (ArrowTwoEnabledCheckBox);
+		tb.Append (ArrowSeparator.NativeWidget);
+		tb.Append (ArrowLabel.NativeWidget);
+		tb.Append (ArrowOneEnabledCheckBox.NativeWidget);
+		tb.Append (ArrowTwoEnabledCheckBox.NativeWidget);
 
 		extra_toolbar_items_added = false;
 
@@ -128,10 +128,10 @@ public abstract class ArrowedEditEngine : BaseEditEngine
 				return;
 
 			// Carefully insert after our last toolbar widget, since the Antialiasing dropdown may have been added already.
-			Gtk.Widget after_widget = ArrowTwoEnabledCheckBox;
+			object afterWidget = ArrowTwoEnabledCheckBox.NativeWidget;
 			foreach (var widget in GetArrowOptionToolbarItems ()) {
-				toolbar.InsertChildAfter (widget, after_widget);
-				after_widget = widget;
+				toolbar.InsertAfter (widget, afterWidget);
+				afterWidget = widget;
 			}
 
 			extra_toolbar_items_added = true;
@@ -255,46 +255,44 @@ public abstract class ArrowedEditEngine : BaseEditEngine
 		base.DrawExtras (ref totalDirty, g, engine);
 	}
 
-	private Gtk.Separator ArrowSeparator
-		=> arrow_sep ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarSeparator ArrowSeparator
+		=> arrow_sep ??= WidgetFactory.CreateSeparator ();
 
-	private Gtk.Label ArrowLabel
-		=> arrow_label ??= Gtk.Label.New (string.Format (" {0}: ", Translations.GetString ("Arrow")));
+	private IToolBarLabel ArrowLabel
+		=> arrow_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Arrow")));
 
-	private Gtk.CheckButton ArrowOneEnabledCheckBox
+	private IToolBarCheckButton ArrowOneEnabledCheckBox
 		=> show_arrow_one_box ??= CreateArrowOneEnabledCheckBox ();
 
-	private Gtk.CheckButton CreateArrowOneEnabledCheckBox ()
+	private IToolBarCheckButton CreateArrowOneEnabledCheckBox ()
 	{
-		Gtk.CheckButton result = Gtk.CheckButton.NewWithLabel ("1");
-		result.FocusOnClick = false;
+		IToolBarCheckButton result = WidgetFactory.CreateCheckButton ("1");
 		result.Active = settings.GetSetting (SettingNames.Arrow1 (tool_prefix), previous_settings_1.Show);
-		result.OnToggled += (o, e) => ArrowEnabledToggled (true);
+		result.Toggled += (o, e) => ArrowEnabledToggled (true);
 		return result;
 	}
 
-	private Gtk.CheckButton ArrowTwoEnabledCheckBox
+	private IToolBarCheckButton ArrowTwoEnabledCheckBox
 		=> show_arrow_two_box ??= CreateArrowTwoEnabledCheckBox ();
 
-	private Gtk.CheckButton CreateArrowTwoEnabledCheckBox ()
+	private IToolBarCheckButton CreateArrowTwoEnabledCheckBox ()
 	{
-		Gtk.CheckButton result = Gtk.CheckButton.NewWithLabel ("2");
-		result.FocusOnClick = false;
+		IToolBarCheckButton result = WidgetFactory.CreateCheckButton ("2");
 		result.Active = settings.GetSetting (SettingNames.Arrow2 (tool_prefix), previous_settings_2.Show);
-		result.OnToggled += (o, e) => ArrowEnabledToggled (false);
+		result.Toggled += (o, e) => ArrowEnabledToggled (false);
 		return result;
 	}
 
-	private Gtk.Label ArrowSizeLabel
-		=> arrow_size_label ??= Gtk.Label.New (string.Format (" {0}: ", Translations.GetString ("Size")));
+	private IToolBarLabel ArrowSizeLabel
+		=> arrow_size_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Size")));
 
-	private Gtk.SpinButton ArrowSize
+	private IToolBarSpinButton ArrowSize
 		=> arrow_size ??= CreateArrowSize ();
 
-	private Gtk.SpinButton CreateArrowSize ()
+	private IToolBarSpinButton CreateArrowSize ()
 	{
-		Gtk.SpinButton result = GtkExtensions.CreateToolBarSpinButton (1, 100, 1, settings.GetSetting (SettingNames.ArrowSize (tool_prefix), 10));
-		result.OnValueChanged += (o, e) => {
+		IToolBarSpinButton result = WidgetFactory.CreateSpinButton (1, 100, 1, settings.GetSetting (SettingNames.ArrowSize (tool_prefix), 10));
+		result.ValueChanged += (o, e) => {
 			var activeEngine = (LineCurveSeriesEngine?) ActiveShapeEngine;
 			if (activeEngine == null) return;
 			var size = result.Value;
@@ -306,16 +304,16 @@ public abstract class ArrowedEditEngine : BaseEditEngine
 		return result;
 	}
 
-	private Gtk.Label ArrowAngleOffsetLabel
-		=> arrow_angle_offset_label ??= Gtk.Label.New (string.Format (" {0}: ", Translations.GetString ("Angle")));
+	private IToolBarLabel ArrowAngleOffsetLabel
+		=> arrow_angle_offset_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Angle")));
 
-	private Gtk.SpinButton ArrowAngleOffset
+	private IToolBarSpinButton ArrowAngleOffset
 		=> arrow_angle_offset ??= CreateArrowAngleOffset ();
 
-	private Gtk.SpinButton CreateArrowAngleOffset ()
+	private IToolBarSpinButton CreateArrowAngleOffset ()
 	{
-		Gtk.SpinButton result = GtkExtensions.CreateToolBarSpinButton (-89, 89, 1, settings.GetSetting (SettingNames.ArrowAngle (tool_prefix), 15));
-		result.OnValueChanged += (o, e) => {
+		IToolBarSpinButton result = WidgetFactory.CreateSpinButton (-89, 89, 1, settings.GetSetting (SettingNames.ArrowAngle (tool_prefix), 15));
+		result.ValueChanged += (o, e) => {
 			var activeEngine = (LineCurveSeriesEngine?) ActiveShapeEngine;
 			if (activeEngine == null) return;
 			var angle = result.Value;
@@ -327,16 +325,16 @@ public abstract class ArrowedEditEngine : BaseEditEngine
 		return result;
 	}
 
-	private Gtk.Label ArrowLengthOffsetLabel
-		=> arrow_length_offset_label ??= Gtk.Label.New (string.Format (" {0}: ", Translations.GetString ("Length")));
+	private IToolBarLabel ArrowLengthOffsetLabel
+		=> arrow_length_offset_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Length")));
 
-	private Gtk.SpinButton ArrowLengthOffset
+	private IToolBarSpinButton ArrowLengthOffset
 		=> arrow_length_offset ??= CreateArrowLengthOffset ();
 
-	private Gtk.SpinButton CreateArrowLengthOffset ()
+	private IToolBarSpinButton CreateArrowLengthOffset ()
 	{
-		Gtk.SpinButton result = GtkExtensions.CreateToolBarSpinButton (-100, 100, 1, settings.GetSetting (SettingNames.ArrowLength (tool_prefix), 10));
-		result.OnValueChanged += (o, e) => {
+		IToolBarSpinButton result = WidgetFactory.CreateSpinButton (-100, 100, 1, settings.GetSetting (SettingNames.ArrowLength (tool_prefix), 10));
+		result.ValueChanged += (o, e) => {
 			var activeEngine = (LineCurveSeriesEngine?) ActiveShapeEngine;
 			if (activeEngine == null) return;
 			var length = result.Value;
@@ -348,13 +346,13 @@ public abstract class ArrowedEditEngine : BaseEditEngine
 		return result;
 	}
 
-	private IEnumerable<Gtk.Widget> GetArrowOptionToolbarItems ()
+	private IEnumerable<object> GetArrowOptionToolbarItems ()
 	{
-		yield return ArrowSizeLabel;
-		yield return ArrowSize;
-		yield return ArrowAngleOffsetLabel;
-		yield return ArrowAngleOffset;
-		yield return ArrowLengthOffsetLabel;
-		yield return ArrowLengthOffset;
+		yield return ArrowSizeLabel.NativeWidget;
+		yield return ArrowSize.NativeWidget;
+		yield return ArrowAngleOffsetLabel.NativeWidget;
+		yield return ArrowAngleOffset.NativeWidget;
+		yield return ArrowLengthOffsetLabel.NativeWidget;
+		yield return ArrowLengthOffset.NativeWidget;
 	}
 };

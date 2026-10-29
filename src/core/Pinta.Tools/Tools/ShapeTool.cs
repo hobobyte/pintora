@@ -60,10 +60,8 @@ public abstract class ShapeTool : BaseTool
 			    "\nHold {0} while left clicking on a control point to create a new shape at the exact same position." +
 			    "\nPress Enter to finalize the shape.", system_manager.CtrlLabel ());
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
-
 		EditEngine.HandleBuildToolBar (tb, Settings, GetType ().Name.ToLowerInvariant ());
 	}
 

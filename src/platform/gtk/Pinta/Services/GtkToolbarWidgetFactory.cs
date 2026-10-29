@@ -10,4 +10,16 @@ internal sealed class GtkToolbarWidgetFactory : IToolbarWidgetFactory
 
 	public IDashPatternBox CreateDashPatternBox ()
 		=> new GtkDashPatternBox ();
+
+	public IToolBarLabel CreateLabel (string text)
+		=> new GtkToolBarLabel (text);
+
+	public IToolBarSeparator CreateSeparator ()
+		=> new GtkToolBarSeparator ();
+
+	public IToolBarSpinButton CreateSpinButton (double min, double max, double step, double initialValue)
+		=> new GtkToolBarSpinButton (min, max, step, initialValue);
+
+	public IToolBarCheckButton CreateCheckButton (string label)
+		=> new GtkToolBarCheckButton (label);
 }
