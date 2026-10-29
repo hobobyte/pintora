@@ -280,12 +280,12 @@ public sealed class ViewActions
 	private string? temp_zoom;
 	private bool suspend_zoom_change;
 
-	private void Entry_FocusInEvent (object o, EventArgs args)
+	private void Entry_FocusInEvent (object? o, EventArgs args)
 	{
 		temp_zoom = ZoomComboBox.ActiveText!;
 	}
 
-	private void Entry_FocusOutEvent (object o, EventArgs args)
+	private void Entry_FocusOutEvent (object? o, EventArgs args)
 	{
 		string text = ZoomComboBox.ActiveText!;
 
