@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Pinta (GTK)" type="DotNetProject" factoryName=".NET Project">
+    <option name="EXE_PATH" value="$PROJECT_DIR$/src/platform/gtk/build/bin/Pinta" />
+    <option name="PROGRAM_PARAMS" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/src/platform/gtk/build/bin" />
+    <envs>
+      <env name="DYLD_LIBRARY_PATH" value="/opt/homebrew/opt/glib/lib:/opt/homebrew/opt/gtk4/lib:/opt/homebrew/opt/pango/lib:/opt/homebrew/opt/cairo/lib:/opt/homebrew/opt/graphene/lib:/opt/homebrew/opt/gettext/lib" />
+      <env name="GI_TYPELIB_PATH" value="/opt/homebrew/lib/girepository-1.0" />
+    </envs>
+    <method v="2" />
+  </configuration>
+</component>
