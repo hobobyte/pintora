@@ -35,6 +35,7 @@ public interface ISystemService
 	int RenderThreads { get; }
 	OS OperatingSystem { get; }
 	string AltLabel { get; }
+	string CtrlLabel { get; }
 }
 
 public sealed class SystemManager : ISystemService
@@ -44,6 +45,7 @@ public sealed class SystemManager : ISystemService
 	public int RenderThreads { get; set; }
 	public OS OperatingSystem => operating_system;
 	public string AltLabel => OperatingSystem == OS.Mac ? "Option" : "Alt";
+	public string CtrlLabel => OperatingSystem == OS.Mac ? "Command" : "Ctrl";
 
 	public SystemManager ()
 	{
