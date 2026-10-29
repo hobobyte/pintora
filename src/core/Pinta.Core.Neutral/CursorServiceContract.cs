@@ -8,6 +8,12 @@ public interface ICursorService
 {
 	object? CreateCursor (CursorDescriptor descriptor);
 	object? CreateShapedCursor (CursorDescriptor descriptor, CursorShape shape, double scale, int shapeWidth);
+
+	/// <summary>
+	/// Creates a cursor from the base cursor icon overlaid with a rotated neutral shape
+	/// (used e.g. by the slash brush cursor). Returns null when unavailable.
+	/// </summary>
+	object? CreateShapedIconCursor (CursorDescriptor baseCursor, CursorShape shape, double scale, int shapeWidth, int angle);
 }
 
 /// <summary>
