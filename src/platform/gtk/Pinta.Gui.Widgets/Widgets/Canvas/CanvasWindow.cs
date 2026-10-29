@@ -445,10 +445,17 @@ public sealed partial class CanvasWindow
 		ToolKeyEventArgs tool_args = new () {
 			Event = controller.GetCurrentEvent (),
 			Key = args.GetKey (),
+			Text = KeyvalText (args.Keyval),
 			State = args.State,
 		};
 
 		return tools.DoKeyDown (document, tool_args);
+	}
+
+	private static string? KeyvalText (uint keyval)
+	{
+		uint unicode = Gdk.Functions.KeyvalToUnicode (keyval);
+		return unicode == 0 ? null : char.ConvertFromUtf32 ((int) unicode);
 	}
 
 	public bool DoKeyReleaseEvent (

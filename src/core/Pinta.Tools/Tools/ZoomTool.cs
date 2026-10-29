@@ -32,10 +32,10 @@ namespace Pinta.Tools;
 
 public sealed class ZoomTool : BaseTool
 {
-	private Gdk.Cursor cursor_zoom_in => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.ZoomIn))!;
-	private Gdk.Cursor cursor_zoom_out => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.ZoomOut))!;
-	private Gdk.Cursor cursor_zoom => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.Icons.ToolZoom))!;
-	private Gdk.Cursor cursor_zoom_pan => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.Icons.ToolPan))!;
+	private static readonly CursorDescriptor cursor_zoom_in = new (Pinta.Resources.StandardCursors.ZoomIn);
+	private static readonly CursorDescriptor cursor_zoom_out = new (Pinta.Resources.StandardCursors.ZoomOut);
+	private static readonly CursorDescriptor cursor_zoom = new (Pinta.Resources.Icons.ToolZoom);
+	private static readonly CursorDescriptor cursor_zoom_pan = new (Pinta.Resources.Icons.ToolPan);
 
 	private MouseButton mouse_down;
 	private bool is_drawing;
@@ -55,8 +55,8 @@ public sealed class ZoomTool : BaseTool
 		"Left click to zoom in." +
 		"\nRight click to zoom out." +
 		"\nClick and drag to zoom in selection.");
-	public override Gdk.Cursor DefaultCursor => cursor_zoom;
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_Z);
+	public override CursorDescriptor? DefaultCursorDescriptor => cursor_zoom;
+	public override StandardKey? ShortcutKeyStandard => StandardKey.Z;
 	public override int Priority => 9;
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)

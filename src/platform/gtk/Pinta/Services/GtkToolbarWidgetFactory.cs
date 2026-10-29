@@ -28,4 +28,10 @@ internal sealed class GtkToolbarWidgetFactory : IToolbarWidgetFactory
 
 	public IToolBarFontButton CreateFontButton (string? initialFont)
 		=> new GtkToolBarFontButton (initialFont);
+
+	public IToolBarSlider CreateSlider (double min, double max, double step, double initialValue)
+		=> new GtkToolBarSlider (min, max, step, initialValue);
+
+	public IToolbarContainer CreateBox (int spacing, int marginStart)
+		=> new GtkBoxContainer (spacing, marginStart);
 }

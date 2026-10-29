@@ -57,34 +57,34 @@ public sealed class ColorPickerTool : BaseTool
 	public override string Name => Translations.GetString ("Color Picker");
 	public override string Icon => Pinta.Resources.Icons.ToolColorPicker;
 	public override string StatusBarText => Translations.GetString ("Left click to set primary color.\nRight click to set secondary color.");
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_K);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.K;
 	public override int Priority => 33;
 	private int SampleSize => SampleSizeDropDown.SelectedItem.GetTagOrDefault (1);
 	private bool SampleLayerOnly => SampleTypeDropDown.SelectedItem.GetTagOrDefault (false);
 
-	public override Gdk.Cursor DefaultCursor {
+	public override ShapedCursorDescriptor? DefaultShapedCursor {
 		get {
 			double scale = workspace.GetScale ();
-			return (Gdk.Cursor?) CursorService.CreateShapedCursor (
+			return new ShapedCursorDescriptor (
 				new CursorDescriptor ("Cursor.ColorPicker.png", 7, 27),
 				CursorShape.Rectangle,
 				scale,
-				SampleSize)!;
+				SampleSize);
 		}
 	}
 
-	protected override void OnBuildToolBar (Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
 		base.OnBuildToolBar (tb);
 
-		tb.Append (SamplingLabel);
-		tb.Append ((Gtk.Widget) SampleSizeDropDown.NativeWidget);
-		tb.Append ((Gtk.Widget) SampleTypeDropDown.NativeWidget);
+		tb.Append (SamplingLabel.NativeWidget);
+		tb.Append (SampleSizeDropDown.NativeWidget);
+		tb.Append (SampleTypeDropDown.NativeWidget);
 
-		tb.Append (Separator);
+		tb.Append (Separator.NativeWidget);
 
-		tb.Append (ToolSelectionLabel);
-		tb.Append ((Gtk.Widget) ToolSelectionDropDown.NativeWidget);
+		tb.Append (ToolSelectionLabel.NativeWidget);
+		tb.Append (ToolSelectionDropDown.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -193,15 +193,15 @@ public sealed class ColorPickerTool : BaseTool
 	}
 
 	private IToolBarDropDownButton? tool_select;
-	private Label? tool_select_label;
-	private Label? sampling_label;
+	private IToolBarLabel? tool_select_label;
+	private IToolBarLabel? sampling_label;
 	private IToolBarDropDownButton? sample_size;
 	private IToolBarDropDownButton? sample_type;
-	private Separator? sample_sep;
+	private IToolBarSeparator? sample_sep;
 
-	private Label ToolSelectionLabel => tool_select_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("After select")));
-	private Label SamplingLabel => sampling_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Sampling")));
-	private Separator Separator => sample_sep ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarLabel ToolSelectionLabel => tool_select_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("After select")));
+	private IToolBarLabel SamplingLabel => sampling_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Sampling")));
+	private IToolBarSeparator Separator => sample_sep ??= WidgetFactory.CreateSeparator ();
 
 	private IToolBarDropDownButton ToolSelectionDropDown {
 		get {

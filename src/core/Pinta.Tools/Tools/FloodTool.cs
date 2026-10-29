@@ -36,35 +36,34 @@
 
 using System;
 using System.Collections.Generic;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
 
 public abstract class FloodTool : BaseTool
 {
-	protected Label? mode_label;
+	protected IToolBarLabel? mode_label;
 	protected IToolBarDropDownButton? mode_button;
-	protected Separator? mode_sep;
-	protected Label? tolerance_label;
-	protected Scale? tolerance_slider;
+	protected IToolBarSeparator? mode_sep;
+	protected IToolBarLabel? tolerance_label;
+	protected IToolBarSlider? tolerance_slider;
 
 	public FloodTool (IServiceProvider services) : base (services) { }
 
 	protected bool IsGlobalMode => ModeDropDown.SelectedItem.GetTagOrDefault (false);
-	protected float Tolerance => (float) (ToleranceSlider.GetValue () / 100);
+	protected float Tolerance => (float) (ToleranceSlider.Value / 100);
 	protected virtual bool CalculatePolygonSet => true;
 	protected bool LimitToSelection { get; set; } = true;
 
 	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
-
-		tb.Append (ModeLabel);
+// The base GTK Box overload is intentionally not invoked here (it is empty);
+		// widgets are appended directly to the neutral toolbar surface.
+		tb.Append (ModeLabel.NativeWidget);
 		tb.Append (ModeDropDown.NativeWidget);
-		tb.Append (Separator);
-		tb.Append (ToleranceLabel);
-		tb.Append (ToleranceSlider);
+		tb.Append (Separator.NativeWidget);
+		tb.Append (ToleranceLabel.NativeWidget);
+		tb.Append (ToleranceSlider.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -112,16 +111,16 @@ public abstract class FloodTool : BaseTool
 		if (mode_button is not null)
 			settings.PutSetting (SettingNames.FloodToolFillMode (this), mode_button.SelectedIndex);
 		if (tolerance_slider is not null)
-			settings.PutSetting (SettingNames.FloodToolFillTolerance (this), (int) tolerance_slider.GetValue ());
+			settings.PutSetting (SettingNames.FloodToolFillTolerance (this), (int) tolerance_slider.Value);
 	}
 
 	protected virtual void OnFillRegionComputed (Document document, IReadOnlyList<IReadOnlyList<PointI>> polygonSet) { }
 	protected virtual void OnFillRegionComputed (Document document, BitMask stencil) { }
 
-	protected Label ModeLabel => mode_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Flood Mode")));
-	protected Label ToleranceLabel => tolerance_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Tolerance")));
-	protected Scale ToleranceSlider => tolerance_slider ??= GtkExtensions.CreateToolBarSlider (0, 100, 1, Settings.GetSetting (SettingNames.FloodToolFillTolerance (this), 0));
-	protected Separator Separator => mode_sep ??= GtkExtensions.CreateToolBarSeparator ();
+	protected IToolBarLabel ModeLabel => mode_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Flood Mode")));
+	protected IToolBarLabel ToleranceLabel => tolerance_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Tolerance")));
+	protected IToolBarSlider ToleranceSlider => tolerance_slider ??= WidgetFactory.CreateSlider (0, 100, 1, Settings.GetSetting (SettingNames.FloodToolFillTolerance (this), 0));
+	protected IToolBarSeparator Separator => mode_sep ??= WidgetFactory.CreateSeparator ();
 
 	protected IToolBarDropDownButton ModeDropDown {
 		get {

@@ -20,4 +20,13 @@ public interface IToolbarWidgetFactory
 	/// the platform default font is used.
 	/// </summary>
 	IToolBarFontButton CreateFontButton (string? initialFont);
+
+	/// <summary>Create a horizontal slider with the given range and initial value.</summary>
+	IToolBarSlider CreateSlider (double min, double max, double step, double initialValue);
+
+	/// <summary>
+	/// Create a horizontal container widget (with spacing and left margin)
+	/// that can hold native option views. Append/RemoveAll via <see cref="IToolbarContainer"/>.
+	/// </summary>
+	IToolbarContainer CreateBox (int spacing, int marginStart);
 }

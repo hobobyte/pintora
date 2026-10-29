@@ -77,6 +77,22 @@ public sealed class DocumentWorkspace
 	public Gtk.Widget CanvasWindow { get; set; } = null!; // NRT - This is set soon after creation
 
 	/// <summary>
+	/// Size of the visible canvas viewport (the area inside the scrollbars) in window
+	/// coordinates, or null when the canvas is not hosted in a scrollable viewport.
+	/// </summary>
+	public Size? CanvasViewportSize {
+		get {
+			if (Canvas.Parent is Gtk.Viewport view) {
+				double width = view.GetHadjustment ()!.PageSize;
+				double height = view.GetVadjustment ()!.PageSize;
+				return new Size ((int) width, (int) height);
+			}
+
+			return null;
+		}
+	}
+
+	/// <summary>
 	/// Returns whether the zoomed image fits in the window without requiring scrolling.
 	/// </summary>
 	public bool ImageViewFitsInWindow {

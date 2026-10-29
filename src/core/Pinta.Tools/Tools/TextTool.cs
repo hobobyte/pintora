@@ -165,8 +165,6 @@ public sealed class TextTool : BaseTool
 	private IToolBarSeparator join_sep = null!;
 	private IToolBarDropDownButton join_btn = null!;
 
-	private IToolbarWidgetFactory WidgetFactory => PintaCore.Services.GetService<IToolbarWidgetFactory> ();
-
 	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
 		if (font_label == null) {
@@ -973,8 +971,9 @@ public sealed class TextTool : BaseTool
 						return false;
 					}
 				} else {
-					if (e.Event is not null)
-						keyHandled = TryHandleChar (e.Event);
+					keyHandled = e.Event is not null && TryHandleChar (e.Event);
+					if (!keyHandled)
+						keyHandled = InsertFallbackText (e.Text);
 				}
 			}
 
@@ -1013,6 +1012,15 @@ public sealed class TextTool : BaseTool
 
 		// We didn't handle the key
 		return false;
+	}
+
+	private bool InsertFallbackText (string? text)
+	{
+		if (string.IsNullOrEmpty (text))
+			return false;
+
+		CurrentTextEngine.InsertText (text);
+		return true;
 	}
 
 	private void OnIMCommit (object? o, string str)

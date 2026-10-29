@@ -33,7 +33,6 @@ public sealed class RectangleSelectTool : SelectTool
 {
 	public RectangleSelectTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.RectangleSelect.png", 9, 18))!;
 	}
 
 	public override string Name => Translations.GetString ("Rectangle Select");
@@ -41,7 +40,7 @@ public sealed class RectangleSelectTool : SelectTool
 	public override string StatusBarText => Translations.GetString (
 		"Click and drag to draw a rectangular selection." +
 		"\nHold Shift to constrain to a square.");
-	public override Gdk.Cursor? DefaultCursor { get; set; }
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.RectangleSelect.png", 9, 18);
 	public override int Priority => 13;
 
 	protected override void DrawShape (Document document, RectangleD r, Layer l)

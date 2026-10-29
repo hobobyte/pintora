@@ -26,7 +26,6 @@
 
 using System;
 using System.Collections.Generic;
-using Gdk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -61,19 +60,19 @@ public sealed class CloneStampTool : BaseBrushTool
 	public override string Icon => Pinta.Resources.Icons.ToolCloneStamp;
 	// Translators: {0} is 'Ctrl', or a platform-specific key such as 'Command' on macOS.
 	public override string StatusBarText => Translations.GetString ("{0} + left click to set origin, left click to paint.", system_manager.CtrlLabel ());
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_L);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.L;
 	public override int Priority => 47;
 	protected override bool ShowAntialiasingButton => true;
 	public override IEnumerable<IToolHandle> Handles => [handle];
 
-	public override Cursor DefaultCursor {
+	public override ShapedCursorDescriptor? DefaultShapedCursor {
 		get {
 			double scale = workspace.GetScale ();
-			return (Gdk.Cursor?) CursorService.CreateShapedCursor (
+			return new ShapedCursorDescriptor (
 				new CursorDescriptor ("Cursor.CloneStamp.png", 16, 26),
 				CursorShape.Ellipse,
 				scale,
-				BrushWidth)!;
+				BrushWidth);
 		}
 	}
 
@@ -169,7 +168,7 @@ public sealed class CloneStampTool : BaseBrushTool
 		// Note that this WON'T work if user presses control key and THEN selects the tool!
 		if (e.Key.IsControlKey ()) {
 			move_origin_handle = false;
-			SetCursor ((Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.CloneStampSetSource.png", 16, 26))!);
+			SetCursor (new CursorDescriptor ("Cursor.CloneStampSetSource.png", 16, 26));
 		}
 
 		return false;

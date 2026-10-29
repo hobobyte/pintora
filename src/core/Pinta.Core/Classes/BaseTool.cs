@@ -42,6 +42,7 @@ public abstract class BaseTool
 
 	protected IResourceService Resources { get; }
 	protected ICursorService CursorService => services.GetService<ICursorService> ();
+	protected IToolbarWidgetFactory WidgetFactory => services.GetService<IToolbarWidgetFactory> ();
 	protected IClipboardService ClipboardService => services.GetService<IClipboardService> ();
 	protected ISettingsService Settings { get; }
 
@@ -89,13 +90,41 @@ public abstract class BaseTool
 
 	/// <summary>
 	/// The default cursor used by the tool. Return 'null' for the default pointer.
-	/// Tools that don't set this property can instead override <see cref="DefaultCursorName"/>
-	/// to use a neutral (standard) cursor name without referencing platform types.
+	/// Tools that don't set this property can instead override one of the neutral seams
+	/// (<see cref="DefaultCursorDescriptor"/>, <see cref="DefaultShapedCursor"/>,
+	/// <see cref="DefaultCursorName"/>) to use a cursor without referencing platform types.
 	/// </summary>
 	public virtual Cursor? DefaultCursor {
-		get => default_cursor ?? (DefaultCursorName is null ? null : (Cursor?) CursorService.CreateCursor (new CursorDescriptor (DefaultCursorName)));
+		get {
+			if (default_cursor is not null)
+				return default_cursor;
+
+			if (DefaultCursorDescriptor is { } descriptor)
+				return (Cursor?) CursorService.CreateCursor (descriptor);
+
+			if (DefaultShapedCursor is { } shaped)
+				return (Cursor?) CursorService.CreateShapedCursor (shaped.Cursor, shaped.Shape, shaped.Scale, shaped.ShapeWidth);
+
+			if (DefaultCursorName is { } name)
+				return (Cursor?) CursorService.CreateCursor (new CursorDescriptor (name));
+
+			return null;
+		}
 		set => default_cursor = value;
 	}
+
+	/// <summary>
+	/// Neutral cursor descriptor (resource name + hotspot) for the tool's default cursor,
+	/// used when <see cref="DefaultCursor"/> was not set. Return null for none.
+	/// </summary>
+	public virtual CursorDescriptor? DefaultCursorDescriptor => null;
+
+	/// <summary>
+	/// Neutral shaped-cursor descriptor for the tool's default cursor, used when neither
+	/// <see cref="DefaultCursor"/> nor <see cref="DefaultCursorDescriptor"/> were set.
+	/// Return null for none.
+	/// </summary>
+	public virtual ShapedCursorDescriptor? DefaultShapedCursor => null;
 
 	/// <summary>
 	/// Neutral name of the tool's default cursor (a standard CSS cursor name, see
@@ -355,6 +384,18 @@ public abstract class BaseTool
 	/// </summary>
 	public void SetCursor (string cursorName)
 		=> SetCursor ((Cursor?) CursorService.CreateCursor (new CursorDescriptor (cursorName)));
+
+	/// <summary>
+	/// Change the application cursor to a cursor given by its neutral descriptor.
+	/// </summary>
+	public void SetCursor (CursorDescriptor descriptor)
+		=> SetCursor ((Cursor?) CursorService.CreateCursor (descriptor));
+
+	/// <summary>
+	/// Change the application cursor to a previously created native cursor object.
+	/// </summary>
+	public void SetCursor (object cursor)
+		=> SetCursor ((Cursor?) cursor);
 
 	protected bool IsActiveTool ()
 	{

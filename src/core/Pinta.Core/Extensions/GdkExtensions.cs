@@ -256,6 +256,13 @@ public static class GdkExtensions
 		=> Gdk.Cursor.NewFromName (name, null) ?? throw new ArgumentException ("Cursor does not exist", nameof (name));
 
 	/// <summary>
+	/// Wrapper for Gdk.Cursor.NewFromTexture which keeps the platform call in Core,
+	/// so platform-neutral code can create a cursor from an icon texture.
+	/// </summary>
+	public static Gdk.Cursor CreateCursorFromTexture (Gdk.Texture icon, int hotspotX, int hotspotY)
+		=> Gdk.Cursor.NewFromTexture (icon, hotspotX, hotspotY, null);
+
+	/// <summary>
 	/// Convert from Gdk.RGBA to Cairo.Color.
 	/// </summary>
 	public static Cairo.Color ToCairoColor (this Gdk.RGBA color)

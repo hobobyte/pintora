@@ -106,6 +106,17 @@ public abstract class BasePaintBrush
 	}
 
 	/// <summary>
+	/// Get the cursor appropriate for the brush's current settings, as an opaque native
+	/// cursor object. Brushes that need to stay platform-neutral should override this
+	/// instead of <see cref="GetCursor"/>; by default it delegates to GetCursor().
+	/// </summary>
+	/// <returns>Native cursor object, or null if the tool should use the default cursor.</returns>
+	public virtual object? GetCursorNative ()
+	{
+		return GetCursor ();
+	}
+
+	/// <summary>
 	/// Event handler called when the mouse is released.
 	/// </summary>
 	protected virtual void OnMouseUp ()

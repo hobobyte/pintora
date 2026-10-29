@@ -33,7 +33,6 @@ public sealed class EllipseTool : ShapeTool
 {
 	public EllipseTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.Ellipse.png", 9, 18))!;
 
 		BaseEditEngine.CorrespondingTools[ShapeType] = this;
 		EditEngine = new EllipseEditEngine (services, this);
@@ -45,7 +44,7 @@ public sealed class EllipseTool : ShapeTool
 	public override string Icon
 		=> Pinta.Resources.Icons.ToolEllipse;
 
-	public override Gdk.Cursor? DefaultCursor { get; set; }
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.Ellipse.png", 9, 18);
 
 	public override int Priority => 43;
 

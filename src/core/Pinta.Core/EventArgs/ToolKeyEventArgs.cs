@@ -61,6 +61,9 @@ public sealed class ToolKeyEventArgs : EventArgs
 	/// </summary>
 	public Gdk.Key Key { get; init; }
 
+	/// <summary>Text produced by this key press, when the platform provides it.</summary>
+	public string? Text { get; init; }
+
 	public ModifierType State { get; init; }
 
 	public Event? Event { get; init; }
