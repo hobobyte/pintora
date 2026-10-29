@@ -21,10 +21,6 @@ public sealed class TextTool : BaseTool
 	private PointD start_mouse_xy;
 	private PointI start_click_point;
 	private bool tracking;
-	private Gdk.Cursor CursorMove
-		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.Move))!;
-	private Gdk.Cursor CursorInvalid
-		=> (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.NotAllowed))!;
 
 	private PointI click_point;
 	private bool is_editing;
@@ -40,7 +36,7 @@ public sealed class TextTool : BaseTool
 	// if the selection changes before the text is finalized.
 	private DocumentSelection? selection;
 
-	private readonly Gtk.IMMulticontext im_context;
+	private readonly ITextInputContext im_context;
 	private readonly TextLayout layout;
 
 	private RectangleI CurrentTextBounds {
@@ -78,6 +74,9 @@ public sealed class TextTool : BaseTool
 	//Store the most recent mouse position.
 	private PointI last_mouse_position = new (0, 0);
 
+	// Name of the cursor currently applied by UpdateMouseCursor (null = not yet applied).
+	private string? current_cursor_name;
+
 	public override string Name
 		=> Translations.GetString ("Text");
 
@@ -87,8 +86,8 @@ public sealed class TextTool : BaseTool
 	public override string Icon
 		=> Pinta.Resources.Icons.ToolText;
 
-	public override Gdk.Key ShortcutKey
-		=> new (Gdk.Constants.KEY_T);
+	public override StandardKey? ShortcutKeyStandard
+		=> StandardKey.T;
 
 	public override int Priority
 		=> 35;
@@ -96,7 +95,8 @@ public sealed class TextTool : BaseTool
 	public override string StatusBarText
 		=> Translations.GetString ("Left click to place cursor, then type desired text. Text color is primary color.");
 
-	public override Gdk.Cursor DefaultCursor { get; }
+	public override string DefaultCursorName
+		=> Pinta.Resources.StandardCursors.Text;
 
 	protected override bool ShowAntialiasingButton => true;
 
@@ -111,70 +111,79 @@ public sealed class TextTool : BaseTool
 		palette = services.GetService<IPaletteService> ();
 		workspace = services.GetService<IWorkspaceService> ();
 
-		im_context = Gtk.IMMulticontext.New ();
-		im_context.OnCommit += OnIMCommit;
-		im_context.OnPreeditStart += OnPreeditStart;
-		im_context.OnPreeditChanged += OnPreeditChanged;
-		im_context.OnPreeditEnd += OnPreeditEnd;
+		im_context = services.GetOptionalService<ITextInputContextFactory> ()?.CreateInputContext ()
+			?? new NullTextInputContext ();
+
+		im_context.Commit += OnIMCommit;
+		im_context.PreeditStart += OnPreeditStart;
+		im_context.PreeditChanged += OnPreeditChanged;
+		im_context.PreeditEnd += OnPreeditEnd;
 
 		layout = new TextLayout (chromeService);
-
-		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.StandardCursors.Text))!;
 	}
+
+	/// <summary>
+	/// Fallback input context used on platforms without an input method
+	/// implementation: key events are not filtered, so no IME / pre-editing
+	/// support is available (plain typing still works through the tool's
+	/// regular key handling).
+	/// </summary>
+	#pragma warning disable CS0067 // Events are part of the contract but never raised by the null context.
+	private sealed class NullTextInputContext : ITextInputContext
+	{
+		public void FocusIn () { }
+		public void FocusOut () { }
+		public void SetClientWidget (object? nativeWidget) { }
+		public bool FilterKeyPress (object nativeKeyEvent) => false;
+		public void Reset () { }
+		public string GetPreeditString () => string.Empty;
+		public event EventHandler<string>? Commit;
+		public event EventHandler? PreeditStart;
+		public event EventHandler? PreeditChanged;
+		public event EventHandler? PreeditEnd;
+	}
+	#pragma warning restore CS0067
 
 	#region ToolBar
 	// NRT - Created by OnBuildToolBar
-	private Gtk.Label font_label = null!;
-	private Gtk.FontDialogButton font_button = null!;
+	private IToolBarLabel font_label = null!;
+	private IToolBarFontButton font_button = null!;
 	private IToolBarDropDownButton variant_btn = null!;
-	private Gtk.SpinButton font_size = null!;
+	private IToolBarSpinButton font_size = null!;
 	private IToolBarDropDownButton weight_btn = null!;
-	private Gtk.ToggleButton italic_btn = null!;
-	private Gtk.ToggleButton underscore_btn = null!;
-	private Gtk.ToggleButton left_alignment_btn = null!;
-	private Gtk.ToggleButton center_alignment_btn = null!;
-	private Gtk.ToggleButton right_alignment_btn = null!;
-	private Gtk.Label fill_label = null!;
+	private IToolBarToggleButton italic_btn = null!;
+	private IToolBarToggleButton underscore_btn = null!;
+	private IToolBarToggleButton left_alignment_btn = null!;
+	private IToolBarToggleButton center_alignment_btn = null!;
+	private IToolBarToggleButton right_alignment_btn = null!;
+	private IToolBarLabel fill_label = null!;
 	private IToolBarDropDownButton fill_button = null!;
-	private Gtk.Separator fill_sep = null!;
-	private Gtk.Separator outline_sep = null!;
-	private Gtk.SpinButton outline_width = null!;
-	private Gtk.Label outline_width_label = null!;
-	private Gtk.Separator join_sep = null!;
+	private IToolBarSeparator fill_sep = null!;
+	private IToolBarSeparator outline_sep = null!;
+	private IToolBarSpinButton outline_width = null!;
+	private IToolBarLabel outline_width_label = null!;
+	private IToolBarSeparator join_sep = null!;
 	private IToolBarDropDownButton join_btn = null!;
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
-	{
-		base.OnBuildToolBar (tb);
+	private IToolbarWidgetFactory WidgetFactory => PintaCore.Services.GetService<IToolbarWidgetFactory> ();
 
+	protected override void OnBuildToolBar (IToolbarSurface tb)
+	{
 		if (font_label == null) {
 			string fontText = Translations.GetString ("Font");
-			font_label = Gtk.Label.New ($" {fontText}: ");
+			font_label = WidgetFactory.CreateLabel ($" {fontText}: ");
 		}
 
-		tb.Append (font_label);
+		tb.Append (font_label.NativeWidget);
 
 		if (font_button == null) {
-			Gtk.FontDialog fontDialog = Gtk.FontDialog.New ();
-			fontDialog.Modal = true;
-
-			font_button = Gtk.FontDialogButton.New (fontDialog);
-			font_button.UseSize = false;
-			font_button.UseFont = true;
-			font_button.CanFocus = false;
-			font_button.Level = Gtk.FontLevel.Family;
-			font_button.FontDesc = Pango.FontDescription.FromString (
-				Settings.GetSetting (SettingNames.TEXT_FONT,
-					Gtk.Settings.GetDefault ()!.GtkFontName!));
-
-			Gtk.FontDialogButton.FontDescPropertyDefinition.Notify (font_button, (_, _) => {
-				HandleFontChanged ();
-			});
+			font_button = WidgetFactory.CreateFontButton (Settings.GetSetting<string?> (SettingNames.TEXT_FONT, null));
+			font_button.FontChanged += (o, e) => HandleFontChanged ();
 		}
 
-		tb.Append (font_button);
+		tb.Append (font_button.NativeWidget);
 
-		tb.Append (GtkExtensions.CreateToolBarSeparator ());
+		tb.Append (WidgetFactory.CreateSeparator ().NativeWidget);
 
 		if (variant_btn == null) {
 			variant_btn = CreateToolDropDownButton ();
@@ -226,27 +235,27 @@ public sealed class TextTool : BaseTool
 			variant_btn.SelectedItemChanged += HandleVariantButtonChanged;
 		}
 
-		tb.Append ((Gtk.Widget) variant_btn.NativeWidget);
+		tb.Append (variant_btn.NativeWidget);
 
-		tb.Append (GtkExtensions.CreateToolBarSeparator ());
+		tb.Append (WidgetFactory.CreateSeparator ().NativeWidget);
 
 		if (font_size == null) {
-			Gtk.Adjustment fontSizeAdjustment = Gtk.Adjustment.New (
-				value: PangoExtensions.UnitsToPixels (font_button.FontDesc!.GetSize ()),
-				lower: 1, upper: 2000, stepIncrement: 1, pageIncrement: 0, pageSize: 0);
-
-			font_size = Gtk.SpinButton.New (fontSizeAdjustment, climbRate: 0.0, digits: 0);
+			font_size = WidgetFactory.CreateSpinButton (
+				1,
+				2000,
+				1,
+				PangoExtensions.UnitsToPixels (font_button.Font.GetSize ()));
 			font_size.TooltipText = Translations.GetString ("Change font size. Shortcut keys: [ ]");
 			font_size.TooltipText = Translations.GetString ("Change font size.") + "\n"
 				   + "\n" + Translations.GetString ("Shortcut keys:")
 				   + "\n" + Translations.GetString ("Press {0} to decrease font size", "\"[\"")
 				   + "\n" + Translations.GetString ("Press {0} to increase font size", "\"]\"");
-			font_size.OnValueChanged += HandleFontSizeChanged;
+			font_size.ValueChanged += HandleFontSizeChanged;
 		}
 
-		tb.Append (font_size);
+		tb.Append (font_size.NativeWidget);
 
-		tb.Append (GtkExtensions.CreateToolBarSeparator ());
+		tb.Append (WidgetFactory.CreateSeparator ().NativeWidget);
 
 		if (weight_btn == null) {
 			weight_btn = CreateToolDropDownButton ();
@@ -328,77 +337,72 @@ public sealed class TextTool : BaseTool
 			weight_btn.SelectedItemChanged += HandleWeightButtonToggled;
 		}
 
-		tb.Append ((Gtk.Widget) weight_btn.NativeWidget);
+		tb.Append (weight_btn.NativeWidget);
 
 		if (italic_btn == null) {
-			italic_btn = Gtk.ToggleButton.New ();
-			italic_btn.IconName = Pinta.Resources.StandardIcons.FormatTextItalic;
-			italic_btn.TooltipText = Translations.GetString ("Italic");
-			italic_btn.CanFocus = false;
+			italic_btn = WidgetFactory.CreateToggleButton (
+				Pinta.Resources.StandardIcons.FormatTextItalic,
+				Translations.GetString ("Italic"));
 			italic_btn.Active = Settings.GetSetting (SettingNames.TEXT_ITALIC, false);
-			italic_btn.OnToggled += HandleItalicButtonToggled;
+			italic_btn.Toggled += HandleItalicButtonToggled;
 		}
 
-		tb.Append (italic_btn);
+		tb.Append (italic_btn.NativeWidget);
 
 		if (underscore_btn == null) {
-			underscore_btn = Gtk.ToggleButton.New ();
-			underscore_btn.IconName = Pinta.Resources.StandardIcons.FormatTextUnderline;
-			underscore_btn.TooltipText = Translations.GetString ("Underline");
-			underscore_btn.CanFocus = false;
+			underscore_btn = WidgetFactory.CreateToggleButton (
+				Pinta.Resources.StandardIcons.FormatTextUnderline,
+				Translations.GetString ("Underline"));
 			underscore_btn.Active = Settings.GetSetting (SettingNames.TEXT_UNDERLINE, false);
-			underscore_btn.OnToggled += HandleUnderscoreButtonToggled;
+			underscore_btn.Toggled += HandleUnderscoreButtonToggled;
 		}
 
-		tb.Append (underscore_btn);
+		tb.Append (underscore_btn.NativeWidget);
 
-		tb.Append (GtkExtensions.CreateToolBarSeparator ());
+		tb.Append (WidgetFactory.CreateSeparator ().NativeWidget);
 
 		TextAlignment alignment = (TextAlignment) Settings.GetSetting (SettingNames.TEXT_ALIGNMENT, (int) TextAlignment.Left);
 
 		if (left_alignment_btn == null) {
-			left_alignment_btn = Gtk.ToggleButton.New ();
-			left_alignment_btn.IconName = Pinta.Resources.StandardIcons.FormatJustifyLeft;
-			left_alignment_btn.TooltipText = Translations.GetString ("Left Align");
-			left_alignment_btn.CanFocus = false;
+			left_alignment_btn = WidgetFactory.CreateToggleButton (
+				Pinta.Resources.StandardIcons.FormatJustifyLeft,
+				Translations.GetString ("Left Align"));
 			left_alignment_btn.Active = alignment == TextAlignment.Left;
-			left_alignment_btn.OnToggled += HandleLeftAlignmentButtonToggled;
+			left_alignment_btn.Toggled += HandleLeftAlignmentButtonToggled;
 		}
 
-		tb.Append (left_alignment_btn);
+		tb.Append (left_alignment_btn.NativeWidget);
 
 		if (center_alignment_btn == null) {
-			center_alignment_btn = Gtk.ToggleButton.New ();
-			center_alignment_btn.IconName = Pinta.Resources.StandardIcons.FormatJustifyCenter;
-			center_alignment_btn.TooltipText = Translations.GetString ("Center Align");
-			center_alignment_btn.CanFocus = false;
+			center_alignment_btn = WidgetFactory.CreateToggleButton (
+				Pinta.Resources.StandardIcons.FormatJustifyCenter,
+				Translations.GetString ("Center Align"));
 			center_alignment_btn.Active = alignment == TextAlignment.Center;
-			center_alignment_btn.OnToggled += HandleCenterAlignmentButtonToggled;
+			center_alignment_btn.Toggled += HandleCenterAlignmentButtonToggled;
 		}
 
-		tb.Append (center_alignment_btn);
+		tb.Append (center_alignment_btn.NativeWidget);
 
 		if (right_alignment_btn == null) {
-			right_alignment_btn = Gtk.ToggleButton.New ();
-			right_alignment_btn.IconName = Pinta.Resources.StandardIcons.FormatJustifyRight;
-			right_alignment_btn.TooltipText = Translations.GetString ("Right Align");
-			right_alignment_btn.CanFocus = false;
+			right_alignment_btn = WidgetFactory.CreateToggleButton (
+				Pinta.Resources.StandardIcons.FormatJustifyRight,
+				Translations.GetString ("Right Align"));
 			right_alignment_btn.Active = alignment == TextAlignment.Right;
-			right_alignment_btn.OnToggled += HandleRightAlignmentButtonToggled;
+			right_alignment_btn.Toggled += HandleRightAlignmentButtonToggled;
 		}
 
-		tb.Append (right_alignment_btn);
+		tb.Append (right_alignment_btn.NativeWidget);
 
-		fill_sep ??= GtkExtensions.CreateToolBarSeparator ();
+		fill_sep ??= WidgetFactory.CreateSeparator ();
 
-		tb.Append (fill_sep);
+		tb.Append (fill_sep.NativeWidget);
 
 		if (fill_label == null) {
 			string textStyleText = Translations.GetString ("Text Style");
-			fill_label = Gtk.Label.New ($" {textStyleText}: ");
+			fill_label = WidgetFactory.CreateLabel ($" {textStyleText}: ");
 		}
 
-		tb.Append (fill_label);
+		tb.Append (fill_label.NativeWidget);
 
 		if (fill_button == null) {
 			fill_button = CreateToolDropDownButton ();
@@ -412,33 +416,33 @@ public sealed class TextTool : BaseTool
 			fill_button.SelectedItemChanged += HandleFillButtonToggled;
 		}
 
-		tb.Append ((Gtk.Widget) fill_button.NativeWidget);
+		tb.Append (fill_button.NativeWidget);
 
-		outline_sep ??= GtkExtensions.CreateToolBarSeparator ();
+		outline_sep ??= WidgetFactory.CreateSeparator ();
 
-		tb.Append (outline_sep);
+		tb.Append (outline_sep.NativeWidget);
 
 		if (outline_width_label == null) {
 			string outlineWidthText = Translations.GetString ("Outline width");
-			outline_width_label = Gtk.Label.New ($" {outlineWidthText}: ");
+			outline_width_label = WidgetFactory.CreateLabel ($" {outlineWidthText}: ");
 		}
 
-		tb.Append (outline_width_label);
+		tb.Append (outline_width_label.NativeWidget);
 
 		if (outline_width == null) {
-			outline_width = GtkExtensions.CreateToolBarSpinButton (
+			outline_width = WidgetFactory.CreateSpinButton (
 				1,
 				1e5,
 				1,
 				Settings.GetSetting (SettingNames.TEXT_OUTLINE_WIDTH, 2));
-			outline_width.OnValueChanged += (_, __) => HandleFontChanged ();
+			outline_width.ValueChanged += (_, __) => HandleFontChanged ();
 		}
 
-		tb.Append (outline_width);
+		tb.Append (outline_width.NativeWidget);
 
-		join_sep ??= GtkExtensions.CreateToolBarSeparator ();
+		join_sep ??= WidgetFactory.CreateSeparator ();
 
-		tb.Append (join_sep);
+		tb.Append (join_sep.NativeWidget);
 
 		if (join_btn == null) {
 			join_btn = CreateToolDropDownButton ();
@@ -466,7 +470,7 @@ public sealed class TextTool : BaseTool
 			join_btn.SelectedItemChanged += HandleJoinButtonToggled;
 		}
 
-		tb.Append ((Gtk.Widget) join_btn.NativeWidget);
+		tb.Append (join_btn.NativeWidget);
 
 		outline_width.Visible = outline_width_label.Visible = outline_sep.Visible = join_btn.Visible = join_sep.Visible = StrokeText;
 
@@ -475,9 +479,9 @@ public sealed class TextTool : BaseTool
 
 	private void HandleFontSizeChanged (object? sender, EventArgs e)
 	{
-		var font = font_button.FontDesc!.Copy ()!;
-		font.SetSize (PangoExtensions.UnitsFromPixels (font_size.GetValueAsInt ()));
-		font_button.FontDesc = font;
+		var font = font_button.Font.Copy ()!;
+		font.SetSize (PangoExtensions.UnitsFromPixels ((int) font_size.Value));
+		font_button.Font = font;
 
 		UpdateFont ();
 	}
@@ -487,7 +491,7 @@ public sealed class TextTool : BaseTool
 		base.OnSaveSettings (settings);
 
 		if (font_button is not null)
-			settings.PutSetting (SettingNames.TEXT_FONT, font_button.FontDesc!.ToString ()!);
+			settings.PutSetting (SettingNames.TEXT_FONT, font_button.Font.ToString ()!);
 
 		if (variant_btn is not null)
 			settings.PutSetting (SettingNames.TEXT_VARIANT, variant_btn.SelectedIndex);
@@ -508,7 +512,7 @@ public sealed class TextTool : BaseTool
 			settings.PutSetting (SettingNames.TEXT_STYLE, fill_button.SelectedIndex);
 
 		if (outline_width is not null)
-			settings.PutSetting (SettingNames.TEXT_OUTLINE_WIDTH, outline_width.GetValueAsInt ());
+			settings.PutSetting (SettingNames.TEXT_OUTLINE_WIDTH, (int) outline_width.Value);
 
 		if (join_btn is not null)
 			settings.PutSetting (SettingNames.TEXT_JOIN, join_btn.SelectedIndex);
@@ -516,9 +520,9 @@ public sealed class TextTool : BaseTool
 
 	private void HandleFontChanged ()
 	{
-		var font = font_button.FontDesc!.Copy ()!;
-		font.SetSize (PangoExtensions.UnitsFromPixels (font_size.GetValueAsInt ()));
-		font_button.FontDesc = font;
+		var font = font_button.Font.Copy ()!;
+		font.SetSize (PangoExtensions.UnitsFromPixels ((int) font_size.Value));
+		font_button.Font = font;
 
 		if (workspace.HasOpenDocuments)
 			workspace.ActiveDocument.Workspace.GrabFocusToCanvas ();
@@ -626,7 +630,7 @@ public sealed class TextTool : BaseTool
 	{
 		if (workspace.HasOpenDocuments) {
 
-			var font = font_button.FontDesc!.Copy ()!; // NRT: Only nullable when nullptr is passed.
+			var font = font_button.Font.Copy ()!; // NRT: Only nullable when nullptr is passed.
 			font.SetVariant ((Pango.Variant) variant_btn.SelectedItem.GetTagOrDefault (Pango.Variant.Normal));
 			font.SetWeight ((Pango.Weight) weight_btn.SelectedItem.GetTagOrDefault (Pango.Weight.Normal));
 			font.SetStyle (italic_btn.Active ? Pango.Style.Italic : Pango.Style.Normal);
@@ -646,7 +650,7 @@ public sealed class TextTool : BaseTool
 	}
 
 	private int OutlineWidth
-		=> outline_width.GetValueAsInt ();
+		=> (int) outline_width.Value;
 
 	private bool StrokeText
 		=> fill_button.SelectedItem.GetTagOrDefault (0) >= 1 && fill_button.SelectedItem.GetTagOrDefault (0) != 3;
@@ -850,27 +854,34 @@ public sealed class TextTool : BaseTool
 	private void UpdateMouseCursor (Document document)
 	{
 		if (tracking) {
-			SetCursor (CursorMove);
+			ApplyCursor (Pinta.Resources.StandardCursors.Move);
 			return;
 		}
 
 		//Whether or not to show the normal text cursor.
-		Gdk.Cursor newCursor = CursorInvalid;
+		string newCursorName;
 
 		if (ctrl_key && workspace.HasOpenDocuments) {
 			//Go through every UserLayer.
+			newCursorName = Pinta.Resources.StandardCursors.NotAllowed;
 			foreach (UserLayer ul in document.Layers.UserLayers) {
 				if (!ul.TextBounds.Contains (last_mouse_position)) continue; //Check each UserLayer's editable text boundaries to see if they contain the mouse position.
-				newCursor = DefaultCursor; //The mouse is over editable text.
+				newCursorName = DefaultCursorName; //The mouse is over editable text.
 			}
 		} else {
-			newCursor = DefaultCursor;
+			newCursorName = DefaultCursorName;
 		}
 
-		if (newCursor != CurrentCursor) {
-			SetCursor (newCursor);
+		if (newCursorName != current_cursor_name) {
+			ApplyCursor (newCursorName);
 			RedrawText (is_editing, true);
 		}
+	}
+
+	private void ApplyCursor (string cursorName)
+	{
+		SetCursor (cursorName);
+		current_cursor_name = cursorName;
 	}
 	#endregion
 
@@ -905,105 +916,78 @@ public sealed class TextTool : BaseTool
 				// Assume that we are going to handle the key
 				keyHandled = true;
 
-				switch (e.Key.Value) {
-					case Gdk.Constants.KEY_BackSpace:
-						CurrentTextEngine.PerformBackspace (e.IsControlPressed);
-						break;
+				if (e.Key.Is (StandardKey.BackSpace)) {
+					CurrentTextEngine.PerformBackspace (e.IsControlPressed);
+				} else if (e.Key.Is (StandardKey.Delete)) {
+					CurrentTextEngine.PerformDelete ();
+				} else if (e.Key.Is (StandardKey.KeypadEnter) || e.Key.Is (StandardKey.Return)) {
+					CurrentTextEngine.PerformEnter ();
+				} else if (e.Key.Is (StandardKey.Left)) {
+					CurrentTextEngine.PerformLeft (e.IsControlPressed, e.IsShiftPressed);
+				} else if (e.Key.Is (StandardKey.Right)) {
+					CurrentTextEngine.PerformRight (e.IsControlPressed, e.IsShiftPressed);
+				} else if (e.Key.Is (StandardKey.Up)) {
+					CurrentTextEngine.PerformUp (e.IsShiftPressed);
+				} else if (e.Key.Is (StandardKey.Down)) {
+					CurrentTextEngine.PerformDown (e.IsShiftPressed);
+				} else if (e.Key.Is (StandardKey.Home)) {
+					CurrentTextEngine.PerformHome (e.IsControlPressed, e.IsShiftPressed);
+				} else if (e.Key.Is (StandardKey.End)) {
+					CurrentTextEngine.PerformEnd (e.IsControlPressed, e.IsShiftPressed);
+				} else if (e.Key.Is (StandardKey.PageUp) || e.Key.Is (StandardKey.PageDown)) {
+					// Not handled.
+				} else if (e.Key.Is (StandardKey.Escape)) {
+					StopEditing (false);
+					return true;
+				} else if (e.Key.Is (StandardKey.Insert)) {
+					if (e.IsShiftPressed) {
+						CurrentTextEngine.PerformPaste (ClipboardService).Wait ();
+					} else if (e.IsControlPressed) {
+						CurrentTextEngine.PerformCopy (ClipboardService);
+					}
+				} else if (e.IsControlPressed) {
+					if (e.Key.Is (StandardKey.Z)) {
+						//Ctrl + Z for undo while editing.
+						OnHandleUndo (document);
 
-					case Gdk.Constants.KEY_Delete:
-						CurrentTextEngine.PerformDelete ();
-						break;
+						if (workspace.ActiveDocument.History.CanUndo)
+							workspace.ActiveDocument.History.Undo ();
 
-					case Gdk.Constants.KEY_KP_Enter:
-					case Gdk.Constants.KEY_Return:
-						CurrentTextEngine.PerformEnter ();
-						break;
-
-					case Gdk.Constants.KEY_Left:
-						CurrentTextEngine.PerformLeft (e.IsControlPressed, e.IsShiftPressed);
-						break;
-
-					case Gdk.Constants.KEY_Right:
-						CurrentTextEngine.PerformRight (e.IsControlPressed, e.IsShiftPressed);
-						break;
-
-					case Gdk.Constants.KEY_Up:
-						CurrentTextEngine.PerformUp (e.IsShiftPressed);
-						break;
-
-					case Gdk.Constants.KEY_Down:
-						CurrentTextEngine.PerformDown (e.IsShiftPressed);
-						break;
-
-					case Gdk.Constants.KEY_Home:
-						CurrentTextEngine.PerformHome (e.IsControlPressed, e.IsShiftPressed);
-						break;
-
-					case Gdk.Constants.KEY_End:
-						CurrentTextEngine.PerformEnd (e.IsControlPressed, e.IsShiftPressed);
-						break;
-
-					case Gdk.Constants.KEY_Next:
-					case Gdk.Constants.KEY_Prior:
-						break;
-
-					case Gdk.Constants.KEY_Escape:
-						StopEditing (false);
 						return true;
-					case Gdk.Constants.KEY_Insert:
-						if (e.IsShiftPressed) {
-							CurrentTextEngine.PerformPaste (ClipboardService).Wait ();
-						} else if (e.IsControlPressed) {
-							CurrentTextEngine.PerformCopy (ClipboardService);
-						}
-						break;
-					default:
-						if (e.IsControlPressed) {
-							if (e.Key.Value == Gdk.Constants.KEY_z) {
-								//Ctrl + Z for undo while editing.
-								OnHandleUndo (document);
-
-								if (workspace.ActiveDocument.History.CanUndo)
-									workspace.ActiveDocument.History.Undo ();
-
-								return true;
-							} else if (e.Key.Value == Gdk.Constants.KEY_i) {
-								italic_btn.Toggle ();
-								UpdateFont ();
-							} else if (e.Key.Value == Gdk.Constants.KEY_b) {
-								// If current font-weight is Bold (8) or bolder, set to Normal (5). Otherwise, set to Bold (8).
-								weight_btn.SelectedIndex = weight_btn.SelectedIndex > 7 ? 5 : 8;
-								UpdateFont ();
-							} else if (e.Key.Value == Gdk.Constants.KEY_u) {
-								underscore_btn.Toggle ();
-								UpdateFont ();
-							} else if (e.Key.Value == Gdk.Constants.KEY_a) {
-								// Select all of the text.
-								CurrentTextEngine.PerformHome (true, false);
-								CurrentTextEngine.PerformEnd (true, true);
-							} else {
-								//Ignore command shortcut.
-								return false;
-							}
-						} else {
-							if (e.Event is not null)
-								keyHandled = TryHandleChar (e.Event);
-						}
-
-						break;
+					} else if (e.Key.Is (StandardKey.I)) {
+						italic_btn.Active = !italic_btn.Active;
+						UpdateFont ();
+					} else if (e.Key.Is (StandardKey.B)) {
+						// If current font-weight is Bold (8) or bolder, set to Normal (5). Otherwise, set to Bold (8).
+						weight_btn.SelectedIndex = weight_btn.SelectedIndex > 7 ? 5 : 8;
+						UpdateFont ();
+					} else if (e.Key.Is (StandardKey.U)) {
+						underscore_btn.Active = !underscore_btn.Active;
+						UpdateFont ();
+					} else if (e.Key.Is (StandardKey.A)) {
+						// Select all of the text.
+						CurrentTextEngine.PerformHome (true, false);
+						CurrentTextEngine.PerformEnd (true, true);
+					} else {
+						//Ignore command shortcut.
+						return false;
+					}
+				} else {
+					if (e.Event is not null)
+						keyHandled = TryHandleChar (e.Event);
 				}
 			}
 
 			if (keyHandled)
 				RedrawText (true, true);
 		} else {
-			switch (e.Key.Value) {
-				case Gdk.Constants.KEY_bracketleft:
-					font_size.Adjustment!.Value--;
-					return true;
-				case Gdk.Constants.KEY_bracketright:
-					font_size.Adjustment!.Value++;
-					return true;
+			if (e.Key.Is (StandardKey.BracketLeft)) {
+				font_size.Value--;
+				return true;
+			}
+			if (e.Key.Is (StandardKey.BracketRight)) {
+				font_size.Value++;
+				return true;
 			}
 		}
 
@@ -1021,48 +1005,47 @@ public sealed class TextTool : BaseTool
 		return false;
 	}
 
-	private bool TryHandleChar (Gdk.Event eventKey)
+	private bool TryHandleChar (object eventKey)
 	{
 		// Try to handle it as a character
-		if (im_context.FilterKeypress (eventKey))
+		if (im_context.FilterKeyPress (eventKey))
 			return true;
 
 		// We didn't handle the key
 		return false;
 	}
 
-	private void OnIMCommit (object o, Gtk.IMContext.CommitSignalArgs args)
+	private void OnIMCommit (object? o, string str)
 	{
 		try {
 			// Reset the pre-edit string. Depending on the platform there might still be
 			// a preedit-changed signal (setting it to the empty string) after the commit, rather than before.
 			UpdatePreeditString (string.Empty, redraw: false);
 
-			CurrentTextEngine.InsertText (args.Str);
+			CurrentTextEngine.InsertText (str);
 			RedrawText (true, true);
 		} finally {
 			im_context.Reset ();
 		}
 	}
 
-	private void OnPreeditStart (object o, EventArgs args)
+	private void OnPreeditStart (object? o, EventArgs args)
 	{
 		// Initialize to empty string (null means pre-editing is inactive).
 		preedit_string = string.Empty;
 	}
 
-	private void OnPreeditEnd (object o, EventArgs args)
+	private void OnPreeditEnd (object? o, EventArgs args)
 	{
 		// Reset to indicate that pre-editing is done. There should have previously been
 		// a preedit-changed signal to erase the last preedited string.
 		preedit_string = null;
 	}
 
-	private void OnPreeditChanged (object o, EventArgs args)
+	private void OnPreeditChanged (object? o, EventArgs args)
 	{
 		// TODO - use the Pango.AttrList argument to better visualize the pre-edited text vs the regular text.
-		im_context.GetPreeditString (out string updated_str, out _, out _);
-		UpdatePreeditString (updated_str, redraw: true);
+		UpdatePreeditString (im_context.GetPreeditString (), redraw: true);
 	}
 
 	private void UpdatePreeditString (string updated, bool redraw)
