@@ -17,10 +17,10 @@ public static class AddinUtilities
 	{
 #pragma warning disable CS0618 // Using obsolete method
 		return chrome.LaunchSimpleEffectDialog (
-			chrome.MainWindow,
 			effect,
 			CreateWrapper (localizer),
-			workspace);
+			workspace,
+			onChanged: p => effect.EffectData?.FirePropertyChanged (p));
 #pragma warning restore CS0618
 	}
 

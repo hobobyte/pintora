@@ -217,13 +217,13 @@ public sealed partial class NewImageDialog
 	}
 
 	private void Configure (
-		IChromeService chrome,
+		ChromeManager chrome,
 		IPaletteService palette,
 		Size initialSize,
 		BackgroundType initialBackgroundType,
 		bool isClipboardSize)
 	{
-		TransientFor = chrome.MainWindow;
+		TransientFor = chrome.GetMainWindow ();
 		this.palette = palette;
 
 		// We don't show the background color option if it's the same as "White"
@@ -272,7 +272,7 @@ public sealed partial class NewImageDialog
 	/// <param name="imgHeight">Initial value of the height entry.</param>
 	/// <param name="isClipboardSize">Indicates if there is an image on the clipboard (and the size parameters represent the clipboard image size).</param>
 	public static NewImageDialog New (
-		IChromeService chrome,
+		ChromeManager chrome,
 		IPaletteService palette,
 		Size initialSize,
 		BackgroundType initialBackgroundType,

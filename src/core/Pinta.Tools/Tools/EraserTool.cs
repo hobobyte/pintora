@@ -67,27 +67,27 @@ public sealed class EraserTool : BaseBrushTool
 	public override string StatusBarText
 		=> Translations.GetString ("Left click to erase to transparent, right click to erase to secondary color. ");
 
-	public override Gdk.Key ShortcutKey
-		=> new (Gdk.Constants.KEY_E);
+	public override StandardKey? ShortcutKeyStandard
+		=> StandardKey.E;
 
 	public override int Priority => 27;
 
-	public override Gdk.Cursor DefaultCursor {
+	public override ShapedCursorDescriptor? DefaultShapedCursor {
 		get {
 			double scale = workspace.GetScale ();
-			return (Gdk.Cursor?) CursorService.CreateShapedCursor (
+			return new ShapedCursorDescriptor (
 				new CursorDescriptor ("Cursor.Eraser.png", 8, 22),
 				CursorShape.Ellipse,
 				scale,
-				BrushWidth)!;
+				BrushWidth);
 		}
 	}
 
-	protected override void OnBuildToolBar (Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
 		base.OnBuildToolBar (tb);
 
-		tb.Append (TypeLabel);
+		tb.Append (TypeLabel.NativeWidget);
 		tb.Append (TypeComboBox);
 	}
 
@@ -156,7 +156,7 @@ public sealed class EraserTool : BaseBrushTool
 		base.OnSaveSettings (settings);
 
 		if (type_combobox is not null)
-			settings.PutSetting (SettingNames.ERASER_ERASE_TYPE, type_combobox.ComboBox.Active);
+			settings.PutSetting (SettingNames.ERASER_ERASE_TYPE, type_combobox.Active);
 	}
 
 	private static byte[,] CreateLookupTable ()
@@ -320,20 +320,20 @@ public sealed class EraserTool : BaseBrushTool
 		}
 	}
 
-	private Label? type_label;
-	private ToolBarComboBox? type_combobox;
+	private IToolBarLabel? type_label;
+	private IToolBarComboBox? type_combobox;
 
-	private Label TypeLabel => type_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Type")));
-	private ToolBarComboBox TypeComboBox {
+	private IToolBarLabel TypeLabel => type_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Type")));
+	private IToolBarComboBox TypeComboBox {
 		get {
 			if (type_combobox is null) {
-				type_combobox = ToolBarComboBox.New (100, 0, false, Translations.GetString ("Normal"), Translations.GetString ("Smooth"));
+				type_combobox = WidgetFactory.CreateComboBox (100, 0, false, [Translations.GetString ("Normal"), Translations.GetString ("Smooth")]);
 
-				type_combobox.ComboBox.OnChanged += (o, e) => {
-					eraser_type = (EraserType) type_combobox.ComboBox.Active;
+				type_combobox.Changed += (o, e) => {
+					eraser_type = (EraserType) type_combobox.Active;
 				};
 
-				type_combobox.ComboBox.Active = Settings.GetSetting (SettingNames.ERASER_ERASE_TYPE, 0);
+				type_combobox.Active = Settings.GetSetting (SettingNames.ERASER_ERASE_TYPE, 0);
 			}
 
 			return type_combobox;

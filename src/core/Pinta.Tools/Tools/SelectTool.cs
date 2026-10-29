@@ -37,10 +37,10 @@ public abstract class SelectTool : BaseTool
 
 	private SelectionHistoryItem? hist = default;
 	private CombineMode combine_mode = default;
-	private Gtk.Separator? mode_sep;
-	private ToolBarDropDownButton? auto_scroll_button;
+	private IToolBarSeparator? mode_sep;
+	private IToolBarDropDownButton? auto_scroll_button;
 
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_S);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.S;
 	public override bool IsSelectionTool => true;
 	protected override bool ShowAntialiasingButton => false;
 	private bool IsAutoScroll => AutoScrollButton.SelectedItem.GetTagOrDefault (true);
@@ -59,14 +59,13 @@ public abstract class SelectTool : BaseTool
 
 	protected abstract void DrawShape (Document document, RectangleD r, Layer l);
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
-		workspace.SelectionHandler.BuildToolbar (tb, Settings);
+		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb.NativeToolbar, workspace.SelectionHandler, Settings);
 
-		tb.Append (Separator);
+		tb.Append (Separator.NativeWidget);
 
-		tb.Append (AutoScrollButton);
+		tb.Append (AutoScrollButton.NativeWidget);
 	}
 
 	private static PointD AdjustMousePosition (Document document, in PointD position)
@@ -118,9 +117,12 @@ public abstract class SelectTool : BaseTool
 		if (!IsAutoScroll)
 			return;
 
-		var view = (Gtk.Viewport) document.Workspace.Canvas.Parent!;
-		var h_adjust = view.GetHadjustment ()!.PageSize;
-		var v_adjust = view.GetVadjustment ()!.PageSize;
+		var viewport = document.Workspace.CanvasViewportSize;
+		if (viewport is null)
+			return;
+
+		var h_adjust = (double) viewport.Value.Width;
+		var v_adjust = (double) viewport.Value.Height;
 
 		//step of 10 pixels or of 1% of visible area, whichever is greater
 		int canvasStep = (int) Math.Max (10, h_adjust * 0.01);
@@ -215,11 +217,14 @@ public abstract class SelectTool : BaseTool
 
 	private void UpdateCursor (PointD viewPos)
 	{
-		Gdk.Cursor? cursor = handle.Active ?
+		string? cursorName = handle.Active ?
 			handle.GetCursorAtPoint (viewPos) :
 			null;
 
-		SetCursor (cursor ?? DefaultCursor);
+		if (cursorName is null)
+			SetCursor (DefaultCursor);
+		else
+			SetCursor (cursorName);
 	}
 
 	protected override void OnAfterUndo (Document document)
@@ -253,12 +258,12 @@ public abstract class SelectTool : BaseTool
 		ShowHandles (document.Selection.Visible && tools.CurrentTool == this);
 	}
 
-	private Gtk.Separator Separator => mode_sep ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarSeparator Separator => mode_sep ??= WidgetFactory.CreateSeparator ();
 
-	private ToolBarDropDownButton AutoScrollButton {
+	private IToolBarDropDownButton AutoScrollButton {
 		get {
 			if (auto_scroll_button is null) {
-				auto_scroll_button ??= ToolBarDropDownButton.New ();
+				auto_scroll_button ??= CreateToolDropDownButton ();
 
 				auto_scroll_button.AddItem (Translations.GetString ("Autoscroll On"), Pinta.Resources.Icons.EffectsBlursZoomBlur, true);
 				auto_scroll_button.AddItem (Translations.GetString ("Autoscroll Off"), Pinta.Resources.Icons.EffectsBlursUnfocus, false);

@@ -57,34 +57,34 @@ public sealed class ColorPickerTool : BaseTool
 	public override string Name => Translations.GetString ("Color Picker");
 	public override string Icon => Pinta.Resources.Icons.ToolColorPicker;
 	public override string StatusBarText => Translations.GetString ("Left click to set primary color.\nRight click to set secondary color.");
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_K);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.K;
 	public override int Priority => 33;
 	private int SampleSize => SampleSizeDropDown.SelectedItem.GetTagOrDefault (1);
 	private bool SampleLayerOnly => SampleTypeDropDown.SelectedItem.GetTagOrDefault (false);
 
-	public override Gdk.Cursor DefaultCursor {
+	public override ShapedCursorDescriptor? DefaultShapedCursor {
 		get {
 			double scale = workspace.GetScale ();
-			return (Gdk.Cursor?) CursorService.CreateShapedCursor (
+			return new ShapedCursorDescriptor (
 				new CursorDescriptor ("Cursor.ColorPicker.png", 7, 27),
 				CursorShape.Rectangle,
 				scale,
-				SampleSize)!;
+				SampleSize);
 		}
 	}
 
-	protected override void OnBuildToolBar (Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
 		base.OnBuildToolBar (tb);
 
-		tb.Append (SamplingLabel);
-		tb.Append (SampleSizeDropDown);
-		tb.Append (SampleTypeDropDown);
+		tb.Append (SamplingLabel.NativeWidget);
+		tb.Append (SampleSizeDropDown.NativeWidget);
+		tb.Append (SampleTypeDropDown.NativeWidget);
 
-		tb.Append (Separator);
+		tb.Append (Separator.NativeWidget);
 
-		tb.Append (ToolSelectionLabel);
-		tb.Append (ToolSelectionDropDown);
+		tb.Append (ToolSelectionLabel.NativeWidget);
+		tb.Append (ToolSelectionDropDown.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -192,21 +192,21 @@ public sealed class ColorPickerTool : BaseTool
 			return document.GetComputedPixel (position);
 	}
 
-	private ToolBarDropDownButton? tool_select;
-	private Label? tool_select_label;
-	private Label? sampling_label;
-	private ToolBarDropDownButton? sample_size;
-	private ToolBarDropDownButton? sample_type;
-	private Separator? sample_sep;
+	private IToolBarDropDownButton? tool_select;
+	private IToolBarLabel? tool_select_label;
+	private IToolBarLabel? sampling_label;
+	private IToolBarDropDownButton? sample_size;
+	private IToolBarDropDownButton? sample_type;
+	private IToolBarSeparator? sample_sep;
 
-	private Label ToolSelectionLabel => tool_select_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("After select")));
-	private Label SamplingLabel => sampling_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Sampling")));
-	private Separator Separator => sample_sep ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarLabel ToolSelectionLabel => tool_select_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("After select")));
+	private IToolBarLabel SamplingLabel => sampling_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Sampling")));
+	private IToolBarSeparator Separator => sample_sep ??= WidgetFactory.CreateSeparator ();
 
-	private ToolBarDropDownButton ToolSelectionDropDown {
+	private IToolBarDropDownButton ToolSelectionDropDown {
 		get {
 			if (tool_select is null) {
-				tool_select = ToolBarDropDownButton.New (true);
+				tool_select = CreateToolDropDownButton (true);
 
 				tool_select.AddItem (Translations.GetString ("Do not switch tool"), Pinta.Resources.Icons.ToolColorPicker, 0);
 				tool_select.AddItem (Translations.GetString ("Switch to previous tool"), Pinta.Resources.Icons.ToolColorPickerPreviousTool, 1);
@@ -219,10 +219,10 @@ public sealed class ColorPickerTool : BaseTool
 		}
 	}
 
-	private ToolBarDropDownButton SampleSizeDropDown {
+	private IToolBarDropDownButton SampleSizeDropDown {
 		get {
 			if (sample_size is null) {
-				sample_size = ToolBarDropDownButton.New (true);
+				sample_size = CreateToolDropDownButton (true);
 
 				// Change the cursor when the SampleSize is changed.
 				sample_size.SelectedItemChanged += (sender, e) => SetCursor (DefaultCursor);
@@ -240,10 +240,10 @@ public sealed class ColorPickerTool : BaseTool
 		}
 	}
 
-	private ToolBarDropDownButton SampleTypeDropDown {
+	private IToolBarDropDownButton SampleTypeDropDown {
 		get {
 			if (sample_type is null) {
-				sample_type = ToolBarDropDownButton.New (true);
+				sample_type = CreateToolDropDownButton (true);
 
 				sample_type.AddItem (Translations.GetString ("Layer"), Pinta.Resources.Icons.LayerMergeDown, true);
 				sample_type.AddItem (Translations.GetString ("Image"), Pinta.Resources.Icons.ResizeCanvasBase, false);

@@ -35,5 +35,5 @@ public interface IImageImporter
 	/// <param name='file'>
 	/// The identifier of the file to be loaded.
 	/// </param>
-	Document Import (Gio.File file);
+	Document Import (IFileReference file);
 }

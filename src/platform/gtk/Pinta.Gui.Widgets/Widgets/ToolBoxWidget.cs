@@ -45,9 +45,9 @@ public sealed partial class ToolBoxWidget
 		button.SetCssClasses ([Resources.Styles.ToolBoxButton, AdwaitaStyles.Flat]);
 
 		string shortcutText = "";
-		if (tool.ShortcutKey != Gdk.Key.Invalid) {
+		if (tool.ShortcutKey.Value != KeyValues.VoidSymbol) {
 			string shortcutLabel = Translations.GetString ("Shortcut key");
-			shortcutText = $"{shortcutLabel}: {tool.ShortcutKey.ToUpper ().Name ()}\n";
+			shortcutText = $"{shortcutLabel}: {Gdk.Functions.KeyvalName (Gdk.Functions.KeyvalToUpper (tool.ShortcutKey.Value))}\n";
 		}
 
 		button.TooltipText = $"{tool.Name}\n{shortcutText}\n{tool.StatusBarText}";

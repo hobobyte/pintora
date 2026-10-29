@@ -148,14 +148,12 @@ public static class OtherExtensions
 			Process process = Process.Start ("open", uri);
 			process.WaitForExit ();
 		} else {
-			Gtk.UriLauncher launcher = Gtk.UriLauncher.New (uri);
-			await launcher.LaunchAsync (PintaCore.Chrome.MainWindow);
+			await PintaCore.Chrome.LaunchUri (uri);
 		}
 	}
 
 	internal static Task ShowUnsupportedFormatDialog (
 		this ChromeManager chrome,
-		Gtk.Window parent,
 		IEnumerable<PaletteDescriptor> supportedPalettes,
 		string filename,
 		string message,
@@ -177,7 +175,6 @@ public static class OtherExtensions
 		details.AppendJoin (", ", extensions);
 
 		return chrome.ShowErrorDialog (
-			parent,
 			message,
 			details.ToString (),
 			errors);

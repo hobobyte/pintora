@@ -71,7 +71,7 @@ public sealed partial class AddinManagerDialog
 		Gtk.Window parent,
 		SetupService service,
 		SystemManager system,
-		IChromeService chrome)
+		ChromeManager chrome)
 	{
 		TransientFor = parent;
 		this.setup_service = service;
@@ -87,7 +87,7 @@ public sealed partial class AddinManagerDialog
 		Gtk.Window parent,
 		SetupService service,
 		SystemManager system,
-		IChromeService chrome)
+		ChromeManager chrome)
 	{
 		AddinManagerDialog dialog = NewWithProperties ([]);
 		dialog.Configure (parent, service, system, chrome);

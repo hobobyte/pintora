@@ -27,8 +27,6 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Text;
-using Gtk;
 
 namespace Pinta.Core;
 
@@ -44,44 +42,13 @@ public sealed class PaletteDescriptor : IPaletteFormatDescriptor
 	public IPaletteStreamLoader? StreamLoader => Loader as IPaletteStreamLoader;
 	public IPaletteStreamSaver? StreamSaver => Saver as IPaletteStreamSaver;
 
-	public FileFilter? Filter => filter;
-	private FileFilter? filter;
-	private readonly string display_prefix;
-
-	public PaletteDescriptor (string displayPrefix, IEnumerable<string> extensions, IPaletteLoader loader, IPaletteSaver saver, bool createGtkFilter = true)
+	public PaletteDescriptor (string displayPrefix, IEnumerable<string> extensions, IPaletteLoader loader, IPaletteSaver saver)
 	{
-		display_prefix = displayPrefix;
 		Extensions = [.. extensions];
 		Patterns = [.. Extensions.Select (ext => $"*.{ext}")];
 		DisplayName = $"{displayPrefix} palette ({string.Join (", ", Patterns)})";
 		Loader = loader;
 		Saver = saver;
-
-		if (createGtkFilter)
-			filter = CreateGtkFilter (displayPrefix);
-	}
-
-	public FileFilter GetGtkFilter ()
-	{
-		return filter ??= CreateGtkFilter (display_prefix);
-	}
-
-	private FileFilter CreateGtkFilter (string displayPrefix)
-	{
-		var ff = FileFilter.New ();
-		StringBuilder formatNames = new StringBuilder ();
-
-		foreach (string wildcard in Patterns) {
-			if (formatNames.Length > 0)
-				formatNames.Append (", ");
-
-			ff.AddPattern (wildcard);
-			formatNames.Append (wildcard);
-		}
-
-		// Translators: {0} is the palette format (e.g. "GIMP") and {1} is a list of file extensions.
-		ff.Name = Translations.GetString ("{0} palette ({1})", displayPrefix, formatNames);
-		return ff;
 	}
 
 	public bool IsReadOnly ()

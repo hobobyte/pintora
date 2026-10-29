@@ -79,7 +79,7 @@ public interface IToolService
 	/// <summary>
 	/// Sets the current tool to the next tool with the specified shortcut.
 	/// </summary>
-	bool SetCurrentTool (Gdk.Key shortcut);
+	bool SetCurrentTool (ToolKey shortcut);
 }
 
 public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
@@ -88,6 +88,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 
 	private readonly WorkspaceManager workspace_manager;
 	private readonly ChromeManager chrome_manager;
+	private IToolUiService? ToolUi => PintaCore.Services.GetOptionalService<IToolUiService> ();
 	public ToolManager (WorkspaceManager workspaceManager, ChromeManager chromeManager)
 	{
 		workspace_manager = workspaceManager;
@@ -98,7 +99,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 	}
 
 	private bool is_panning;
-	private Gdk.Cursor? stored_cursor;
+	private object? stored_cursor;
 
 	public event EventHandler<ToolEventArgs>? ToolAdded;
 	public event EventHandler<ToolEventArgs>? ToolRemoved;
@@ -107,6 +108,9 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 	public BaseTool? CurrentTool { get; private set; }
 
 	public BaseTool? PreviousTool { get; private set; }
+
+	private static ICursorService CursorService => PintaCore.Services.GetService<ICursorService> ();
+
 
 	public void AddTool (BaseTool tool)
 	{
@@ -175,15 +179,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		CurrentTool = tool;
 
 		tool.DoActivated (workspace_manager.ActiveDocumentOrDefault);
-
-		ToolImage.SetFromIconName (tool.Icon);
-
-		chrome_manager.ToolToolBar.Append (ToolLabel);
-		chrome_manager.ToolToolBar.Append (ToolImage);
-		chrome_manager.ToolToolBar.Append (ToolSeparator);
-
-		chrome_manager.ToolToolBar.Append (ToolWidgetsScroll);
-		tool.DoBuildToolBar (ToolWidgetsBox);
+		ToolUi?.ActivateTool (tool);
 
 		workspace_manager.Invalidate ();
 		chrome_manager.SetStatusBarText ($" {tool.Name}: {tool.StatusBarText}");
@@ -200,7 +196,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		return true;
 	}
 
-	public bool SetCurrentTool (Gdk.Key shortcut)
+	public bool SetCurrentTool (ToolKey shortcut)
 	{
 		if (FindNextTool (shortcut) is not BaseTool tool)
 			return false;
@@ -209,7 +205,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		return true;
 	}
 
-	private BaseTool? FindNextTool (Gdk.Key shortcut)
+	private BaseTool? FindNextTool (ToolKey shortcut)
 	{
 		// Find all tools with this shortcut
 		var shortcut_tools =
@@ -237,10 +233,9 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 
 	private void DeactivateTool (BaseTool tool, BaseTool? newTool)
 	{
-		ToolWidgetsBox.RemoveAll ();
-		chrome_manager.ToolToolBar.RemoveAll ();
-
-		tool.DoDeactivated (workspace_manager.ActiveDocumentOrDefault, newTool);
+		ToolUi?.DeactivateTool (tool, newTool);
+		if (ToolUi is null)
+			tool.DoDeactivated (workspace_manager.ActiveDocumentOrDefault, newTool);
 	}
 
 	public void DoMouseDown (Document document, ToolMouseEventArgs args)
@@ -288,8 +283,8 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 			return false;
 
 		is_panning = true;
-		stored_cursor = document.Workspace.Canvas.Cursor;
-		document.Workspace.Canvas.Cursor = pan.DefaultCursor;
+		stored_cursor = CursorService.GetWidgetCursor (document.Workspace.Canvas!);
+		CursorService.SetWidgetCursor (document.Workspace.Canvas!, pan.DefaultCursor);
 		pan.DoMouseDown (document, args);
 		return true;
 	}
@@ -314,7 +309,7 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 
 		is_panning = false;
 		pan.DoMouseUp (document, args);
-		document.Workspace.Canvas.Cursor = stored_cursor;
+		CursorService.SetWidgetCursor (document.Workspace.Canvas!, stored_cursor);
 		return true;
 	}
 
@@ -342,32 +337,4 @@ public sealed class ToolManager : IEnumerable<BaseTool>, IToolService
 		}
 	}
 
-	private Gtk.Label? tool_label;
-	private Gtk.Image? tool_image;
-	private Gtk.Separator? tool_sep;
-	private Gtk.Box? tool_widgets_box;
-	private Gtk.ScrolledWindow? tool_widgets_scroll;
-
-	private Gtk.Label ToolLabel => tool_label ??= Gtk.Label.New (string.Format (" {0}:  ", Translations.GetString ("Tool")));
-	private Gtk.Image ToolImage => tool_image ??= Gtk.Image.New ();
-	private Gtk.Separator ToolSeparator => tool_sep ??= GtkExtensions.CreateToolBarSeparator ();
-	private Gtk.Box ToolWidgetsBox => tool_widgets_box ??= Gtk.Box.New (Gtk.Orientation.Horizontal, 0);
-	// Scroll the toolbar contents if they are very long (e.g. the line/curve tool).
-	private Gtk.ScrolledWindow ToolWidgetsScroll {
-		get {
-			if (tool_widgets_scroll == null) {
-				tool_widgets_scroll = Gtk.ScrolledWindow.New ();
-				tool_widgets_scroll.Child = ToolWidgetsBox;
-				tool_widgets_scroll.HscrollbarPolicy = Gtk.PolicyType.Automatic;
-				tool_widgets_scroll.VscrollbarPolicy = Gtk.PolicyType.Never;
-				tool_widgets_scroll.HasFrame = false;
-				tool_widgets_scroll.OverlayScrolling = true;
-				tool_widgets_scroll.WindowPlacement = Gtk.CornerType.BottomRight;
-				tool_widgets_scroll.Hexpand = true;
-				tool_widgets_scroll.Halign = Gtk.Align.Fill;
-			}
-
-			return tool_widgets_scroll;
-		}
-	}
 }

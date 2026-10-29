@@ -26,7 +26,6 @@
 
 using System;
 using Cairo;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -39,7 +38,7 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	private Color fill_color;
 	private Color outline_color;
 
-	private readonly DashPatternBox dash_p_box = new ();
+	private IDashPatternBox? dash_p_box;
 
 	private string dash_pattern = "-";
 
@@ -48,36 +47,33 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	public override string Name => Translations.GetString ("Freeform Shape");
 	public override string Icon => Pinta.Resources.Icons.ToolFreeformShape;
 	public override string StatusBarText => Translations.GetString ("Left click to draw with primary color, right click to draw with secondary color.");
-	public override Gdk.Cursor DefaultCursor => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.FreeformShape.png", 9, 18))!;
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_O);
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.FreeformShape.png", 9, 18);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.O;
 	public override int Priority => 45;
 
-	protected override void OnBuildToolBar (Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		tb.Append (FillLabel);
-		tb.Append (FillDropDown);
-		tb.Append (Separator);
+		tb.Append (FillLabel.NativeWidget);
+		tb.Append (FillDropDown.NativeWidget);
+		tb.Append (Separator.NativeWidget);
 		base.OnBuildToolBar (tb);
 
-		// TODO: This could be cleaner.
-		// This will only return an item on the first setup so we only add the handler once.
-		var dash_pattern_box = dash_p_box.SetupToolbar (tb);
-		BrushWidthLabel.Visible = BrushWidthSpinButton.Visible = StrokeShape;
-		dash_p_box.SetVisible (StrokeShape);
-
-		if (dash_pattern_box != null) {
-			dash_pattern_box.GetEntry ().SetText (Settings.GetSetting (SettingNames.FREEFORM_SHAPE_DASH_PATTERN, "-"));
-
-			dash_pattern_box.OnChanged += (_, _) => {
-				dash_pattern = dash_pattern_box.GetActiveText ()!;
-			};
+		if (dash_p_box is null) {
+			dash_p_box = PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDashPatternBox ();
+			dash_p_box.Pattern = Settings.GetSetting (SettingNames.FREEFORM_SHAPE_DASH_PATTERN, "-");
+			dash_p_box.PatternChanged += (_, _) => dash_pattern = dash_p_box.Pattern;
 		}
+
+		tb.Append (dash_p_box.NativeWidget);
+		BrushWidthLabel.Visible = BrushWidthSpinButton.Visible = StrokeShape;
+		dash_p_box.Visible = StrokeShape;
 	}
 
 	private void OnFillStyleChanged (object? sender, EventArgs e)
 	{
 		BrushWidthLabel.Visible = BrushWidthSpinButton.Visible = StrokeShape;
-		dash_p_box.SetVisible (StrokeShape);
+		if (dash_p_box is not null)
+			dash_p_box.Visible = StrokeShape;
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -204,23 +200,23 @@ public sealed class FreeformShapeTool : BaseBrushTool
 
 		if (fill_button is not null)
 			settings.PutSetting (SettingNames.FREEFORM_SHAPE_FILL_TYPE, fill_button.SelectedIndex);
-		if (dash_p_box?.ComboBox is not null)
-			settings.PutSetting (SettingNames.FREEFORM_SHAPE_DASH_PATTERN, dash_p_box.ComboBox.ComboBox.GetActiveText ()!);
+		if (dash_p_box is not null)
+			settings.PutSetting (SettingNames.FREEFORM_SHAPE_DASH_PATTERN, dash_p_box.Pattern);
 	}
 
 	private bool StrokeShape => FillDropDown.SelectedItem.GetTagOrDefault (0) % 2 == 0;
 	private bool FillShape => FillDropDown.SelectedItem.GetTagOrDefault (0) >= 1;
 
-	private Label? fill_label;
-	private ToolBarDropDownButton? fill_button;
-	private Separator? fill_sep;
+	private IToolBarLabel? fill_label;
+	private IToolBarDropDownButton? fill_button;
+	private IToolBarSeparator? fill_sep;
 
-	private Separator Separator => fill_sep ??= GtkExtensions.CreateToolBarSeparator ();
-	private Label FillLabel => fill_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Fill Style")));
-	private ToolBarDropDownButton FillDropDown {
+	private IToolBarSeparator Separator => fill_sep ??= WidgetFactory.CreateSeparator ();
+	private IToolBarLabel FillLabel => fill_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Fill Style")));
+	private IToolBarDropDownButton FillDropDown {
 		get {
 			if (fill_button == null) {
-				fill_button = ToolBarDropDownButton.New ();
+				fill_button = CreateToolDropDownButton ();
 
 				fill_button.AddItem (Translations.GetString ("Outline Shape"), Pinta.Resources.Icons.FillStyleOutline, 0);
 				fill_button.AddItem (Translations.GetString ("Fill Shape"), Pinta.Resources.Icons.FillStyleFill, 1);

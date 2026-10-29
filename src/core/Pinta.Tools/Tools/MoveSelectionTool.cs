@@ -52,10 +52,10 @@ public sealed class MoveSelectionTool : BaseTransformTool
 		"\nRight click and drag the selection to rotate selection outline." +
 		"\nHold Shift to rotate in steps." +
 		"\nUse arrow keys to move selection outline by a single pixel.",
-		system_manager.CtrlLabel ());
+		system_manager.CtrlLabel);
 
-	public override Gdk.Cursor DefaultCursor => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.Icons.ToolMoveSelection))!;
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_M);
+	public override CursorDescriptor? DefaultCursorDescriptor => new (Pinta.Resources.Icons.ToolMoveSelection);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.M;
 	public override int Priority => 7;
 	public override bool IsSelectionTool => true;
 

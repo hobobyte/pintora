@@ -30,6 +30,7 @@ using System.CommandLine;
 using System.IO;
 using System.Linq;
 using Pinta.Core;
+using Pinta.Gui.Widgets;
 
 namespace Pinta;
 
@@ -49,6 +50,7 @@ internal sealed class MainClass
 		string localeDir = Path.Combine (SystemManager.GetDataRootDirectory (), "locale");
 
 		try {
+			Translations.SetProvider (new GtkGettextProvider ());
 			Translations.Init (localeDir, langPref);
 		} catch (Exception ex) {
 			Console.WriteLine (ex);
@@ -152,7 +154,7 @@ internal sealed class MainClass
 
 		if (files.Any ()) {
 			foreach (var file in files) {
-				PintaCore.Workspace.OpenFile (Gio.FileHelper.NewForCommandlineArg (file));
+				PintaCore.Workspace.OpenFile (new GioFileReference (Gio.FileHelper.NewForCommandlineArg (file)));
 			}
 		} else {
 			// Create a blank document
@@ -179,7 +181,7 @@ internal sealed class MainClass
 
 	private static void OnUnhandledException (Exception e)
 	{
-		_ = PintaCore.Chrome.ShowErrorDialog (PintaCore.Chrome.MainWindow,
+		_ = PintaCore.Chrome.ShowErrorDialog (
 				"Unhandled exception", e.Message, e.ToString ());
 	}
 
@@ -197,7 +199,7 @@ internal sealed class MainClass
 		};
 
 		MacInterop.ApplicationEvents.Reopen += (sender, e) => {
-			var window = PintaCore.Chrome.MainWindow;
+			var window = PintaCore.Chrome.GetMainWindow ();
 			window.Unminimize ();
 			window.Hide ();
 			window.Show ();
@@ -210,7 +212,7 @@ internal sealed class MainClass
 				GLib.Functions.TimeoutAdd (0, 10, () => {
 					foreach (string filename in e.Documents.Keys) {
 						System.Console.Error.WriteLine ("Opening: {0}", filename);
-						PintaCore.Workspace.OpenFile (Gio.FileHelper.NewForCommandlineArg (filename));
+				PintaCore.Workspace.OpenFile (new GioFileReference (Gio.FileHelper.NewForCommandlineArg (filename)));
 					}
 					return false;
 				});

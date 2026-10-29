@@ -8,11 +8,11 @@ namespace Pinta;
 /// <summary>GTK composition-root adapter for effect configuration dialogs.</summary>
 public sealed class GtkEffectConfigurationService : IEffectConfigurationService
 {
-	private readonly IChromeService chrome;
+	private readonly ChromeManager chrome;
 
 	public GtkEffectConfigurationService (IChromeService chrome)
 	{
-		this.chrome = chrome;
+		this.chrome = (ChromeManager) chrome;
 	}
 
 	public async Task<bool> ConfigureAsync (BaseEffect effect)

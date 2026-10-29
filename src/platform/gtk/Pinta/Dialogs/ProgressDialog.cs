@@ -73,10 +73,10 @@ public sealed partial class ProgressDialog : IProgressDialog
 		OnResponse += (_, args) => Canceled?.Invoke (this, EventArgs.Empty);
 	}
 
-	public static ProgressDialog New (IChromeService chrome)
+	public static ProgressDialog New (ChromeManager chrome)
 	{
 		ProgressDialog dialog = NewWithProperties ([]);
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		return dialog;
 	}
 

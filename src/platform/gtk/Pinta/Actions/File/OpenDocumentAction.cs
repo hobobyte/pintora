@@ -26,6 +26,7 @@
 
 using System;
 using Pinta.Core;
+using Pinta.Gui.Widgets;
 
 namespace Pinta.Actions;
 
@@ -77,14 +78,14 @@ internal sealed class OpenDocumentAction : IActionHandler
 		if (recent_files.GetDialogDirectory () is PathFileReference dir)
 			fileDialog.SetInitialFolder (Gio.FileHelper.NewForPath (dir.Path));
 
-		var selection = await fileDialog.OpenFilesAsync (chrome.MainWindow);
+		var selection = await fileDialog.OpenFilesAsync (chrome.GetMainWindow ());
 
 		if (selection is null)
 			return;
 
 		foreach (var file in selection) {
 
-			if (!workspace.OpenFile (file))
+			if (!workspace.OpenFile (new GioFileReference (file)))
 				continue;
 
 			recent_files.AddFile (new PathFileReference (file.GetParseName ()));

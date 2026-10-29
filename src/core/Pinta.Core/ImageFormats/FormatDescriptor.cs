@@ -28,7 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
+using System.Linq;
 
 namespace Pinta.Core;
 
@@ -64,7 +64,8 @@ public sealed class FormatDescriptor
 	/// <summary>
 	/// A file filter for use in the file dialog.
 	/// </summary>
-	public Gtk.FileFilter Filter { get; }
+	public string DisplayName { get; }
+	public ImmutableArray<string> Patterns { get; }
 
 	/// <summary>
 	/// Whether the format supports layers.
@@ -93,36 +94,13 @@ public sealed class FormatDescriptor
 
 		Extensions = [.. extensions]; // Create a read-only copy
 		Mimes = [.. mimes]; // Create a read-only copy
+		Patterns = [.. Extensions.Select (ext => $"*.{ext}")];
 		Importer = importer;
 		Exporter = exporter;
 		SupportsLayers = supportsLayers;
 		Metadata = new ImageFormatMetadata (Extensions, Mimes, SupportsLayers);
 
-		Gtk.FileFilter ff = Gtk.FileFilter.New ();
-		StringBuilder formatNames = new ();
-
-		foreach (string ext in Extensions) {
-
-			if (formatNames.Length > 0)
-				formatNames.Append (", ");
-
-			string wildcard = $"*.{ext}";
-			ff.AddPattern (wildcard);
-			formatNames.Append (wildcard);
-		}
-
-		// On Unix-like systems, file extensions are often considered optional.
-		// Files can often also be identified by their MIME types.
-		// Windows does not understand MIME types natively.
-		// Adding a MIME filter on Windows would break the native file picker and force a GTK file picker instead.
-		if (SystemManager.GetOperatingSystem () != OS.Windows) {
-			foreach (string mime in Mimes) {
-				ff.AddMimeType (mime);
-			}
-		}
-
-		ff.Name = string.Format (Translations.GetString ("{0} image ({1})"), displayPrefix, formatNames);
-		Filter = ff;
+		DisplayName = string.Format (Translations.GetString ("{0} image ({1})"), displayPrefix, string.Join (", ", Patterns));
 	}
 
 	[MemberNotNullWhen (returnValue: true, member: nameof (Exporter))]

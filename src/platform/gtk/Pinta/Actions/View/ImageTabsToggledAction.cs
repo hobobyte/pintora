@@ -52,7 +52,6 @@ internal sealed class ImageTabsToggledAction : IActionHandler
 
 	private void Activated (bool value, bool interactive)
 	{
-		var notebook = (Docking.DockNotebook) chrome.ImageTabsNotebook;
-		notebook.EnableTabs = value;
+		chrome.SetImageTabsVisible (value);
 	}
 }

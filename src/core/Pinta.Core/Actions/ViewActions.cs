@@ -47,7 +47,7 @@ public sealed class ViewActions
 	public Gio.SimpleAction RulerMetric { get; }
 	public Command Fullscreen { get; }
 
-	public ToolBarComboBox ZoomComboBox { get; }
+	public IToolBarComboBox ZoomComboBox { get; }
 	public ImmutableArray<string> ZoomCollection { get; }
 
 	private string old_zoom_text = "";
@@ -57,7 +57,7 @@ public sealed class ViewActions
 		get => zoom_to_window_activated;
 		set {
 			zoom_to_window_activated = value;
-			old_zoom_text = ZoomComboBox.ComboBox.GetActiveText ()!;
+			old_zoom_text = ZoomComboBox.ActiveText!;
 		}
 	}
 
@@ -144,7 +144,7 @@ public sealed class ViewActions
 
 		RulerMetric = Gio.SimpleAction.NewStateful ( // TODO: Make `Command`
 			"rulermetric",
-			GtkExtensions.IntVariantType,
+			GLib.VariantType.New ("i"),
 			GLib.Variant.NewInt32 (0));
 
 		Fullscreen = new Command (
@@ -155,7 +155,7 @@ public sealed class ViewActions
 			shortcuts: ["F11"]);
 
 		ZoomCollection = default_zoom_levels;
-		ZoomComboBox = ToolBarComboBox.New (90, DefaultZoomIndex (), true, ZoomCollection);
+		ZoomComboBox = PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateComboBox (90, DefaultZoomIndex (), true, ZoomCollection);
 
 		// The toolbar is shown by default.
 		ToolBar.Value = true;
@@ -197,9 +197,9 @@ public sealed class ViewActions
 
 	#region Initialization
 
-	public void RegisterActions (Gtk.Application app, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
 	{
-		bool mainToolbarPresent = chrome.MainToolBar is not null;
+		bool mainToolbarPresent = true;
 
 		Gio.Menu zoom_section = Gio.Menu.New ();
 		zoom_section.AppendItem (ActualSize.CreateMenuItem ());
@@ -233,7 +233,7 @@ public sealed class ViewActions
 		menu.AppendSection (null, metric_section);
 		menu.AppendSection (null, show_hide_section);
 
-		app.AddCommands ([
+		registrar.AddCommands ([
 			ZoomIn,
 			ZoomOut,
 			ActualSize,
@@ -248,29 +248,20 @@ public sealed class ViewActions
 		]);
 
 		// TODO: Make `Command`s
-		app.AddAction (RulerMetric);
+		registrar.AddNativeAction (RulerMetric);
 
 		if (mainToolbarPresent)
-			app.AddCommand (ToolBar);
-	}
-
-	public void CreateStatusBar (Gtk.Box statusbar)
-	{
-		statusbar.Append (ZoomOut.CreateToolBarItem ());
-		statusbar.Append (ZoomComboBox);
-		statusbar.Append (ZoomIn.CreateToolBarItem ());
+			registrar.AddCommand (ToolBar);
 	}
 
 	public void RegisterHandlers ()
 	{
 		ZoomIn.Activated += HandlePintaCoreActionsViewZoomInActivated;
 		ZoomOut.Activated += HandlePintaCoreActionsViewZoomOutActivated;
-		ZoomComboBox.ComboBox.OnChanged += HandlePintaCoreActionsViewZoomComboBoxComboBoxChanged;
+		ZoomComboBox.Changed += HandlePintaCoreActionsViewZoomComboBoxComboBoxChanged;
 
-		Gtk.EventControllerFocus focus_controller = Gtk.EventControllerFocus.New ();
-		focus_controller.OnEnter += Entry_FocusInEvent;
-		focus_controller.OnLeave += Entry_FocusOutEvent;
-		ZoomComboBox.ComboBox.GetEntry ().AddController (focus_controller);
+		ZoomComboBox.FocusEntered += Entry_FocusInEvent;
+		ZoomComboBox.FocusLeft += Entry_FocusOutEvent;
 
 		ActualSize.Activated += HandlePintaCoreActionsViewActualSizeActivated;
 
@@ -278,9 +269,9 @@ public sealed class ViewActions
 
 		Fullscreen.Activated += (foo, bar) => {
 			if (!isFullscreen)
-				chrome.MainWindow.Fullscreen ();
+				chrome.SetMainWindowFullscreen (true);
 			else
-				chrome.MainWindow.Unfullscreen ();
+				chrome.SetMainWindowFullscreen (false);
 
 			isFullscreen = !isFullscreen;
 		};
@@ -289,22 +280,22 @@ public sealed class ViewActions
 	private string? temp_zoom;
 	private bool suspend_zoom_change;
 
-	private void Entry_FocusInEvent (object o, EventArgs args)
+	private void Entry_FocusInEvent (object? o, EventArgs args)
 	{
-		temp_zoom = ZoomComboBox.ComboBox.GetActiveText ()!;
+		temp_zoom = ZoomComboBox.ActiveText!;
 	}
 
-	private void Entry_FocusOutEvent (object o, EventArgs args)
+	private void Entry_FocusOutEvent (object? o, EventArgs args)
 	{
-		string text = ZoomComboBox.ComboBox.GetActiveText ()!;
+		string text = ZoomComboBox.ActiveText!;
 
 		if (!TryParsePercent (text, out var percent)) {
-			ZoomComboBox.ComboBox.GetEntry ().SetText (temp_zoom!);
+			ZoomComboBox.SetEntryText (temp_zoom!);
 			return;
 		}
 
 		if (percent > 3600)
-			ZoomComboBox.ComboBox.Active = 0;
+			ZoomComboBox.Active = 0;
 	}
 	#endregion
 
@@ -361,7 +352,7 @@ public sealed class ViewActions
 
 	public void UpdateCanvasScale ()
 	{
-		string text = ZoomComboBox.ComboBox.GetActiveText ()!;
+		string text = ZoomComboBox.ActiveText!;
 
 		// stay in "Zoom to Window" mode if this function was called without the zoom level being changed by the user (e.g. if the
 		// image was rotated or cropped) and "Zoom to Window" mode is active
@@ -384,8 +375,8 @@ public sealed class ViewActions
 	private void HandlePintaCoreActionsViewActualSizeActivated (object sender, EventArgs e)
 	{
 		int default_zoom = DefaultZoomIndex ();
-		if (ZoomComboBox.ComboBox.Active == default_zoom) return;
-		ZoomComboBox.ComboBox.Active = default_zoom;
+		if (ZoomComboBox.Active == default_zoom) return;
+		ZoomComboBox.Active = default_zoom;
 		UpdateCanvasScale ();
 	}
 

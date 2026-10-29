@@ -32,6 +32,13 @@ namespace Pinta.Core;
 
 public class GdkPixbufFormat : IImageImporter, IImageExporter
 {
+	public Document Import (IFileReference file)
+	{
+		if (file is not PathFileReference path)
+			throw new InvalidOperationException ("The imported file is not path-backed.");
+		return Import (Gio.FileHelper.NewForPath (path.Path));
+	}
+
 	private readonly string filetype;
 	private readonly bool supports_alpha;
 
@@ -104,5 +111,12 @@ public class GdkPixbufFormat : IImageImporter, IImageExporter
 		// (e.g. glycin does this for JPEG - bug #1774)
 		using Pixbuf pb = flattenedImage.ToPixbuf (includeAlpha: supports_alpha);
 		DoSave (pb, file, filetype, parent);
+	}
+
+	public void Export (Document document, IFileReference file)
+	{
+		if (file is not PathFileReference path)
+			throw new InvalidOperationException ("The exported file is not path-backed.");
+		Export (document, Gio.FileHelper.NewForPath (path.Path), PintaCore.Chrome.GetMainWindow ());
 	}
 }

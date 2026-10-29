@@ -48,9 +48,8 @@ internal sealed class PaletteStreamTests
 	[Test]
 	public void PaletteFormatManagerCanBeCreatedWithoutGtk ()
 	{
-		var manager = new PaletteFormatManager (createGtkFilters: false);
+		var manager = new PaletteFormatManager ();
 		Assert.That (manager.Formats, Has.Count.EqualTo (3));
-		Assert.That (manager.Formats.All (format => format.Filter is null), Is.True);
 	}
 
 	[Test]
@@ -86,7 +85,7 @@ internal sealed class PaletteStreamTests
 	[Test]
 	public void PaletteDescriptorExposesNeutralMetadata ()
 	{
-		var descriptor = new PaletteDescriptor ("GIMP", ["gpl"], new GimpPalette (), new GimpPalette (), createGtkFilter: false);
+		var descriptor = new PaletteDescriptor ("GIMP", ["gpl"], new GimpPalette (), new GimpPalette ());
 		IPaletteFormatDescriptor neutral = descriptor;
 
 		Assert.That (neutral.DisplayName, Does.Contain ("GIMP"));
@@ -98,7 +97,7 @@ internal sealed class PaletteStreamTests
 	[Test]
 	public void PaletteFormatManagerExposesNeutralCatalog ()
 	{
-		var manager = new PaletteFormatManager (createGtkFilters: false);
+		var manager = new PaletteFormatManager ();
 
 		Assert.That (manager.NeutralFormats, Has.Count.EqualTo (manager.Formats.Count));
 		Assert.That (manager.NeutralFormats.All (format => format.StreamLoader is not null), Is.True);
@@ -107,7 +106,7 @@ internal sealed class PaletteStreamTests
 	[Test]
 	public void PaletteFormatManagerImplementsNeutralCatalog ()
 	{
-		IPaletteFormatCatalog catalog = new PaletteFormatManager (createGtkFilters: false);
+		IPaletteFormatCatalog catalog = new PaletteFormatManager ();
 		Assert.That (catalog.Formats, Has.Count.EqualTo (3));
 	}
 

@@ -2,11 +2,10 @@ using System;
 using System.IO;
 using System.Text;
 using Cairo;
-using Gtk;
 
 namespace Pinta.Core;
 
-public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter, IImageFileImporter, IImageFileExporter
+public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter
 {
 	public Document Import (IFileReference file)
 	{
@@ -14,12 +13,6 @@ public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter, IImag
 		return Import (stream, file);
 	}
 	private const string MAGIC_SEQUENCE = "P3"; // Magic sequence for text-based portable pixmap format
-
-	public Document Import (Gio.File file)
-	{
-		using GioStream stream = new GioStream (file.Read (cancellable: null));
-		return Import (stream, new PathFileReference (file.GetParseName ()));
-	}
 
 	/// <summary>Imports a PPM stream without requiring a Gio file handle.</summary>
 	public Document Import (Stream stream, IFileReference file)
@@ -131,13 +124,6 @@ public sealed class NetpbmPortablePixmap : IImageExporter, IImageImporter, IImag
 
 		static string RepresentColorComponent (byte component)
 			=> component.ToString ().PadLeft (3, ' ');
-	}
-
-	public void Export (Document document, Gio.File file, Window parent)
-	{
-		using ImageSurface flattenedImage = document.GetFlattenedImage ();
-		using GioStream outputStream = new (file.Replace ());
-		Export (flattenedImage, outputStream);
 	}
 
 	/// <summary>Exports a document through the neutral file-reference boundary.</summary>

@@ -6,7 +6,7 @@ public static class SettingNames
 
 	internal const string JPG_QUALITY = "jpg-quality";
 
-	internal const string SELECTION_COMBINE_MODE = "selection-combine-mode";
+	public const string SELECTION_COMBINE_MODE = "selection-combine-mode";
 
 	internal const string SHOW_CANVAS_GRID = "show-canvas-grid";
 	internal const string CANVAS_GRID_WIDTH = "canvas-grid-width";

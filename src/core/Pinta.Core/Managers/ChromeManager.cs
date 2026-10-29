@@ -32,34 +32,18 @@ namespace Pinta.Core;
 
 public interface IChromeService
 {
-	Gtk.Window MainWindow { get; }
-
 	Task<bool> LaunchSimpleEffectDialog (
-		Gtk.Window parent,
 		BaseEffect effect,
 		IAddinLocalizer localizer,
 		IWorkspaceService workspace,
 		Action<string?> onChanged);
-}
-
-public static class ChromeExtensions
-{
-	/// <remarks>Notifies of property changes, so not equivalent to an empty handler</remarks>
-	[Obsolete ("Use overload with onChanged parameter instead")]
-	public static Task<bool> LaunchSimpleEffectDialog (
-		this IChromeService chrome,
-		Gtk.Window parent,
-		BaseEffect effect,
-		IAddinLocalizer localizer,
-		IWorkspaceService workspace)
-	{
-		return chrome.LaunchSimpleEffectDialog (
-			parent,
-			effect,
-			localizer,
-			workspace,
-			onChanged: p => effect.EffectData?.FirePropertyChanged (p));
-	}
+	void SetStatusBarVisible (bool visible);
+	void SetMainWindowTitle (string title);
+	void SetMainWindowFullscreen (bool fullscreen);
+	Task LaunchUri (string uri);
+	Pango.Context TextContext { get; }
+	Task ShowErrorDialog (string message, string body, string details);
+	Task ShowMessageDialog (string message, string body);
 }
 
 public sealed class ChromeManager : IChromeService
@@ -69,23 +53,29 @@ public sealed class ChromeManager : IChromeService
 
 	// NRT - These are all initialized via the Initialize* functions
 	// but it would be nice to rewrite it to provably non-null.
-	public Gtk.Application Application { get; private set; } = null!;
-	public Gtk.Window MainWindow { get; private set; } = null!;
-	public Gtk.Widget Dock { get; private set; } = null!;
-	public Gtk.Widget ImageTabsNotebook { get; private set; } = null!;
 	private IProgressDialog progress_dialog = null!;
 	private ErrorDialogHandler error_dialog_handler = null!;
 	private MessageDialogHandler message_dialog_handler = null!;
 	private SimpleEffectDialogHandler simple_effect_dialog_handler = null!;
 
-	public Gtk.Box? MainToolBar { get; private set; }
-	public Gtk.Box ToolToolBar { get; private set; } = null!;
-	public Gtk.Widget ToolBox { get; private set; } = null!;
-	public Gtk.Box StatusBar { get; private set; } = null!;
+	private Action<bool>? set_status_bar_visible;
+	private Action<bool>? set_toolbox_visible;
+	private Action<bool>? set_tool_windows_visible;
+	private Action<bool>? set_image_tabs_visible;
+	private Action<bool>? set_main_toolbar_visible;
+	private Action<Command>? add_application_command;
+	private Action? quit_application;
+	private Action<string>? set_window_title;
+	private Action<bool>? set_window_fullscreen;
+	private Func<string, Task>? launch_uri;
+	private Func<Pango.Context>? text_context;
+	private Action<bool>? set_window_busy;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
-	public Gio.Menu AdjustmentsMenu { get; private set; } = null!;
-	public Gio.Menu EffectsMenu { get; private set; } = null!;
+	private Action<Command>? add_adjustment_menu_item;
+	private Action<Command>? remove_adjustment_menu_item;
+	private Action<string, Command>? add_effect_menu_item;
+	private Action<string, Command>? remove_effect_menu_item;
 
 	public PointI LastCanvasCursorPoint {
 		get => last_canvas_cursor_point;
@@ -102,58 +92,39 @@ public sealed class ChromeManager : IChromeService
 		set {
 			main_window_busy = value;
 
-			if (main_window_busy)
-				MainWindow.Cursor = Gdk.Cursor.NewFromName (Pinta.Resources.StandardCursors.Progress, null);
-			else
-				MainWindow.Cursor = Gdk.Cursor.NewFromName (Pinta.Resources.StandardCursors.Default, null);
+			set_window_busy?.Invoke (main_window_busy);
 		}
 	}
 
-	public void InitializeApplication (Gtk.Application application)
+	public void InitializeStatusBar (Action<bool> setVisible) => set_status_bar_visible = setVisible;
+	public void InitializeToolBoxVisibility (Action<bool> setVisible) => set_toolbox_visible = setVisible;
+	public void InitializeToolWindowsVisibility (Action<bool> setVisible) => set_tool_windows_visible = setVisible;
+	public void InitializeImageTabsVisibility (Action<bool> setVisible) => set_image_tabs_visible = setVisible;
+	public void InitializeMainToolBarVisibility (Action<bool> setVisible) => set_main_toolbar_visible = setVisible;
+	public void InitializeApplicationCommandSink (Action<Command> addCommand) => add_application_command = addCommand;
+	public void InitializeApplicationQuit (Action quit) => quit_application = quit;
+	public void InitializeWindowHost (Action<string> setTitle, Action<bool> setFullscreen, Func<string, Task> launchUri)
 	{
-		Application = application;
+		set_window_title = setTitle;
+		set_window_fullscreen = setFullscreen;
+		launch_uri = launchUri;
 	}
 
-	public void InitializeWindowShell (Gtk.Window shell)
+	public void InitializeWindowBusy (Action<bool> setBusy) => set_window_busy = setBusy;
+	public void InitializeTextContext (Func<Pango.Context> getContext) => text_context = getContext;
+
+	public void InitializeMenuAdapter (Action<Command> addAdjustment, Action<Command> removeAdjustment, Action<string, Command> addEffect, Action<string, Command> removeEffect)
 	{
-		MainWindow = shell;
+		add_adjustment_menu_item = addAdjustment;
+		remove_adjustment_menu_item = removeAdjustment;
+		add_effect_menu_item = addEffect;
+		remove_effect_menu_item = removeEffect;
 	}
 
-	public void InitializeToolToolBar (Gtk.Box toolToolBar)
-	{
-		ToolToolBar = toolToolBar;
-	}
-
-	public void InitializeMainToolBar (Gtk.Box mainToolBar)
-	{
-		MainToolBar = mainToolBar;
-	}
-
-	public void InitializeStatusBar (Gtk.Box statusbar)
-	{
-		StatusBar = statusbar;
-	}
-
-	public void InitializeToolBox (Gtk.Widget toolbox)
-	{
-		ToolBox = toolbox;
-	}
-
-	public void InitializeDock (Gtk.Widget dock)
-	{
-		Dock = dock;
-	}
-
-	public void InitializeImageTabsNotebook (Gtk.Widget notebook)
-	{
-		ImageTabsNotebook = notebook;
-	}
-
-	public void InitializeMainMenu (Gio.Menu adj_menu, Gio.Menu effects_menu)
-	{
-		AdjustmentsMenu = adj_menu;
-		EffectsMenu = effects_menu;
-	}
+	public void AddAdjustmentMenuItem (Command command) => add_adjustment_menu_item?.Invoke (command);
+	public void RemoveAdjustmentMenuItem (Command command) => remove_adjustment_menu_item?.Invoke (command);
+	public void AddEffectMenuItem (string category, Command command) => add_effect_menu_item?.Invoke (category, command);
+	public void RemoveEffectMenuItem (string category, Command command) => remove_effect_menu_item?.Invoke (category, command);
 
 	public void InitializeProgessDialog (IProgressDialog progressDialog)
 	{
@@ -175,13 +146,9 @@ public sealed class ChromeManager : IChromeService
 		simple_effect_dialog_handler = handler;
 	}
 
-	public async Task ShowErrorDialog (
-		Gtk.Window parent,
-		string message,
-		string body,
-		string details)
+	public async Task ShowErrorDialog (string message, string body, string details)
 	{
-		ErrorDialogResponse response = await error_dialog_handler (parent, message, body, details);
+		ErrorDialogResponse response = await error_dialog_handler (message, body, details);
 		switch (response) {
 			case ErrorDialogResponse.Bug:
 				PintaCore.Actions.Help.Bugs.Activate ();
@@ -189,31 +156,32 @@ public sealed class ChromeManager : IChromeService
 		}
 	}
 
-	public Task ShowMessageDialog (Gtk.Window parent, string message, string body)
-	{
-		return message_dialog_handler (parent, message, body);
-	}
+	public Task ShowMessageDialog (string message, string body)
+		=> message_dialog_handler (message, body);
 
 	public void SetStatusBarText (string text)
 	{
 		OnStatusBarTextChanged (text);
 	}
 
+	public void SetStatusBarVisible (bool visible) => set_status_bar_visible?.Invoke (visible);
+	public void SetToolBoxVisible (bool visible) => set_toolbox_visible?.Invoke (visible);
+	public void SetToolWindowsVisible (bool visible) => set_tool_windows_visible?.Invoke (visible);
+	public void SetImageTabsVisible (bool visible) => set_image_tabs_visible?.Invoke (visible);
+	public void SetMainToolBarVisible (bool visible) => set_main_toolbar_visible?.Invoke (visible);
+	public void AddApplicationCommand (Command command) => add_application_command?.Invoke (command);
+	public void QuitApplication () => quit_application?.Invoke ();
+	public void SetMainWindowTitle (string title) => set_window_title?.Invoke (title);
+	public void SetMainWindowFullscreen (bool fullscreen) => set_window_fullscreen?.Invoke (fullscreen);
+	public Task LaunchUri (string uri) => launch_uri?.Invoke (uri) ?? Task.CompletedTask;
+	public Pango.Context TextContext => text_context?.Invoke () ?? throw new InvalidOperationException ("Text context is not initialized.");
+
 	public Task<bool> LaunchSimpleEffectDialog (
-		Gtk.Window parent,
 		BaseEffect effect,
 		IAddinLocalizer localizer,
 		IWorkspaceService workspace,
 		Action<string?> onChanged)
-
-	{
-		return simple_effect_dialog_handler (
-			parent,
-			effect,
-			localizer,
-			workspace,
-			onChanged);
-	}
+		=> simple_effect_dialog_handler (effect, localizer, workspace, onChanged);
 
 	private void OnLastCanvasCursorPointChanged ()
 	{
@@ -239,10 +207,9 @@ public interface IProgressDialog
 	event EventHandler Canceled;
 }
 
-public delegate Task<ErrorDialogResponse> ErrorDialogHandler (Gtk.Window parent, string message, string body, string details);
-public delegate Task MessageDialogHandler (Gtk.Window parent, string message, string body);
+public delegate Task<ErrorDialogResponse> ErrorDialogHandler (string message, string body, string details);
+public delegate Task MessageDialogHandler (string message, string body);
 public delegate Task<bool> SimpleEffectDialogHandler (
-	Gtk.Window parent,
 	BaseEffect effect,
 	IAddinLocalizer localizer,
 	IWorkspaceService workspace,

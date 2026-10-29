@@ -28,8 +28,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Gdk;
-using Gtk;
 
 namespace Pinta.Core;
 
@@ -42,6 +40,7 @@ public abstract class BaseTool
 
 	protected IResourceService Resources { get; }
 	protected ICursorService CursorService => services.GetService<ICursorService> ();
+	protected IToolbarWidgetFactory WidgetFactory => services.GetService<IToolbarWidgetFactory> ();
 	protected IClipboardService ClipboardService => services.GetService<IClipboardService> ();
 	protected ISettingsService Settings { get; }
 
@@ -85,16 +84,57 @@ public abstract class BaseTool
 	public virtual string StatusBarText
 		=> string.Empty;
 
+	private object? default_cursor;
+
 	/// <summary>
 	/// The default cursor used by the tool. Return 'null' for the default pointer.
+	/// Tools that don't set this property can instead override one of the neutral seams
+	/// (<see cref="DefaultCursorDescriptor"/>, <see cref="DefaultShapedCursor"/>,
+	/// <see cref="DefaultCursorName"/>) to use a cursor without referencing platform types.
 	/// </summary>
-	public virtual Cursor? DefaultCursor
-		=> null;
+	public virtual object? DefaultCursor {
+		get {
+			if (default_cursor is not null)
+				return default_cursor;
+
+			if (DefaultCursorDescriptor is { } descriptor)
+				return CursorService.CreateCursor (descriptor);
+
+			if (DefaultShapedCursor is { } shaped)
+				return CursorService.CreateShapedCursor (shaped.Cursor, shaped.Shape, shaped.Scale, shaped.ShapeWidth);
+
+			if (DefaultCursorName is { } name)
+				return CursorService.CreateCursor (new CursorDescriptor (name));
+
+			return null;
+		}
+		set => default_cursor = value;
+	}
+
+	/// <summary>
+	/// Neutral cursor descriptor (resource name + hotspot) for the tool's default cursor,
+	/// used when <see cref="DefaultCursor"/> was not set. Return null for none.
+	/// </summary>
+	public virtual CursorDescriptor? DefaultCursorDescriptor => null;
+
+	/// <summary>
+	/// Neutral shaped-cursor descriptor for the tool's default cursor, used when neither
+	/// <see cref="DefaultCursor"/> nor <see cref="DefaultCursorDescriptor"/> were set.
+	/// Return null for none.
+	/// </summary>
+	public virtual ShapedCursorDescriptor? DefaultShapedCursor => null;
+
+	/// <summary>
+	/// Neutral name of the tool's default cursor (a standard CSS cursor name, see
+	/// Pinta.Resources.StandardCursors), used when <see cref="DefaultCursor"/> was not set.
+	/// Return null for the default pointer.
+	/// </summary>
+	public virtual string? DefaultCursorName => null;
 
 	/// <summary>
 	/// The current cursor for this tool. Return 'null' for the default pointer.
 	/// </summary>
-	public Cursor? CurrentCursor { get; private set; }
+	public object? CurrentCursor { get; private set; }
 
 
 	/// <summary>
@@ -118,11 +158,20 @@ public abstract class BaseTool
 		=> [];
 
 	/// <summary>
-	/// The shortcut key used to activate this tool in the toolbox.
-	/// Return Gdk.Key.Invalid for no shortcut key.
+	/// The shortcut key used to activate this tool in the toolbox
+	/// (a neutral key value; <see cref="ToolKey.Invalid"/> for no shortcut key).
+	/// Tools that don't want to reference key types can override
+	/// <see cref="ShortcutKeyStandard"/> instead.
 	/// </summary>
-	public virtual Gdk.Key ShortcutKey
-		=> Gdk.Key.Invalid;
+	public virtual ToolKey ShortcutKey
+		=> ShortcutKeyStandard is { } key ? new ToolKey (key.ToKeyValue ()) : ToolKey.Invalid;
+
+	/// <summary>
+	/// Neutral shortcut key used to activate this tool in the toolbox.
+	/// Return null for no shortcut key.
+	/// </summary>
+	public virtual StandardKey? ShortcutKeyStandard
+		=> null;
 
 	/// <summary>
 	/// Affects the order of the tool in the toolbox. Lower numbers will appear first.
@@ -199,7 +248,7 @@ public abstract class BaseTool
 	/// <summary>
 	/// Called when the tool needs to add its items to the Tool toolbar.
 	/// </summary>
-	protected virtual void OnBuildToolBar (Box toolbar)
+	protected virtual void OnBuildToolBar (IToolbarSurface toolbar)
 	{
 	}
 
@@ -317,13 +366,38 @@ public abstract class BaseTool
 	/// Tool should call this in order to change the application cursor.
 	/// Pass 'null' to reset the cursor back to the default.
 	/// </summary>
-	public void SetCursor (Cursor? cursor)
+	public void SetCursor (object? cursor)
 	{
 		CurrentCursor = cursor;
 
 		if (workspace.HasOpenDocuments)
-			workspace.ActiveWorkspace.Canvas.Cursor = cursor;
+			CursorService.SetWidgetCursor (workspace.ActiveWorkspace.Canvas!, cursor);
 	}
+
+	/// <summary>Reset the cursor back to the platform default.</summary>
+	public void ResetCursor ()
+	{
+		CurrentCursor = null;
+
+		if (workspace.HasOpenDocuments)
+			CursorService.SetWidgetCursor (workspace.ActiveWorkspace.Canvas!, null);
+	}
+
+	/// <summary>
+	/// Change the application cursor to a standard cursor given by its neutral name.
+	/// </summary>
+	public void SetCursor (string cursorName)
+		=> SetCursor (CursorService.CreateCursor (new CursorDescriptor (cursorName)));
+
+	/// <summary>
+	/// Change the application cursor to a cursor given by its neutral descriptor.
+	/// </summary>
+	public void SetCursor (CursorDescriptor descriptor)
+		=> SetCursor (CursorService.CreateCursor (descriptor));
+
+	/// <summary>
+	/// Change the application cursor to a previously created native cursor object.
+	/// </summary>
 
 	protected bool IsActiveTool ()
 	{
@@ -331,16 +405,19 @@ public abstract class BaseTool
 	}
 
 	#region Toolbar
-	private ToolBarDropDownButton? antialiasing_button;
-	private ToolBarDropDownButton? alphablending_button;
-	private Separator? separator;
+	public IToolBarDropDownButton CreateToolDropDownButton (bool showLabel = false)
+		=> PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDropDownButton (showLabel);
 
-	private Separator Separator => separator ??= GtkExtensions.CreateToolBarSeparator ();
+	private IToolBarDropDownButton? antialiasing_button;
+	private IToolBarDropDownButton? alphablending_button;
+	private IToolBarSeparator? separator;
 
-	protected ToolBarDropDownButton AlphaBlendingDropDown {
+	private IToolBarSeparator Separator => separator ??= WidgetFactory.CreateSeparator ();
+
+	protected IToolBarDropDownButton AlphaBlendingDropDown {
 		get {
 			if (alphablending_button is null) {
-				alphablending_button = ToolBarDropDownButton.New ();
+				alphablending_button = CreateToolDropDownButton ();
 
 				alphablending_button.AddItem (Translations.GetString ("Normal Blending"), Pinta.Resources.Icons.BlendingNormal, true);
 				alphablending_button.AddItem (Translations.GetString ("Overwrite"), Pinta.Resources.Icons.BlendingOverwrite, false);
@@ -354,10 +431,10 @@ public abstract class BaseTool
 		}
 	}
 
-	private ToolBarDropDownButton AntialiasingDropDown {
+	private IToolBarDropDownButton AntialiasingDropDown {
 		get {
 			if (antialiasing_button is null) {
-				antialiasing_button = ToolBarDropDownButton.New ();
+				antialiasing_button = CreateToolDropDownButton ();
 
 				antialiasing_button.AddItem (Translations.GetString ("Antialiasing On"), Pinta.Resources.Icons.AntiAliasingEnabled, true);
 				antialiasing_button.AddItem (Translations.GetString ("Antialiasing Off"), Pinta.Resources.Icons.AntiAliasingDisabled, false);
@@ -390,25 +467,25 @@ public abstract class BaseTool
 
 	internal void DoAfterUndo (Document document) => OnAfterUndo (document);
 
-	internal void DoBuildToolBar (Box toolbar)
+	internal void DoBuildToolBar (IToolbarSurface toolbar)
 	{
 		OnBuildToolBar (toolbar);
 
 		// Add alpha-blending and anti-aliasing dropdowns if needed
 		if (ShowAlphaBlendingButton || ShowAntialiasingButton)
-			toolbar.Append (Separator);
+			toolbar.Append (Separator.NativeWidget);
 
 		if (ShowAntialiasingButton)
-			toolbar.Append (AntialiasingDropDown);
+			toolbar.Append (AntialiasingDropDown.NativeWidget);
 		if (ShowAlphaBlendingButton)
-			toolbar.Append (AlphaBlendingDropDown);
+			toolbar.Append (AlphaBlendingDropDown.NativeWidget);
 	}
 
 	internal void DoCommit (Document? document) => OnCommit (document);
 
 	internal void DoDeactivated (Document? document, BaseTool? newTool)
 	{
-		SetCursor (null);
+		ResetCursor ();
 		OnDeactivated (document, newTool);
 	}
 

@@ -25,8 +25,6 @@
 // THE SOFTWARE.
 
 using System;
-using Gdk;
-
 namespace Pinta.Core;
 
 public sealed class ToolKeyEventArgs : EventArgs
@@ -57,11 +55,15 @@ public sealed class ToolKeyEventArgs : EventArgs
 	public bool IsShiftPressed => State.IsShiftPressed ();
 
 	/// <summary>
-	/// Specifies the key that has been pressed or released.
+	/// Specifies the key that has been pressed or released (a neutral key value).
 	/// </summary>
-	public Gdk.Key Key { get; init; }
+	public ToolKey Key { get; init; }
 
-	public ModifierType State { get; init; }
+	/// <summary>Text produced by this key press, when the platform provides it.</summary>
+	public string? Text { get; init; }
 
-	public Event? Event { get; init; }
+	public ModifierKeys State { get; init; }
+
+	/// <summary>Native key event object, when the platform provides one.</summary>
+	public object? Event { get; init; }
 }

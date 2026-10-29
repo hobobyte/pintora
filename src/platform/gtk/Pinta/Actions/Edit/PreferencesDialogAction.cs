@@ -6,13 +6,13 @@ using Pinta.Core;
 internal sealed class PreferencesDialogAction : IActionHandler
 {
 	private readonly AppActions app;
-	private readonly IChromeService chrome;
+	private readonly ChromeManager chrome;
 	private readonly IPaletteService palette;
 	private readonly ISettingsService settings;
 
 	internal PreferencesDialogAction (
 	    AppActions app,
-	    IChromeService chrome,
+	    ChromeManager chrome,
 			IPaletteService palette,
 	    ISettingsService settings)
 	{
@@ -35,6 +35,6 @@ internal sealed class PreferencesDialogAction : IActionHandler
 	private void Activated (object sender, EventArgs e)
 	{
 		using PreferencesDialog dialog = PreferencesDialog.New (chrome, palette, settings);
-		dialog.Present (chrome.MainWindow);
+		dialog.Present (chrome.GetMainWindow ());
 	}
 }

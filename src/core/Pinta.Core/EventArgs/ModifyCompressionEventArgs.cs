@@ -32,9 +32,11 @@ public sealed class ModifyCompressionEventArgs : EventArgs
 {
 	public int Quality { get; set; }
 	public bool Cancel { get; set; }
-	public Gtk.Window ParentWindow { get; set; }
 
-	public ModifyCompressionEventArgs (int quality, Gtk.Window parent)
+	/// <summary>Native parent window for the dialog (opaque platform object).</summary>
+	public object? ParentWindow { get; set; }
+
+	public ModifyCompressionEventArgs (int quality, object? parent)
 	{
 		Quality = quality;
 		Cancel = false;

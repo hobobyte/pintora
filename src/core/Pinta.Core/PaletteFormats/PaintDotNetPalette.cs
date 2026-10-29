@@ -39,11 +39,6 @@ public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver, IPalette
 {
 	public IReadOnlyList<ColorBgra> LoadColors (Stream stream) => Load (stream).Select (c => ColorBgra.FromBgra ((byte) Math.Round (c.B * 255), (byte) Math.Round (c.G * 255), (byte) Math.Round (c.R * 255), (byte) Math.Round (c.A * 255))).ToArray ();
 	public void SaveColors (IReadOnlyList<ColorBgra> colors, Stream stream) => Save (colors.Select (c => new Color (c.R / 255.0, c.G / 255.0, c.B / 255.0, c.A / 255.0)).ToArray (), stream);
-	public List<Color> Load (Gio.File file)
-	{
-		using var stream = new GioStream (file.Read (null));
-		return Load (stream);
-	}
 	public List<Color> Load (IFileReference file) { using Stream stream = file.OpenRead (); return Load (stream); }
 
 	public List<Color> Load (Stream stream)
@@ -73,11 +68,6 @@ public sealed class PaintDotNetPalette : IPaletteLoader, IPaletteSaver, IPalette
 		return new Color (r, g, b, a);
 	}
 
-	public void Save (IReadOnlyList<Color> colors, Gio.File file)
-	{
-		using var stream = new GioStream (file.Replace ());
-		Save (colors, stream);
-	}
 	public void Save (IReadOnlyList<Color> colors, IFileReference file) { using Stream stream = file.OpenWrite (); Save (colors, stream); }
 
 	public void Save (IReadOnlyList<Color> colors, Stream stream)

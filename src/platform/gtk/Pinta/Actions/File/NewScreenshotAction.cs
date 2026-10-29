@@ -24,6 +24,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+using Pinta.Gui.Widgets;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -81,7 +83,6 @@ internal sealed class NewScreenshotAction : IActionHandler
 		} catch (DBusExceptionBase e) {
 
 			await chrome.ShowErrorDialog (
-				chrome.MainWindow,
 				Translations.GetString ("Failed to take screenshot"),
 				Translations.GetString ("Failed to access XDG Desktop Portals"),
 				e.ToString ());
@@ -89,14 +90,12 @@ internal sealed class NewScreenshotAction : IActionHandler
 		} catch (NoHandlersForOSException e) {
 
 			await chrome.ShowMessageDialog (
-				chrome.MainWindow,
 				e.Message,
 				string.Empty);
 
 		} catch (Exception ex) {
 
 			await chrome.ShowErrorDialog (
-				chrome.MainWindow,
 				ex.Message,
 				string.Empty,
 				ex.ToString ());
@@ -174,7 +173,7 @@ internal sealed class NewScreenshotAction : IActionHandler
 						if (reply.Results.TryGetValue ("uri", out VariantValue vv) && vv.Type == VariantValueType.String)
 							uri = vv.GetString ();
 
-						if (uri is null || !workspace.OpenFile (Gio.FileHelper.NewForUri (uri)))
+						if (uri is null || !workspace.OpenFile (new GioFileReference (Gio.FileHelper.NewForUri (uri))))
 							return;
 
 						// Mark as not having a file, so that the user doesn't unintentionally

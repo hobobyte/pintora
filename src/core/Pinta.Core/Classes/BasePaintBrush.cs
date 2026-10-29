@@ -97,10 +97,12 @@ public abstract class BasePaintBrush
 	}
 
 	/// <summary>
-	/// Get the cursor appropriate for the brush's current settings.
+	/// Get the cursor appropriate for the brush's current settings, as an opaque native
+	/// cursor object. Brushes override this to provide a custom cursor; the default
+	/// (null) means the tool's default cursor is used.
 	/// </summary>
-	/// <returns>Cursor returned by the brush, or null if the tool should use the default cursor.</returns>
-	public virtual Gdk.Cursor? GetCursor ()
+	/// <returns>Native cursor object, or null if the tool should use the default cursor.</returns>
+	public virtual object? GetCursorNative ()
 	{
 		return null;
 	}

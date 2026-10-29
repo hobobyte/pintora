@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using NUnit.Framework;
 
 namespace Pinta.Core.Tests;
@@ -10,27 +12,28 @@ internal sealed class TranslationsTest
 	public void Setup ()
 	{
 		// Set to some language other than English to test translations.
-		GLib.Functions.Setenv ("LANGUAGE", "fr_FR", true);
+		Environment.SetEnvironmentVariable ("LANGUAGE", "fr_FR");
 
 		// The test runs from a path like Pinta/tests/Pinta.Core.Tests/bin/Debug/net10.0,
-		// so we need the relative path to the translation folder (Pinta/build/bin/locale).
-		string localeDir = "../../../../../build/bin/locale";
+		// so we need the relative path to the translation folder (src/platform/gtk/build/bin/locale).
+		string localeDir = "../../../../../src/platform/gtk/build/bin/locale";
+		Translations.SetProvider (new ManagedGettextProvider ());
 		Translations.Init (localeDir, langPref: string.Empty);
 	}
 
 	[OneTimeTearDown]
 	public void TearDown ()
 	{
-		GLib.Functions.Unsetenv ("LANGUAGE");
+		Environment.SetEnvironmentVariable ("LANGUAGE", null);
+		Translations.SetProvider (new IdentityTranslationProvider ());
 	}
 
 	[Test]
 	[Description ("Test that a string can be translated. If this test fails, make sure you built with -p:BuildTranslations=true.")]
 	public void SimpleTranslation ()
 	{
-		if (SystemManager.GetOperatingSystem () == OS.X11) {
-			Assert.Ignore ("This test fails for some reason on Ubuntu.");
-		}
+		if (!Translations.GetAvailableLanguages ().Contains ("fr"))
+			Assert.Ignore ("No compiled translations found; build with -p:BuildTranslations=true.");
 
 		Assert.That (Translations.GetString ("Color"), Is.EqualTo ("Couleur"));
 	}

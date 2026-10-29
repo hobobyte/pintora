@@ -40,7 +40,7 @@ public abstract class ShapeTool : BaseTool
 		system_manager = services.GetService<SystemManager> ();
 	}
 
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_O);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.O;
 	protected override bool ShowAntialiasingButton => true;
 	public virtual BaseEditEngine.ShapeTypes ShapeType => BaseEditEngine.ShapeTypes.ClosedLineCurveSeries;
 	public override bool IsEditableShapeTool => true;
@@ -58,12 +58,10 @@ public abstract class ShapeTool : BaseTool
 			    "\nPress Space to add a new control point at the mouse position." +
 			    "\nHold {0} while pressing Space to create the control point at the exact same position." +
 			    "\nHold {0} while left clicking on a control point to create a new shape at the exact same position." +
-			    "\nPress Enter to finalize the shape.", system_manager.CtrlLabel ());
+		    "\nPress Enter to finalize the shape.", system_manager.CtrlLabel);
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
-
 		EditEngine.HandleBuildToolBar (tb, Settings, GetType ().Name.ToLowerInvariant ());
 	}
 

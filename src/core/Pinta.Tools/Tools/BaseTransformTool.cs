@@ -150,22 +150,17 @@ public abstract class BaseTransformTool : BaseTool
 		double dy = 0.0;
 		double coeff = e.IsControlPressed ? 10.0 : 1.0;
 
-		switch (e.Key.Value) {
-			case Gdk.Constants.KEY_Left:
-				dx = -coeff;
-				break;
-			case Gdk.Constants.KEY_Right:
-				dx = coeff;
-				break;
-			case Gdk.Constants.KEY_Up:
-				dy = -coeff;
-				break;
-			case Gdk.Constants.KEY_Down:
-				dy = coeff;
-				break;
-			default:
-				// Otherwise, let the key be handled elsewhere.
-				return base.OnKeyDown (document, e);
+		if (e.Key.Is (StandardKey.Left)) {
+			dx = -coeff;
+		} else if (e.Key.Is (StandardKey.Right)) {
+			dx = coeff;
+		} else if (e.Key.Is (StandardKey.Up)) {
+			dy = -coeff;
+		} else if (e.Key.Is (StandardKey.Down)) {
+			dy = coeff;
+		} else {
+			// Otherwise, let the key be handled elsewhere.
+			return base.OnKeyDown (document, e);
 		}
 
 		if (!IsActive) {

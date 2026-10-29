@@ -28,7 +28,6 @@ using System;
 using System.Collections.Generic;
 using Cairo;
 using ClipperLib;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -43,9 +42,9 @@ public sealed class LassoSelectTool : BaseTool
 
 	private readonly List<IntPoint> lasso_polygon = [];
 
-	private Separator? mode_sep;
-	private Label? lasso_mode_label;
-	private ToolBarDropDownButton? lasso_mode_buttom;
+	private IToolBarSeparator? mode_sep;
+	private IToolBarLabel? lasso_mode_label;
+	private IToolBarDropDownButton? lasso_mode_buttom;
 
 	public LassoSelectTool (IServiceProvider services) : base (services)
 	{
@@ -58,22 +57,21 @@ public sealed class LassoSelectTool : BaseTool
 									"\n\nIn Polygon mode, click and drag to add a new point to the selection." +
 									"\nPress Enter to finish the selection." +
 									"\nPress Backspace to delete the last point.");
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_S);
-	public override Gdk.Cursor DefaultCursor => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.LassoSelect.png", 9, 18))!;
+	public override StandardKey? ShortcutKeyStandard => StandardKey.S;
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.LassoSelect.png", 9, 18);
 	public override int Priority => 17;
 	public override bool IsSelectionTool => true;
 
 	private bool IsPolygonMode => LassoModeButtom.SelectedItem.GetTagOrDefault (false);
 	private bool IsFreeformMode => !IsPolygonMode;
 
-	protected override void OnBuildToolBar (Gtk.Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
-		base.OnBuildToolBar (tb);
-		workspace.SelectionHandler.BuildToolbar (tb, Settings);
+		PintaCore.Services.GetService<IToolUiService> ().BuildSelectionModeToolbar (tb.NativeToolbar, workspace.SelectionHandler, Settings);
 
-		tb.Append (Separator);
-		tb.Append (LassoModeLabel);
-		tb.Append (LassoModeButtom);
+		tb.Append (Separator.NativeWidget);
+		tb.Append (LassoModeLabel.NativeWidget);
+		tb.Append (LassoModeButtom.NativeWidget);
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -164,13 +162,13 @@ public sealed class LassoSelectTool : BaseTool
 	protected override bool OnKeyDown (Document document, ToolKeyEventArgs e)
 	{
 		if (IsPolygonMode) {
-			switch (e.Key.Value) {
-				case Gdk.Constants.KEY_Return:
-					FinalizeShape (document);
-					return true;
-				case Gdk.Constants.KEY_BackSpace:
-					Backtrack (document);
-					return true;
+			if (e.Key.Is (StandardKey.Return)) {
+				FinalizeShape (document);
+				return true;
+			}
+			if (e.Key.Is (StandardKey.BackSpace)) {
+				Backtrack (document);
+				return true;
 			}
 		}
 
@@ -209,13 +207,13 @@ public sealed class LassoSelectTool : BaseTool
 			settings.PutSetting (SettingNames.LASSO_MODE, lasso_mode_buttom.SelectedIndex);
 	}
 
-	private Separator Separator => mode_sep ??= GtkExtensions.CreateToolBarSeparator ();
-	private Label LassoModeLabel => lasso_mode_label ??= Label.New (string.Format (" {0}: ", Translations.GetString ("Lasso Mode")));
+	private IToolBarSeparator Separator => mode_sep ??= WidgetFactory.CreateSeparator ();
+	private IToolBarLabel LassoModeLabel => lasso_mode_label ??= WidgetFactory.CreateLabel (string.Format (" {0}: ", Translations.GetString ("Lasso Mode")));
 
-	private ToolBarDropDownButton LassoModeButtom {
+	private IToolBarDropDownButton LassoModeButtom {
 		get {
 			if (lasso_mode_buttom is null) {
-				lasso_mode_buttom = ToolBarDropDownButton.New ();
+				lasso_mode_buttom = CreateToolDropDownButton ();
 
 				lasso_mode_buttom.AddItem (Translations.GetString ("Freeform"), Pinta.Resources.Icons.LassoFreeform, false);
 				lasso_mode_buttom.AddItem (Translations.GetString ("Polygon"), Pinta.Resources.Icons.LassoPolygon, true);

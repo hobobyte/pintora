@@ -38,9 +38,9 @@ internal static class EffectHelper
 	/// </summary>
 	internal static Task<bool> LaunchSimpleEffectDialog (this IChromeService chrome, BaseEffect effect, IWorkspaceService workspace)
 		=> chrome.LaunchSimpleEffectDialog (
-			chrome.MainWindow,
 			effect,
 			new PintaLocalizer (),
-			workspace);
+			workspace,
+			onChanged: p => effect.EffectData?.FirePropertyChanged (p));
 #pragma warning restore CS0618
 }

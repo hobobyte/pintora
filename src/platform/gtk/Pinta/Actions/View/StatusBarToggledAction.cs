@@ -52,6 +52,6 @@ internal sealed class StatusBarToggledAction : IActionHandler
 
 	private void Activated (bool value, bool interactive)
 	{
-		chrome.StatusBar.Visible = value;
+		chrome.SetStatusBarVisible (value);
 	}
 }

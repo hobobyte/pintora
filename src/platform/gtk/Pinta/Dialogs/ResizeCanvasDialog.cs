@@ -248,9 +248,9 @@ public sealed partial class ResizeCanvasDialog
 		se_button = seButton;
 	}
 
-	private void Configure (IChromeService chrome, IWorkspaceService workspace, ISettingsService settings)
+	private void Configure (ChromeManager chrome, IWorkspaceService workspace, ISettingsService settings)
 	{
-		TransientFor = chrome.MainWindow;
+		TransientFor = chrome.GetMainWindow ();
 		this.workspace = workspace;
 		this.settings = settings;
 
@@ -272,7 +272,7 @@ public sealed partial class ResizeCanvasDialog
 		percentage_spinner.GrabFocus ();
 	}
 
-	public static ResizeCanvasDialog New (IChromeService chrome, IWorkspaceService workspace, ISettingsService settings)
+	public static ResizeCanvasDialog New (ChromeManager chrome, IWorkspaceService workspace, ISettingsService settings)
 	{
 		ResizeCanvasDialog dialog = NewWithProperties ([]);
 		dialog.Configure (chrome, workspace, settings);

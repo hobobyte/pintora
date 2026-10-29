@@ -143,17 +143,17 @@ public sealed partial class LayerPropertiesDialog
 		opacity_slider = opacitySlider;
 	}
 
-	public static LayerPropertiesDialog New (IChromeService chrome, WorkspaceManager workspace)
+	public static LayerPropertiesDialog New (ChromeManager chrome, WorkspaceManager workspace)
 	{
 		LayerPropertiesDialog dialog = NewWithProperties ([]);
 		dialog.Configure (chrome, workspace);
 		return dialog;
 	}
 
-	private void Configure (IChromeService chrome, WorkspaceManager workspace)
+	private void Configure (ChromeManager chrome, WorkspaceManager workspace)
 	{
 		this.workspace = workspace;
-		TransientFor = chrome.MainWindow;
+		TransientFor = chrome.GetMainWindow ();
 
 		Document doc = workspace.ActiveDocument;
 

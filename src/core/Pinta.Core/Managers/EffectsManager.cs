@@ -63,10 +63,6 @@ public sealed class EffectsManager
 	/// <returns>The action created for this adjustment</returns>
 	public void RegisterAdjustment<T> (T adjustment) where T : BaseEffect
 	{
-#if false // For testing purposes to detect any missing icons. This implies more disk accesses on startup so we may not want this on by default.
-		if (!GtkExtensions.GetDefaultIconTheme ().HasIcon (adjustment.Icon))
-			Console.Error.WriteLine ($"Icon {adjustment.Icon} for adjustment {adjustment.Name} not found");
-#endif
 		Type adjustmentType = typeof (T);
 
 		if (adjustments.ContainsKey (adjustmentType))
@@ -87,9 +83,9 @@ public sealed class EffectsManager
 
 		action_manager.Adjustments.Actions.Add (action);
 
-		chrome_manager.Application.AddCommand (action);
+		chrome_manager.AddApplicationCommand (action);
 
-		chrome_manager.AdjustmentsMenu.AppendMenuItemSorted (action.CreateMenuItem ());
+		chrome_manager.AddAdjustmentMenuItem (action);
 
 		adjustments.Add (adjustmentType, action);
 	}
@@ -101,10 +97,6 @@ public sealed class EffectsManager
 	/// <returns>The action created for this effect</returns>
 	public void RegisterEffect<T> (T effect) where T : BaseEffect
 	{
-#if false // For testing purposes to detect any missing icons. This implies more disk accesses on startup so we may not want this on by default.
-		if (!GtkExtensions.GetDefaultIconTheme ().HasIcon (effect.Icon))
-			Console.Error.WriteLine ($"Icon {effect.Icon} for effect {effect.Name} not found");
-#endif
 		Type effectType = typeof (T);
 
 		if (effects.ContainsKey (effectType))
@@ -117,7 +109,7 @@ public sealed class EffectsManager
 			string.Empty,
 			effect.Icon);
 
-		chrome_manager.Application.AddCommand (action);
+		chrome_manager.AddApplicationCommand (action);
 		action.Activated += (o, args) => live_preview_manager.Start (effect);
 
 		action_manager.Effects.AddEffect (effect.EffectMenuCategory, action);
@@ -157,6 +149,6 @@ public sealed class EffectsManager
 
 		adjustments.Remove (adjustmentType);
 		action_manager.Adjustments.Actions.Remove (action);
-		chrome_manager.AdjustmentsMenu.Remove (action);
+		chrome_manager.RemoveAdjustmentMenuItem (action);
 	}
 }

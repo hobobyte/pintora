@@ -308,14 +308,11 @@ public sealed class WorkspaceManager : IWorkspaceService
 	// TODO: Standardize add to recent files
 	/// <returns>Flag that indicates if file was opened successfully</returns>
 	public bool OpenFile (
-		Gio.File file,
-		Gtk.Window? parent = null)
+		IFileReference file)
 	{
-		parent ??= chrome_manager.MainWindow;
-
 		try {
 			// Open the image and add it to the layers
-			IImageImporter? importer = image_formats.GetImporterByFile (file.GetDisplayName ());
+			IImageImporter? importer = image_formats.GetImporterByFile (file.DisplayName);
 			if (importer is not null) {
 				Document imported = importer.Import (file);
 				ActivateDocument (imported);
@@ -331,18 +328,18 @@ public sealed class WorkspaceManager : IWorkspaceService
 						break;
 					} catch (UnauthorizedAccessException) {
 						// If the file can't be accessed, don't retry for every format.
-						ShowFilePermissionErrorDialog (parent, file.GetParseName ());
+						ShowFilePermissionErrorDialog (file.DisplayName);
 						return false;
 					} catch (Exception e) {
 						// Record errors in case none of the formats work.
-						errors.AppendLine ($"Failed to load image as {format.Filter.Name}:");
+						errors.AppendLine ($"Failed to load image as {format.DisplayName}:");
 						errors.Append (e.ToString ());
 						errors.AppendLine ();
 					}
 				}
 
 				if (!loaded) {
-					ShowUnsupportedFormatDialog (parent, file.GetParseName (),
+					ShowUnsupportedFormatDialog (file.DisplayName,
 						Translations.GetString ("Unsupported file format"), errors.ToString ());
 					return false;
 				}
@@ -354,9 +351,9 @@ public sealed class WorkspaceManager : IWorkspaceService
 			return true;
 
 		} catch (UnauthorizedAccessException) {
-			ShowFilePermissionErrorDialog (parent, file.GetParseName ());
+			ShowFilePermissionErrorDialog (file.DisplayName);
 		} catch (Exception e) {
-			ShowOpenFileErrorDialog (parent, file.GetParseName (), e.Message, e.ToString ());
+			ShowOpenFileErrorDialog (file.DisplayName, e.Message, e.ToString ());
 		}
 
 		return false;
@@ -368,9 +365,9 @@ public sealed class WorkspaceManager : IWorkspaceService
 	internal void ResetTitle ()
 	{
 		if (HasOpenDocuments)
-			chrome_manager.MainWindow.Title = $"{ActiveDocument.DisplayName}{(ActiveDocument.IsDirty ? "*" : "")} - Pinta";
+			chrome_manager.SetMainWindowTitle ($"{ActiveDocument.DisplayName}{(ActiveDocument.IsDirty ? "*" : "")} - Pinta");
 		else
-			chrome_manager.MainWindow.Title = "Pinta";
+			chrome_manager.SetMainWindowTitle ("Pinta");
 	}
 
 	public void SetActiveDocument (int index)
@@ -420,17 +417,15 @@ public sealed class WorkspaceManager : IWorkspaceService
 	}
 
 	private Task ShowOpenFileErrorDialog (
-		Gtk.Window parent,
 		string filename,
 		string primary_text,
 		string details)
 	{
 		string secondary_text = Translations.GetString ("Could not open file: {0}", filename);
-		return chrome_manager.ShowErrorDialog (parent, primary_text, secondary_text, details);
+		return chrome_manager.ShowErrorDialog (primary_text, secondary_text, details);
 	}
 
 	private Task ShowUnsupportedFormatDialog (
-		Gtk.Window parent,
 		string filename,
 		string message,
 		string errors)
@@ -450,11 +445,10 @@ public sealed class WorkspaceManager : IWorkspaceService
 
 		body.AppendJoin (", ", extensions);
 
-		return chrome_manager.ShowErrorDialog (parent, message, body.ToString (), errors);
+		return chrome_manager.ShowErrorDialog (message, body.ToString (), errors);
 	}
 
 	private Task ShowFilePermissionErrorDialog (
-		Gtk.Window parent,
 		string filename)
 	{
 		string message = Translations.GetString ("Failed to open image");
@@ -462,7 +456,7 @@ public sealed class WorkspaceManager : IWorkspaceService
 		// Translators: {0} is the name of a file that the user does not have permission to open.
 		string details = Translations.GetString ("You do not have access to '{0}'.", filename);
 
-		return chrome_manager.ShowMessageDialog (parent, message, details);
+		return chrome_manager.ShowMessageDialog (message, details);
 	}
 
 	public event EventHandler? LayerAdded;

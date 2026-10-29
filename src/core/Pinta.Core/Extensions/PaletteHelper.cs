@@ -14,11 +14,6 @@ public static class PaletteHelper
 		return new (EnumerateDefaultColors ());
 	}
 
-	public static void Save (this Palette palette, Gio.File file, IPaletteSaver saver)
-	{
-		saver.Save (palette.Colors, file);
-	}
-
 	public static void Save (this Palette palette, Stream stream, IPaletteSaver saver)
 	{
 		saver.Save (palette.Colors, stream);
@@ -39,12 +34,6 @@ public static class PaletteHelper
 	public static void LoadDefault (this Palette palette)
 	{
 		palette.Load (EnumerateDefaultColors ());
-	}
-
-	public static void Load (this Palette palette, PaletteFormatManager paletteFormats, Gio.File file)
-	{
-		List<Color> loadedColors = LoadColorsFromFile (paletteFormats, file);
-		palette.Load (loadedColors);
 	}
 
 	public static void Load (this Palette palette, PaletteFormatManager paletteFormats, Stream stream, string fileName)
@@ -69,34 +58,6 @@ public static class PaletteHelper
 	{
 		using Stream stream = file.OpenRead ();
 		palette.Load (paletteFormats, stream, file.DisplayName);
-	}
-
-	private static List<Color> LoadColorsFromFile (PaletteFormatManager paletteFormats, Gio.File file)
-	{
-		var loader = paletteFormats.GetFormatByFilename (file.GetDisplayName ())?.Loader;
-
-		if (loader != null)
-			return loader.Load (file);
-
-		StringBuilder errors = new ();
-
-		// Not a recognized extension, so attempt all formats
-		foreach (var format in paletteFormats.Formats.Where (f => !f.IsWriteOnly ())) {
-			try {
-				var loaded_colors = format.Loader.Load (file);
-				if (loaded_colors != null)
-					return loaded_colors;
-			} catch (Exception e) {
-				// Record errors in case none of the formats work.
-				errors.AppendLine ($"Failed to load palette as {format.DisplayName}:");
-				errors.Append (e.ToString ());
-				errors.AppendLine ();
-			}
-		}
-
-		throw new PaletteLoadException (
-			file.GetParseName (),
-			errors.ToString ());
 	}
 
 	public static IEnumerable<Color> EnumerateDefaultColors ()

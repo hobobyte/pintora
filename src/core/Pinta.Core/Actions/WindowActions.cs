@@ -56,7 +56,7 @@ public sealed class WindowActions
 		// TODO: Make `Command`
 		active_doc_action = Gio.SimpleAction.NewStateful (
 			doc_action_id,
-			GtkExtensions.IntVariantType,
+			GLib.VariantType.New ("i"),
 			GLib.Variant.NewInt32 (-1));
 
 		active_doc_action.OnActivate += (o, e) => {
@@ -78,7 +78,7 @@ public sealed class WindowActions
 	}
 
 	public void RegisterActions (
-		Gtk.Application app,
+		IActionRegistrar registrar,
 		Gio.Menu menu)
 	{
 		menu.AppendItem (SaveAll.CreateMenuItem ());
@@ -87,15 +87,15 @@ public sealed class WindowActions
 		doc_section = Gio.Menu.New ();
 		menu.AppendSection (null, doc_section);
 
-		app.AddCommands ([
+		registrar.AddCommands ([
 			SaveAll,
 			CloseAll]);
 
-		app.AddAction (active_doc_action);
+		registrar.AddNativeAction (active_doc_action);
 
 		// Assign accelerators up to Alt-9 for the active documents.
 		for (int i = 0; i < 9; ++i)
-			app.SetAccelsForAction (BuildActionId (i), [$"<Alt>{i + 1}"]);
+			registrar.SetAccelerators (BuildActionId (i), [$"<Alt>{i + 1}"]);
 	}
 
 	private void AddDocumentMenuItem (int idx)

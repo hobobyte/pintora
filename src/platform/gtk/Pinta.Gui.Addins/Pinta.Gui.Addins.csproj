@@ -9,6 +9,7 @@
   <ItemGroup>
     <PackageReference Include="Mono.Addins" />
     <PackageReference Include="Mono.Addins.Setup" />
+      <ProjectReference Include="../Pinta.Gui.Widgets/Pinta.Gui.Widgets.csproj" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\core\Pinta.Core\Pinta.Core.csproj" />

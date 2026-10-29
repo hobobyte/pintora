@@ -25,15 +25,12 @@ internal sealed class FileFormatTests
 		string inputFilePath = Utilities.GetAssetPath (inputFile);
 		using ImageSurface loaded = Utilities.LoadImage (inputFilePath);
 		NetpbmPortablePixmap exporter = new ();
-		using Gio.MemoryOutputStream memoryOutput = Gio.MemoryOutputStream.NewResizable ();
-		using GioStream outputStream = new (memoryOutput);
+		using MemoryStream outputStream = new ();
 		exporter.Export (loaded, outputStream);
-		outputStream.Close ();
-		memoryOutput.Close (null);
-		var exportedBytes = memoryOutput.StealAsBytes ();
+		byte[] exportedBytes = outputStream.ToArray ();
 		bool matched = false;
 		foreach (string fileName in acceptableOutputs) {
-			var bytesStream = Gio.MemoryInputStream.NewFromBytes (exportedBytes);
+			var bytesStream = Gio.MemoryInputStream.NewFromBytes (GLib.Bytes.New (exportedBytes));
 			var bytesReader = Gio.DataInputStream.New (bytesStream);
 			string filePath = Utilities.GetAssetPath (fileName);
 			using var context = Utilities.OpenFile (filePath);

@@ -33,7 +33,7 @@ namespace Pinta.Core;
 
 // Utility to simplify DllImport's with platform-specific library names, adapted from gir.core
 // TODO-GTK4 (bindings) - remove once manual bindings are no longer needed.
-internal static class NativeImportResolver
+public static class NativeImportResolver
 {
 	private class LibraryInfo
 	{

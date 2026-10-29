@@ -81,7 +81,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			return true;
 
 		// If the document already has a filename, just re-save it
-		return await SaveFile (e.Document, null, null, chrome.MainWindow);
+		return await SaveFile (e.Document, null, null, chrome.GetMainWindow ());
 	}
 
 	// This is actually both for "Save As" and saving a file that never
@@ -90,13 +90,13 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 	{
 		var fcd = Gtk.FileChooserNative.New (
 			Translations.GetString ("Save Image File"),
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			Gtk.FileChooserAction.Save,
 			Translations.GetString ("Save"),
 			Translations.GetString ("Cancel"));
 
 		if (document.HasFile)
-			fcd.SetFile (document.File!);
+			fcd.SetFile (ToGioFile (document.FileReference));
 		else {
 			if (recent_files.GetDialogDirectory () is PathFileReference dir)
 				fcd.SetCurrentFolder (Gio.FileHelper.NewForPath (dir.Path));
@@ -113,12 +113,13 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			if (!format.IsExportAvailable ())
 				continue;
 
-			fcd.AddFilter (format.Filter);
-			filetypes.Add (format.Filter, format);
+			Gtk.FileFilter filter = CreateFilter (format);
+			fcd.AddFilter (filter);
+			filetypes.Add (filter, format);
 
 			// Set the filter to anything we found
 			// We want to ensure that *something* is selected in the filetype
-			fcd.Filter = format.Filter;
+			fcd.Filter = filter;
 		}
 
 		// If we already have a format, set it to the default.
@@ -132,7 +133,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 		if (format_desc is null || !format_desc.IsExportAvailable ())
 			format_desc = image_formats.GetDefaultSaveFormat ();
 
-		fcd.Filter = format_desc.Filter;
+		fcd.Filter = CreateFilter (format_desc);
 
 		while (await fcd.RunAsync () == Gtk.ResponseType.Accept) {
 
@@ -163,7 +164,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 
 			// If saving the file failed or was cancelled, let the user select
 			// a different file type.
-			if (!await SaveFile (document, file, format, chrome.MainWindow)) {
+			if (!await SaveFile (document, file, format, chrome.GetMainWindow ())) {
 				// Re-set the current name and directory
 				fcd.SetCurrentName (displayName);
 				fcd.SetCurrentFolder (directory);
@@ -177,9 +178,21 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			recent_files.AddFile (new PathFileReference (file.GetParseName ()));
 			image_formats.SetDefaultFormat (format.Extensions.First ());
 
-			document.File = file;
+			document.FileReference = new PathFileReference (file.GetParseName ());
 			document.FileType = format.Extensions.First ();
 			return true;
+		}
+
+		static Gtk.FileFilter CreateFilter (FormatDescriptor format)
+		{
+			Gtk.FileFilter filter = Gtk.FileFilter.New ();
+			foreach (string pattern in format.Patterns)
+				filter.AddPattern (pattern);
+			if (OperatingSystem.IsLinux () || OperatingSystem.IsMacOS ())
+				foreach (string mime in format.Mimes)
+					filter.AddMimeType (mime);
+			filter.Name = format.DisplayName;
+			return filter;
 		}
 
 		return false;
@@ -187,7 +200,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 
 	private async Task<bool> SaveFile (Document document, Gio.File? file, FormatDescriptor? format, Gtk.Window parent)
 	{
-		file ??= document.File;
+		file ??= ToGioFile (document.FileReference);
 
 		if (file is null)
 			throw new ArgumentException ("Attempted to save a document with no associated file", nameof (file));
@@ -203,7 +216,6 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 		if (format is null || !format.IsExportAvailable ()) {
 
 			await chrome.ShowMessageDialog (
-				parent,
 				Translations.GetString ("Pinta does not support saving images in this file format."),
 				// Use this instead of file.GetDisplayName() in case file was not created
 				file.GetSafeDisplayName ());
@@ -219,7 +231,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 		tools.Commit ();
 
 		try {
-			format.Exporter.Export (document, file, parent);
+			format.Exporter.Export (document, new PathFileReference (file.GetParseName ()));
 
 		} catch (GLib.GException e) when (e.Message == "Image too large to be saved as ICO") {
 			// This has a generic error code of GDK_PIXBUF_ERROR_BAD_OPTION so we need to check the message text.
@@ -227,7 +239,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			string primary = Translations.GetString ("Image too large");
 			string secondary = Translations.GetString ("ICO files can not be larger than 256 x 256 pixels.");
 
-			await chrome.ShowMessageDialog (parent, primary, secondary);
+			await chrome.ShowMessageDialog (primary, secondary);
 
 			return false;
 
@@ -241,7 +253,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			// Translators: {0} is the name of a file that the user does not have write permission for.
 			string secondary = Translations.GetString ("You do not have access to modify '{0}'. The file or folder may be read-only.", fileName);
 
-			await chrome.ShowMessageDialog (parent, primary, secondary);
+			await chrome.ShowMessageDialog (primary, secondary);
 
 			return false;
 
@@ -250,7 +262,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			return false;
 		}
 
-		document.File = file;
+		document.FileReference = new PathFileReference (file.GetParseName ());
 		document.FileType = format.Extensions.First ();
 
 		tools.DoAfterSave (document);
@@ -274,7 +286,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			string heading = Translations.GetString ("This format does not support layers. Flatten image?");
 			string body = Translations.GetString ("Flattening the image will merge all layers into a single layer.");
 
-			using Adw.MessageDialog dialog = Adw.MessageDialog.New (chrome.MainWindow, heading, body);
+			using Adw.MessageDialog dialog = Adw.MessageDialog.New (chrome.GetMainWindow (), heading, body);
 			dialog.AddResponse (RESPONSE_CANCEL, Translations.GetString ("_Cancel"));
 			dialog.AddResponse (RESPONSE_FLATTEN, Translations.GetString ("Flatten"));
 			dialog.SetResponseAppearance (RESPONSE_FLATTEN, Adw.ResponseAppearance.Suggested);
@@ -293,5 +305,12 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			image.Flatten.Activate ();
 		}
 		return true;
+	}
+
+	private static Gio.File ToGioFile (IFileReference? reference)
+	{
+		if (reference is not PathFileReference path)
+			throw new InvalidOperationException ("The document file is not path-backed.");
+		return Gio.FileHelper.NewForPath (path.Path);
 	}
 }

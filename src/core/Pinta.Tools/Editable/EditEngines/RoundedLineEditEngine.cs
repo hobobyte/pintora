@@ -41,9 +41,9 @@ public sealed class RoundedLineEditEngine : BaseEditEngine
 	private double previous_radius = DefaultRadius;
 
 	// NRT - Created in HandleBuildToolBar
-	private Gtk.SpinButton radius = null!;
-	private Gtk.Label radius_label = null!;
-	private Gtk.Separator radius_sep = null!;
+	private IToolBarSpinButton radius = null!;
+	private IToolBarLabel radius_label = null!;
+	private IToolBarSeparator radius_sep = null!;
 
 	public double Radius {
 
@@ -75,29 +75,29 @@ public sealed class RoundedLineEditEngine : BaseEditEngine
 			settings.PutSetting (SettingNames.Radius (toolPrefix), (int) radius.Value);
 	}
 
-	protected override void BuildShapeToolBar (Gtk.Box tb, ISettingsService settings, string toolPrefix)
+	protected override void BuildShapeToolBar (IToolbarSurface tb, ISettingsService settings, string toolPrefix)
 	{
-		radius_sep ??= GtkExtensions.CreateToolBarSeparator ();
+		radius_sep ??= WidgetFactory.CreateSeparator ();
 
-		tb.Append (radius_sep);
+		tb.Append (radius_sep.NativeWidget);
 
 		if (radius_label == null) {
 			var radiusText = Translations.GetString ("Radius");
-			radius_label = Gtk.Label.New ($"{radiusText}: ");
+			radius_label = WidgetFactory.CreateLabel ($"{radiusText}: ");
 		}
 
-		tb.Append (radius_label);
+		tb.Append (radius_label.NativeWidget);
 
 		if (radius == null) {
-			radius = GtkExtensions.CreateToolBarSpinButton (0, 1e5, 1, settings.GetSetting (SettingNames.Radius (toolPrefix), 20));
+			radius = WidgetFactory.CreateSpinButton (0, 1e5, 1, settings.GetSetting (SettingNames.Radius (toolPrefix), 20));
 
-			radius.OnValueChanged += (o, e) => {
+			radius.ValueChanged += (o, e) => {
 				//Go through the Get/Set routine.
 				Radius = Radius;
 			};
 		}
 
-		tb.Append (radius);
+		tb.Append (radius.NativeWidget);
 
 		base.BuildShapeToolBar (tb, settings, toolPrefix);
 	}
@@ -131,7 +131,7 @@ public sealed class RoundedLineEditEngine : BaseEditEngine
 		AddRectanglePoints (ctrlKey, clickedOnControlPoint, newEngine, prevSelPoint);
 
 		//Set the new shape's DashPattern option.
-		newEngine.DashPattern = dash_pattern_box.ComboBox!.ComboBox.GetActiveText ()!; // NRT - Code assumes this is not-null
+		newEngine.DashPattern = dash_pattern_box!.Pattern; // NRT - Code assumes the toolbar was built
 
 		return newEngine;
 	}

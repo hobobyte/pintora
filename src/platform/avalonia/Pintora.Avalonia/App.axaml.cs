@@ -9,7 +9,7 @@ namespace Pintora.Avalonia;
 
 public sealed class App : Application
 {
-	public static PintaApplication Services { get; } = PintaApplication.Build (new NeutralImageFormatProvider ());
+	public static PintaApplication Services { get; } = PintaApplication.Build (new NeutralImageFormatProvider (), includeActions: false);
 	private const string ThemeSettingKey = "Pintora.Theme";
 	private static ISettingsService? themeSettings;
 

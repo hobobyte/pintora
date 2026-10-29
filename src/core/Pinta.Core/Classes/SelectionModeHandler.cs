@@ -31,46 +31,30 @@ namespace Pinta.Core;
 
 public sealed class SelectionModeHandler
 {
-	private Gtk.Label? selection_label;
-	private ToolBarComboBox? selection_combo_box;
-
 	private CombineMode selected_mode;
+	private int selected_mode_index;
 	private readonly IReadOnlyDictionary<string, CombineMode> combine_modes;
+	public IReadOnlyDictionary<string, CombineMode> CombineModes => combine_modes;
 
 	public SelectionModeHandler (SystemManager system)
 	{
 		combine_modes = new Dictionary<string, CombineMode> () {
 			[Translations.GetString ("Replace")] = CombineMode.Replace,
 			// Translators: {0} is 'Ctrl', or a platform-specific key such as 'Command' on macOS.
-			[Translations.GetString ("Union (+) ({0} + Left Click)", system.CtrlLabel ())] = CombineMode.Union,
+			[Translations.GetString ("Union (+) ({0} + Left Click)", system.CtrlLabel)] = CombineMode.Union,
 			[Translations.GetString ("Exclude (-) (Right Click)")] = CombineMode.Exclude,
 			// Translators: {0} is 'Ctrl', or a platform-specific key such as 'Command' on macOS.
-			[Translations.GetString ("Xor ({0} + Right Click)", system.CtrlLabel ())] = CombineMode.Xor,
+			[Translations.GetString ("Xor ({0} + Right Click)", system.CtrlLabel)] = CombineMode.Xor,
 			// Translators: {0} is 'Alt', or a platform-specific key such as 'Option' on macOS.
-			[Translations.GetString ("Intersect ({0} + Left Click)", GtkExtensions.AltLabel ())] = CombineMode.Intersect,
+			[Translations.GetString ("Intersect ({0} + Left Click)", system.AltLabel)] = CombineMode.Intersect,
 		};
 	}
 
-	public void BuildToolbar (Gtk.Box tb, ISettingsService settings)
+	public void SetSelectedMode (CombineMode mode, int index = -1)
 	{
-		selection_label ??= Gtk.Label.New (Translations.GetString (" Selection Mode: "));
-
-		tb.Append (selection_label);
-
-		if (selection_combo_box == null) {
-			selection_combo_box = ToolBarComboBox.New (170, 0, false);
-
-			selection_combo_box.ComboBox.OnChanged += (o, e) => {
-				selected_mode = combine_modes[selection_combo_box.ComboBox.GetActiveText ()!];
-			};
-
-			foreach (var mode in combine_modes)
-				selection_combo_box.ComboBox.AppendText (mode.Key);
-
-			selection_combo_box.ComboBox.Active = settings.GetSetting (SettingNames.SELECTION_COMBINE_MODE, 0);
-		}
-
-		tb.Append (selection_combo_box);
+		selected_mode = mode;
+		if (index >= 0)
+			selected_mode_index = index;
 	}
 
 	/// <summary>
@@ -165,8 +149,7 @@ public sealed class SelectionModeHandler
 
 	public void OnSaveSettings (ISettingsService settings)
 	{
-		if (selection_combo_box is not null)
-			settings.PutSetting (SettingNames.SELECTION_COMBINE_MODE, selection_combo_box.ComboBox.Active);
+		settings.PutSetting (SettingNames.SELECTION_COMBINE_MODE, selected_mode_index);
 	}
 }
 

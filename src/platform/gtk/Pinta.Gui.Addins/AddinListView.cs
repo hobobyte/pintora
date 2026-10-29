@@ -89,7 +89,7 @@ internal sealed partial class AddinListView
 		SetChild (flap);
 	}
 
-	internal void Configure (SystemManager system, IChromeService chrome)
+	internal void Configure (SystemManager system, ChromeManager chrome)
 	{
 		info_view.Configure (system, chrome);
 	}

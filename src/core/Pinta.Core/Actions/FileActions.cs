@@ -107,7 +107,7 @@ public sealed class FileActions
 		this.app = app;
 	}
 
-	public void RegisterActions (Gtk.Application application, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
 	{
 		bool isMac = system.OperatingSystem == OS.Mac;
 
@@ -124,12 +124,7 @@ public sealed class FileActions
 		menu.AppendItem (Open.CreateMenuItem ());
 		menu.AppendSection (null, save_section);
 		menu.AppendSection (null, close_section);
-#if false
-		// Printing is disabled for now until it is fully functional.
-		menu.Append (Print.CreateAcceleratedMenuItem (Gdk.Key.P, Gdk.ModifierType.ControlMask));
-		menu.AppendSeparator ();
-#endif
-		application.AddCommands ([
+		registrar.AddCommands ([
 			New,
 			NewScreenshot,
 			Open,
@@ -156,7 +151,7 @@ public sealed class FileActions
 		return results.All (succeeded => succeeded);
 	}
 
-	internal int RaiseModifyCompression (int defaultCompression, Gtk.Window parent)
+	internal int RaiseModifyCompression (int defaultCompression, object? parent)
 	{
 		ModifyCompressionEventArgs e = new (defaultCompression, parent);
 		ModifyCompression?.Invoke (this, e);

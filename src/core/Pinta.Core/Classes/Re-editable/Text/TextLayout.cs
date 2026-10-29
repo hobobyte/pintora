@@ -50,7 +50,7 @@ public sealed class TextLayout
 
 	public TextLayout (IChromeService chrome)
 	{
-		Layout = Pango.Layout.New (chrome.MainWindow.GetPangoContext ());
+		Layout = Pango.Layout.New (chrome.TextContext);
 	}
 
 	public ImmutableArray<RectangleI> GetSelectionRectangles ()

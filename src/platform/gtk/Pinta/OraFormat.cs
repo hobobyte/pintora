@@ -35,7 +35,7 @@ using GdkPixbuf;
 
 namespace Pinta.Core;
 
-public sealed class OraFormat : IImageImporter, IImageExporter, IImageFileImporter, IImageFileExporter
+public sealed class OraFormat : IImageImporter, IImageExporter
 {
 	private const int THUMB_MAX_SIZE = 256;
 
@@ -126,7 +126,7 @@ public sealed class OraFormat : IImageImporter, IImageExporter, IImageFileImport
 			} catch {
 				// Translators: {0} is the name of a layer, and {1} is the path to a .ora file.
 				string details = Translations.GetString ("Could not import layer \"{0}\" from {1}", name, zipfile);
-				PintaCore.Chrome.ShowMessageDialog (PintaCore.Chrome.MainWindow, Translations.GetString ("Error"), details);
+				PintaCore.Chrome.ShowMessageDialog (Translations.GetString ("Error"), details);
 			}
 		}
 

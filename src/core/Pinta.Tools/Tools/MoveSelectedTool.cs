@@ -51,10 +51,10 @@ public sealed class MoveSelectedTool : BaseTransformTool
 		"\nRight click and drag the selection to rotate selected content." +
 		"\nHold Shift to rotate in steps." +
 		"\nUse arrow keys to move selected content by a single pixel.",
-		system_manager.CtrlLabel ());
+		system_manager.CtrlLabel);
 
-	public override Gdk.Cursor DefaultCursor => (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor (Pinta.Resources.Icons.ToolMoveCursor))!;
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_M);
+	public override CursorDescriptor? DefaultCursorDescriptor => new (Pinta.Resources.Icons.ToolMoveCursor);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.M;
 	public override int Priority => 5;
 
 	protected override RectangleD GetSourceRectangle (Document document)

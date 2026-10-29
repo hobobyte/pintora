@@ -182,9 +182,9 @@ public sealed partial class ResizeImageDialog
 		resampling_combobox = resamplingCombobox;
 	}
 
-	private void Configure (IChromeService chrome, IWorkspaceService workspace, ISettingsService settings)
+	private void Configure (ChromeManager chrome, IWorkspaceService workspace, ISettingsService settings)
 	{
-		TransientFor = chrome.MainWindow;
+		TransientFor = chrome.GetMainWindow ();
 		this.workspace = workspace;
 		this.settings = settings;
 
@@ -203,7 +203,7 @@ public sealed partial class ResizeImageDialog
 		percentage_spinner.GrabFocus ();
 	}
 
-	internal static ResizeImageDialog New (IChromeService chrome, IWorkspaceService workspace, ISettingsService settings)
+	internal static ResizeImageDialog New (ChromeManager chrome, IWorkspaceService workspace, ISettingsService settings)
 	{
 		ResizeImageDialog dialog = NewWithProperties ([]);
 		dialog.Configure (chrome, workspace, settings);

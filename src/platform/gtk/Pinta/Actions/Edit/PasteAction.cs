@@ -72,7 +72,7 @@ internal sealed class PasteAction : IActionHandler
 		var doc = workspace.ActiveDocument;
 
 		// Get the scroll position in canvas coordinates
-		var view = (Gtk.Viewport) doc.Workspace.Canvas.Parent!;
+		var view = (Gtk.Viewport) ((Gtk.Widget) doc.Workspace.Canvas!).Parent!;
 
 		PointD viewPoint = new (
 			X: view.Hadjustment!.Value,
@@ -237,7 +237,7 @@ internal sealed class PasteAction : IActionHandler
 	{
 		string primary = Translations.GetString ("Image cannot be pasted");
 		string secondary = Translations.GetString ("The clipboard does not contain an image.");
-		return chrome.ShowMessageDialog (chrome.MainWindow, primary, secondary);
+		return chrome.ShowMessageDialog (primary, secondary);
 	}
 
 	public static async Task<Gtk.ResponseType> ShowExpandCanvasDialog (ChromeManager chrome)
@@ -245,7 +245,7 @@ internal sealed class PasteAction : IActionHandler
 		string primary = Translations.GetString ("Image larger than canvas");
 		string secondary = Translations.GetString ("The image being pasted is larger than the canvas. What would you like to do to the canvas size?");
 
-		using Adw.MessageDialog dialog = Adw.MessageDialog.New (chrome.MainWindow, primary, secondary);
+		using Adw.MessageDialog dialog = Adw.MessageDialog.New (chrome.GetMainWindow (), primary, secondary);
 
 		const string cancel_response = "cancel";
 		const string reject_response = "reject";

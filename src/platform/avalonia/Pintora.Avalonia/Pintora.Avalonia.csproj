@@ -29,4 +29,9 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Pintora.Avalonia.Tests" />
   </ItemGroup>
+
+  <!-- Optional compiled translations (build the GTK project with -p:BuildTranslations=true). -->
+  <ItemGroup>
+    <None Include="../../gtk/build/bin/locale/**/pinta.mo" Link="locale/%(RecursiveDir)pinta.mo" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

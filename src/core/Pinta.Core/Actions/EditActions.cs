@@ -52,7 +52,7 @@ public sealed class EditActions
 	public Command ResetPalette { get; }
 	public Command ResizePalette { get; }
 
-	private Gio.File? last_palette_dir = null;
+	private PathFileReference? last_palette_dir = null;
 	private Document? active_document = null;
 
 	private readonly ChromeManager chrome;
@@ -201,7 +201,7 @@ public sealed class EditActions
 		this.workspace = workspace;
 	}
 
-	public void RegisterActions (Gtk.Application app, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
 	{
 		Gio.Menu paste_section = Gio.Menu.New ();
 		paste_section.AppendItem (Cut.CreateMenuItem ());
@@ -237,7 +237,7 @@ public sealed class EditActions
 		menu.AppendSection (null, palette_section);
 		menu.AppendSubmenu (Translations.GetString ("Palette"), palette_menu);
 
-		app.AddCommands ([
+		registrar.AddCommands ([
 
 			Undo,
 			Redo,
@@ -262,10 +262,11 @@ public sealed class EditActions
 			ResizePalette]);
 	}
 
-	public void CreateHistoryWindowToolBar (Gtk.Box toolbar)
+	public void CreateHistoryWindowToolBar (IToolbarSurface toolbar)
 	{
-		toolbar.Append (Undo.CreateToolBarItem ());
-		toolbar.Append (Redo.CreateToolBarItem ());
+		IToolbarWidgetFactory widgetFactory = PintaCore.Services.GetService<IToolbarWidgetFactory> ();
+		toolbar.Append (widgetFactory.CreateToolBarItem (Undo));
+		toolbar.Append (widgetFactory.CreateToolBarItem (Redo));
 	}
 
 	public void RegisterHandlers ()
@@ -491,23 +492,20 @@ public sealed class EditActions
 		IFileReference? choice = await FileDialogs.OpenFileAsync (new FileDialogOptions (
 			Translations.GetString ("Open Palette File"),
 			[CreatePalettesFilter (), new FileDialogFilter (Translations.GetString ("All files"), [])],
-			last_palette_dir is null ? null : new PathFileReference (last_palette_dir.GetParseName ())));
+			last_palette_dir));
 
 		if (choice is null)
 			return;
 
-		Gio.File file = Gio.FileHelper.NewForPath ((choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed."));
-		last_palette_dir = file.GetParent ();
+		PathFileReference file = choice as PathFileReference ?? throw new InvalidOperationException ("The selected file is not path-backed.");
+		last_palette_dir = GetParentDirectory (file);
 
 		try {
 			palette.CurrentPalette.Load (palette_formats, file);
 
 		} catch (PaletteLoadException ex) {
 
-			var parent = chrome.MainWindow;
-
 			await chrome.ShowUnsupportedFormatDialog (
-				parent,
 				palette_formats.Formats,
 				ex.FileName,
 				Translations.GetString ("Unsupported palette format"),
@@ -522,7 +520,7 @@ public sealed class EditActions
 		IFileReference? choice = await FileDialogs.SaveFileAsync (new FileDialogOptions (
 			Translations.GetString ("Save Palette File"),
 			filters,
-			last_palette_dir is null ? null : new PathFileReference (last_palette_dir.GetParseName ())));
+			last_palette_dir));
 		if (choice is null)
 			return;
 
@@ -531,10 +529,16 @@ public sealed class EditActions
 		if (string.IsNullOrEmpty (extension))
 			path += "." + writableFormats.First ().Extensions.First ();
 
-		Gio.File file = Gio.FileHelper.NewForPath (path);
+		PathFileReference file = new (path);
 		PaletteDescriptor format = palette_formats.GetFormatByFilename (path) ?? throw new FormatException ();
 		palette.CurrentPalette.Save (file, format.Saver);
-		last_palette_dir = file.GetParent ();
+		last_palette_dir = GetParentDirectory (file);
+	}
+
+	private static PathFileReference? GetParentDirectory (PathFileReference file)
+	{
+		string? directory = System.IO.Path.GetDirectoryName (file.Path);
+		return string.IsNullOrEmpty (directory) ? null : new PathFileReference (directory);
 	}
 
 	private FileDialogFilter CreatePalettesFilter ()

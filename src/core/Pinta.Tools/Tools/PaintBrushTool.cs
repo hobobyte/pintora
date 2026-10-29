@@ -28,7 +28,6 @@
 using System;
 using System.Linq;
 using Cairo;
-using Gtk;
 using Pinta.Core;
 
 namespace Pinta.Tools;
@@ -44,7 +43,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 	private PointI? last_point = PointI.Zero;
 	private RectangleI? stroke_dirty_rect;
 	private uint? open_repeating_draw_id;
-	private Box brush_specific_options_box;
+	private IToolbarContainer brush_specific_options_box;
 
 	public PaintBrushTool (IServiceProvider services) : base (services)
 	{
@@ -63,7 +62,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 		};
 		brushes.BrushRemoved += (_, _) => RebuildBrushComboBox ();
 
-		brush_specific_options_box = Box.New (Orientation.Horizontal, 10);
+		brush_specific_options_box = WidgetFactory.CreateBox (10, 10);
 
 		workspace = services.GetService<IWorkspaceService> ();
 
@@ -82,33 +81,32 @@ public sealed class PaintBrushTool : BaseBrushTool
 	public override string Name => Translations.GetString ("Paintbrush");
 	public override string Icon => Pinta.Resources.Icons.ToolPaintBrush;
 	public override string StatusBarText => Translations.GetString ("Left click to draw with primary color, right click to draw with secondary color.");
-	public override Gdk.Key ShortcutKey => new (Gdk.Constants.KEY_B);
+	public override StandardKey? ShortcutKeyStandard => StandardKey.B;
 	public override int Priority => 21;
 
-	public override Gdk.Cursor DefaultCursor {
+	public override ShapedCursorDescriptor? DefaultShapedCursor {
 		get {
 			double scale = workspace.GetScale ();
-			return (Gdk.Cursor?) CursorService.CreateShapedCursor (
+			return new ShapedCursorDescriptor (
 				new CursorDescriptor ("Cursor.Paintbrush.png", 8, 24),
 				CursorShape.Ellipse,
 				scale,
-				BrushWidth)!;
+				BrushWidth);
 		}
 	}
 
 
-	protected override void OnBuildToolBar (Box tb)
+	protected override void OnBuildToolBar (IToolbarSurface tb)
 	{
 		base.OnBuildToolBar (tb);
 
-		tb.Append (Separator);
+		tb.Append (Separator.NativeWidget);
 
-		tb.Append (BrushLabel);
+		tb.Append (BrushLabel.NativeWidget);
 		tb.Append (BrushComboBox);
 
 		RebuildBrushSpecificOptions ();
-		brush_specific_options_box.MarginStart = 10;
-		tb.Append (brush_specific_options_box);
+		tb.Append (brush_specific_options_box.NativeWidget);
 		if (active_brush is not null) {
 			active_brush.UpdateLineWidth (BrushWidth);
 		}
@@ -218,7 +216,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 		base.OnSaveSettings (settings);
 
 		if (brush_combo_box is not null)
-			settings.PutSetting (SettingNames.PAINT_BRUSH_BRUSH, brush_combo_box.ComboBox.Active);
+			settings.PutSetting (SettingNames.PAINT_BRUSH_BRUSH, brush_combo_box.Active);
 
 		if (active_brush is not null) {
 			foreach (var option in active_brush.Options) {
@@ -236,20 +234,20 @@ public sealed class PaintBrushTool : BaseBrushTool
 		}
 	}
 
-	private Label? brush_label;
-	private ToolBarComboBox? brush_combo_box;
-	private Gtk.Separator? separator;
+	private IToolBarLabel? brush_label;
+	private IToolBarComboBox? brush_combo_box;
+	private IToolBarSeparator? separator;
 
-	private Gtk.Separator Separator => separator ??= GtkExtensions.CreateToolBarSeparator ();
-	private Label BrushLabel => brush_label ??= Label.New (string.Format (" {0}:  ", Translations.GetString ("Type")));
+	private IToolBarSeparator Separator => separator ??= WidgetFactory.CreateSeparator ();
+	private IToolBarLabel BrushLabel => brush_label ??= WidgetFactory.CreateLabel (string.Format (" {0}:  ", Translations.GetString ("Type")));
 
 
-	private ToolBarComboBox BrushComboBox {
+	private IToolBarComboBox BrushComboBox {
 		get {
 			if (brush_combo_box is null) {
-				brush_combo_box = ToolBarComboBox.New (100, 0, false);
-				brush_combo_box.ComboBox.OnChanged += (o, e) => {
-					var brush_name = brush_combo_box.ComboBox.GetActiveText ();
+				brush_combo_box = WidgetFactory.CreateComboBox (100, 0, false);
+				brush_combo_box.Changed += (o, e) => {
+					var brush_name = brush_combo_box.ActiveText;
 					active_brush = brushes.SingleOrDefault (brush => brush.Name == brush_name) ?? default_brush;
 					if (active_brush is not null) {
 						active_brush.UpdateLineWidth (BrushWidth);
@@ -260,8 +258,8 @@ public sealed class PaintBrushTool : BaseBrushTool
 
 				var brush = Settings.GetSetting (SettingNames.PAINT_BRUSH_BRUSH, 0);
 
-				if (brush < brush_combo_box.ComboBox.Model.IterNChildren (null))
-					brush_combo_box.ComboBox.Active = brush;
+				if (brush < brush_combo_box.ItemCount)
+					brush_combo_box.Active = brush;
 			}
 
 			return brush_combo_box;
@@ -275,13 +273,13 @@ public sealed class PaintBrushTool : BaseBrushTool
 	{
 		default_brush = brushes.FirstOrDefault ();
 
-		BrushComboBox.ComboBox.RemoveAll ();
+		BrushComboBox.RemoveAllItems ();
 
 		foreach (var brush in brushes)
-			BrushComboBox.ComboBox.AppendText (brush.Name);
+			BrushComboBox.AppendItem (brush.Name);
 
-		BrushComboBox.ComboBox.Active = 0;
-		BrushComboBox.ComboBox.OnChanged += (cbx, ev) => RebuildBrushSpecificOptions ();
+		BrushComboBox.Active = 0;
+		BrushComboBox.Changed += (cbx, ev) => RebuildBrushSpecificOptions ();
 	}
 
 	private void CancelRepeatingDraw ()
@@ -297,18 +295,17 @@ public sealed class PaintBrushTool : BaseBrushTool
 		brush_specific_options_box.RemoveAll ();
 		if (active_brush is not null) {
 			foreach (var option in active_brush.Options) {
-				brush_specific_options_box.Append ((Widget) option_view_factory.CreateView (option));
+				brush_specific_options_box.Append (option_view_factory.CreateView (option));
 			}
 		}
 	}
 
 	private void SetCursorFromBrush (BasePaintBrush brush)
 	{
-		Gdk.Cursor? brush_cursor = brush.GetCursor ();
-		if (brush_cursor is null) {
-			SetCursor (DefaultCursor);
-		} else {
+		if (brush.GetCursorNative () is { } brush_cursor) {
 			SetCursor (brush_cursor);
+		} else {
+			SetCursor (DefaultCursor);
 		}
 	}
 }

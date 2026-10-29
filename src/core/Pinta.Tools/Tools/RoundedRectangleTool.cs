@@ -33,7 +33,6 @@ public sealed class RoundedRectangleTool : ShapeTool
 {
 	public RoundedRectangleTool (IServiceProvider services) : base (services)
 	{
-		DefaultCursor = (Gdk.Cursor?) CursorService.CreateCursor (new CursorDescriptor ("Cursor.RoundedRectangle.png", 9, 18))!;
 
 		BaseEditEngine.CorrespondingTools[ShapeType] = this;
 		EditEngine = new RoundedLineEditEngine (services, this);
@@ -45,7 +44,7 @@ public sealed class RoundedRectangleTool : ShapeTool
 	public override string Icon
 		=> Pinta.Resources.Icons.ToolRectangleRounded;
 
-	public override Gdk.Cursor DefaultCursor { get; }
+	public override CursorDescriptor? DefaultCursorDescriptor => new ("Cursor.RoundedRectangle.png", 9, 18);
 
 	public override int Priority
 		=> 41;

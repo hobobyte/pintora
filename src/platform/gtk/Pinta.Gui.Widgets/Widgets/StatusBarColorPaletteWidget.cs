@@ -44,7 +44,7 @@ public sealed partial class StatusBarColorPaletteWidget
 	private readonly RectangleD swap_rect = new (27, 2, 15, 15);
 	private readonly RectangleD reset_rect = new (2, 27, 15, 15);
 
-	private IChromeService chrome = null!; // NRT - set by factory method
+	private ChromeManager chrome = null!; // NRT - set by factory method
 	private IPaletteService palette = null!;
 	private ISystemService system = null!;
 
@@ -71,7 +71,7 @@ public sealed partial class StatusBarColorPaletteWidget
 		AddController (click_gesture);
 	}
 
-	private void Configure (IChromeService chrome, IPaletteService palette, ISystemService system)
+	private void Configure (ChromeManager chrome, IPaletteService palette, ISystemService system)
 	{
 		this.chrome = chrome;
 		this.palette = palette;
@@ -83,7 +83,7 @@ public sealed partial class StatusBarColorPaletteWidget
 		palette.CurrentPalette.PaletteChanged += new EventHandler (Palette_ColorChanged);
 	}
 
-	public static StatusBarColorPaletteWidget New (IChromeService chrome, IPaletteService palette, ISystemService system)
+	public static StatusBarColorPaletteWidget New (ChromeManager chrome, IPaletteService palette, ISystemService system)
 	{
 		StatusBarColorPaletteWidget widget = NewWithProperties ([]);
 		widget.Configure (chrome, palette, system);
@@ -151,7 +151,7 @@ public sealed partial class StatusBarColorPaletteWidget
 				if (index < 0)
 					break;
 
-				bool isCtrlPressed = state.IsControlPressed ();
+				bool isCtrlPressed = ((ModifierKeys) (uint) state).IsControlPressed ();
 				if (button == GtkExtensions.MOUSE_RIGHT_BUTTON) {
 					palette.SecondaryColor = palette.CurrentPalette.Colors[index];
 				} else if (button == GtkExtensions.MOUSE_LEFT_BUTTON && !isCtrlPressed) {
@@ -372,7 +372,7 @@ public sealed partial class StatusBarColorPaletteWidget
 	private async Task<PaletteColors?> RunColorPicker (bool primarySelected)
 	{
 		using ColorPickerDialog colorPicker = ColorPickerDialog.New (
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			palette,
 			new PaletteColors (palette.PrimaryColor, palette.SecondaryColor),
 			primarySelected,
@@ -393,7 +393,7 @@ public sealed partial class StatusBarColorPaletteWidget
 		string title)
 	{
 		using ColorPickerDialog dialog = ColorPickerDialog.New (
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			palette,
 			colors,
 			primarySelected: true,
