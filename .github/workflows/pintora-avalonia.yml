@@ -197,6 +197,18 @@ jobs:
           version="$(sed -n 's/^[[:space:]]*<Version>\(.*\)<\/Version>[[:space:]]*$/\1/p' src/platform/avalonia/Pintora.Avalonia/Pintora.Avalonia.csproj | head -n 1)"
           echo "app-version=$version" >> "$GITHUB_OUTPUT"
 
+      - name: Extract release notes for this version
+        shell: bash
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app-version }}
+        run: |
+          # Take only the "## <version>" section of CHANGELOG.md, up to the next "## " heading.
+          awk -v v="$APP_VERSION" '$0 == "## " v {f=1; next} f && /^## / {exit} f' CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md has no non-empty '## $APP_VERSION' section"
+            exit 1
+          fi
+
       - name: Download platform packages
         uses: actions/download-artifact@v4
         with:
@@ -210,7 +222,7 @@ jobs:
           name: Pintora v${{ steps.version.outputs.app-version }}
           tag_name: v${{ steps.version.outputs.app-version }}
           target_commitish: ${{ github.sha }}
-          body_path: CHANGELOG.md
+          body_path: release-notes.md
           draft: true
           prerelease: true
           files: release-assets/*

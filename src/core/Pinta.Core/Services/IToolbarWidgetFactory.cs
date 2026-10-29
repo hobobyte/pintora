@@ -8,4 +8,5 @@ namespace Pinta.Core;
 public interface IToolbarWidgetFactory
 {
 	IToolBarDropDownButton CreateDropDownButton (bool showLabel = false);
+	IDashPatternBox CreateDashPatternBox ();
 }

@@ -81,7 +81,7 @@ public abstract class BaseEditEngine
 	protected Gtk.Label outline_width_label = null!;
 	protected Gtk.Separator outline_width_sep = null!;
 
-	protected DashPatternBox dash_pattern_box = new ();
+	protected IDashPatternBox? dash_pattern_box;
 	private string prev_dash_pattern = "-";
 
 	private bool prev_antialiasing = true;
@@ -217,7 +217,8 @@ public abstract class BaseEditEngine
 	private void OnFillStyleChanged (object? sender, EventArgs e)
 	{
 		outline_width.Visible = outline_width_label.Visible = outline_width_sep.Visible = StrokeShape;
-		dash_pattern_box.SetVisible (StrokeShape);
+		if (dash_pattern_box is not null)
+			dash_pattern_box.Visible = StrokeShape;
 		DrawActiveShape (false, false, true, false, false);
 	}
 
@@ -255,8 +256,8 @@ public abstract class BaseEditEngine
 		if (shape_type_button is not null)
 			settings.PutSetting (SettingNames.ShapeType (toolPrefix), shape_type_button.SelectedIndex);
 
-		if (dash_pattern_box?.ComboBox is not null)
-			settings.PutSetting (SettingNames.DashPattern (toolPrefix), dash_pattern_box.ComboBox.ComboBox.GetActiveText ()!);
+		if (dash_pattern_box is not null)
+			settings.PutSetting (SettingNames.DashPattern (toolPrefix), dash_pattern_box.Pattern);
 	}
 
 	public void HandleBuildToolBar (Gtk.Box tb, ISettingsService settings, string toolPrefix)
@@ -384,28 +385,22 @@ public abstract class BaseEditEngine
 
 		tb.Append (outline_width);
 
-		Gtk.ComboBoxText? dpbBox = dash_pattern_box.SetupToolbar (tb);
+		if (dash_pattern_box is null) {
+			dash_pattern_box = PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDashPatternBox ();
+			dash_pattern_box.Pattern = settings.GetSetting (SettingNames.DashPattern (toolPrefix), "-");
+			dash_pattern_box.PatternChanged += (o, e) => {
+				ShapeEngine? selEngine = SelectedShapeEngine;
+				if (selEngine == null) return;
+				selEngine.DashPattern = dash_pattern_box.Pattern;
+				StorePreviousSettings ();
+				DrawActiveShape (false, false, true, false, false);
+			};
+		}
+
+		tb.Append ((Gtk.Widget) dash_pattern_box.NativeWidget);
 
 		outline_width.Visible = outline_width_label.Visible = outline_width_sep.Visible = StrokeShape;
-		dash_pattern_box.SetVisible (StrokeShape);
-
-		if (dpbBox == null)
-			return;
-
-		dpbBox.GetEntry ().SetText (
-			settings.GetSetting (
-				SettingNames.DashPattern (toolPrefix),
-				"-"
-			)
-		);
-
-		dpbBox.OnChanged += (o, e) => {
-			ShapeEngine? selEngine = SelectedShapeEngine;
-			if (selEngine == null) return;
-			selEngine.DashPattern = dpbBox.GetActiveText ()!;
-			StorePreviousSettings ();
-			DrawActiveShape (false, false, true, false, false);
-		};
+		dash_pattern_box.Visible = StrokeShape;
 	}
 
 	public virtual void HandleActivated ()
@@ -1595,7 +1590,7 @@ public abstract class BaseEditEngine
 		owner.UseAntialiasing = engine.AntiAliasing;
 
 		//Update the DashPatternBox to represent the current shape's DashPattern.
-		dash_pattern_box.ComboBox!.ComboBox.GetEntry ().SetText (engine.DashPattern); // NRT - Code assumes this is not-null
+		dash_pattern_box!.Pattern = engine.DashPattern; // NRT - Code assumes the toolbar was built
 
 		OutlineColor = engine.OutlineColor;
 		FillColor = engine.FillColor;
@@ -1610,7 +1605,8 @@ public abstract class BaseEditEngine
 	/// </summary>
 	protected virtual void RecallPreviousSettings ()
 	{
-		dash_pattern_box.ComboBox?.ComboBox.GetEntry ().SetText (prev_dash_pattern);
+		if (dash_pattern_box is not null)
+			dash_pattern_box.Pattern = prev_dash_pattern;
 
 		owner.UseAntialiasing = prev_antialiasing;
 		BrushWidth = prev_outline_width;
@@ -1621,8 +1617,8 @@ public abstract class BaseEditEngine
 	/// </summary>
 	protected virtual void StorePreviousSettings ()
 	{
-		if (dash_pattern_box.ComboBox != null)
-			prev_dash_pattern = dash_pattern_box.ComboBox.ComboBox.GetEntry ().GetText ();
+		if (dash_pattern_box is not null)
+			prev_dash_pattern = dash_pattern_box.Pattern;
 
 		prev_antialiasing = owner.UseAntialiasing;
 		prev_outline_width = BrushWidth;

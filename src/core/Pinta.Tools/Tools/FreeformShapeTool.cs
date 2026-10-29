@@ -39,7 +39,7 @@ public sealed class FreeformShapeTool : BaseBrushTool
 	private Color fill_color;
 	private Color outline_color;
 
-	private readonly DashPatternBox dash_p_box = new ();
+	private IDashPatternBox? dash_p_box;
 
 	private string dash_pattern = "-";
 
@@ -59,25 +59,22 @@ public sealed class FreeformShapeTool : BaseBrushTool
 		tb.Append (Separator);
 		base.OnBuildToolBar ((Gtk.Box) tb.NativeToolbar);
 
-		// TODO: This could be cleaner.
-		// This will only return an item on the first setup so we only add the handler once.
-		var dash_pattern_box = dash_p_box.SetupToolbar ((Gtk.Box) tb.NativeToolbar);
-		BrushWidthLabel.Visible = BrushWidthSpinButton.Visible = StrokeShape;
-		dash_p_box.SetVisible (StrokeShape);
-
-		if (dash_pattern_box != null) {
-			dash_pattern_box.GetEntry ().SetText (Settings.GetSetting (SettingNames.FREEFORM_SHAPE_DASH_PATTERN, "-"));
-
-			dash_pattern_box.OnChanged += (_, _) => {
-				dash_pattern = dash_pattern_box.GetActiveText ()!;
-			};
+		if (dash_p_box is null) {
+			dash_p_box = PintaCore.Services.GetService<IToolbarWidgetFactory> ().CreateDashPatternBox ();
+			dash_p_box.Pattern = Settings.GetSetting (SettingNames.FREEFORM_SHAPE_DASH_PATTERN, "-");
+			dash_p_box.PatternChanged += (_, _) => dash_pattern = dash_p_box.Pattern;
 		}
+
+		tb.Append (dash_p_box.NativeWidget);
+		BrushWidthLabel.Visible = BrushWidthSpinButton.Visible = StrokeShape;
+		dash_p_box.Visible = StrokeShape;
 	}
 
 	private void OnFillStyleChanged (object? sender, EventArgs e)
 	{
 		BrushWidthLabel.Visible = BrushWidthSpinButton.Visible = StrokeShape;
-		dash_p_box.SetVisible (StrokeShape);
+		if (dash_p_box is not null)
+			dash_p_box.Visible = StrokeShape;
 	}
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
@@ -204,8 +201,8 @@ public sealed class FreeformShapeTool : BaseBrushTool
 
 		if (fill_button is not null)
 			settings.PutSetting (SettingNames.FREEFORM_SHAPE_FILL_TYPE, fill_button.SelectedIndex);
-		if (dash_p_box?.ComboBox is not null)
-			settings.PutSetting (SettingNames.FREEFORM_SHAPE_DASH_PATTERN, dash_p_box.ComboBox.ComboBox.GetActiveText ()!);
+		if (dash_p_box is not null)
+			settings.PutSetting (SettingNames.FREEFORM_SHAPE_DASH_PATTERN, dash_p_box.Pattern);
 	}
 
 	private bool StrokeShape => FillDropDown.SelectedItem.GetTagOrDefault (0) % 2 == 0;

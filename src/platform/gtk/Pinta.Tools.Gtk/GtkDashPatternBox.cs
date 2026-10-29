@@ -1,5 +1,5 @@
 //
-// DashPatternBox.cs
+// GtkDashPatternBox.cs
 //
 // Author:
 //       Andrew Davis <andrew.3.1415@gmail.com>
@@ -24,61 +24,38 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-using Gtk;
-using Pinta.Core;
+using System;
 
-namespace Pinta.Tools;
+namespace Pinta.Core;
 
-public sealed class DashPatternBox
+/// <summary>GTK implementation of <see cref="IDashPatternBox"/>.</summary>
+public sealed class GtkDashPatternBox : IDashPatternBox
 {
-	private bool dash_change_setup = false;
+	private readonly Gtk.Box container = Gtk.Box.New (Gtk.Orientation.Horizontal, 0);
+	private readonly ToolBarComboBox combo_box;
 
-	private Label? dash_pattern_label;
-	private Separator? dash_pattern_sep;
-
-	public ToolBarComboBox? ComboBox { get; private set; }
-
-	/// <summary>
-	/// Sets up the DashPatternBox in the Toolbar.
-	///
-	/// Note that the dash pattern change event response code must be created manually outside of the DashPatternBox
-	/// (using the returned Gtk.ComboBox from the SetupToolbar method) so that each tool that uses it
-	/// can react to the change in pattern according to its usage.
-	///
-	/// Returns null if the DashPatternBox has already been setup; otherwise, returns the DashPatternBox itself.
-	/// </summary>
-	/// <param name="tb">The Toolbar to add the DashPatternBox to.</param>
-	/// <returns>null if the DashPatternBox has already been setup; otherwise, returns the DashPatternBox itself.</returns>
-	public Gtk.ComboBoxText? SetupToolbar (Box tb)
+	public GtkDashPatternBox ()
 	{
-		dash_pattern_sep ??= GtkExtensions.CreateToolBarSeparator ();
+		container.Append (GtkExtensions.CreateToolBarSeparator ());
+		container.Append (Gtk.Label.New ($" {Translations.GetString ("Dash")}: "));
 
-		tb.Append (dash_pattern_sep);
-
-		if (dash_pattern_label == null) {
-			var dashString = Translations.GetString ("Dash");
-			dash_pattern_label = Label.New ($" {dashString}: ");
-		}
-
-		tb.Append (dash_pattern_label);
-
-		ComboBox ??= ToolBarComboBox.New (50, 0, true,
+		combo_box = ToolBarComboBox.New (50, 0, true,
 				"-", " -", " --", " ---", "  -", "   -", " - --", " - - --------", " - - ---- - ----");
-
-		tb.Append (ComboBox);
-
-		if (dash_change_setup) {
-			return null;
-		} else {
-			dash_change_setup = true;
-
-			return ComboBox.ComboBox;
-		}
+		combo_box.ComboBox.OnChanged += (_, _) => PatternChanged?.Invoke (this, EventArgs.Empty);
+		container.Append (combo_box);
 	}
 
-	public void SetVisible (bool visible)
-	{
-		if (dash_pattern_label == null || dash_pattern_sep == null || ComboBox == null) { return; }
-		dash_pattern_label.Visible = dash_pattern_sep.Visible = ComboBox.Visible = visible;
+	public string Pattern {
+		get => combo_box.ComboBox.GetEntry ().GetText ();
+		set => combo_box.ComboBox.GetEntry ().SetText (value);
+	}
+
+	public event EventHandler? PatternChanged;
+
+	public object NativeWidget => container;
+
+	public bool Visible {
+		get => container.Visible;
+		set => container.Visible = value;
 	}
 }
