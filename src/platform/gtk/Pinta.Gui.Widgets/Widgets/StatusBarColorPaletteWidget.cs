@@ -372,7 +372,7 @@ public sealed partial class StatusBarColorPaletteWidget
 	private async Task<PaletteColors?> RunColorPicker (bool primarySelected)
 	{
 		using ColorPickerDialog colorPicker = ColorPickerDialog.New (
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			palette,
 			new PaletteColors (palette.PrimaryColor, palette.SecondaryColor),
 			primarySelected,
@@ -393,7 +393,7 @@ public sealed partial class StatusBarColorPaletteWidget
 		string title)
 	{
 		using ColorPickerDialog dialog = ColorPickerDialog.New (
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			palette,
 			colors,
 			primarySelected: true,

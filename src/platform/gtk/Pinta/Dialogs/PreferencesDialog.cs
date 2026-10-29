@@ -175,7 +175,7 @@ internal sealed partial class PreferencesDialog
 	private async Task ChooseStartupColor ()
 	{
 		using ColorPickerDialog dialog = ColorPickerDialog.New (
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			palette,
 			new SingleColor (startup_color_button.DisplayColor),
 			primarySelected: true,

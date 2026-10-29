@@ -223,7 +223,7 @@ public sealed partial class NewImageDialog
 		BackgroundType initialBackgroundType,
 		bool isClipboardSize)
 	{
-		TransientFor = chrome.MainWindow;
+		TransientFor = chrome.GetMainWindow ();
 		this.palette = palette;
 
 		// We don't show the background color option if it's the same as "White"

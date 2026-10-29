@@ -161,7 +161,7 @@ public sealed partial class CurvesDialog
 	public static CurvesDialog New (ChromeManager chrome, CurvesData effectData)
 	{
 		CurvesDialog dialog = NewWithProperties ([]);
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		dialog.EffectData = effectData;
 		dialog.ResetControlPoints ();
 		return dialog;

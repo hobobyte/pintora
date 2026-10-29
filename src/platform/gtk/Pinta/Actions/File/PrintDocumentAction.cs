@@ -55,7 +55,7 @@ public class PrintDocumentAction : IActionHandler
 		op.BeginPrint += HandleBeginPrint;
 		op.DrawPage += HandleDrawPage;
 
-		var result = op.Run (PrintOperationAction.PrintDialog, PintaCore.Chrome.MainWindow);
+		var result = op.Run (PrintOperationAction.PrintDialog, PintaCore.Chrome.GetMainWindow ());
 
 		if (result == PrintOperationResult.Apply) {
 			// TODO - save print settings.

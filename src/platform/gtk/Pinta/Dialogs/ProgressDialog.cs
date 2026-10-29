@@ -76,7 +76,7 @@ public sealed partial class ProgressDialog : IProgressDialog
 	public static ProgressDialog New (ChromeManager chrome)
 	{
 		ProgressDialog dialog = NewWithProperties ([]);
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		return dialog;
 	}
 

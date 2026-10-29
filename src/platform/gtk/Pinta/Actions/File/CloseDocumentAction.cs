@@ -74,7 +74,7 @@ internal sealed class CloseDocumentAction : IActionHandler
 
 		string body = Translations.GetString ("If you don't save, all changes will be permanently lost.");
 
-		Adw.MessageDialog dialog = Adw.MessageDialog.New (chrome.MainWindow, heading, body);
+		Adw.MessageDialog dialog = Adw.MessageDialog.New (chrome.GetMainWindow (), heading, body);
 
 		const string cancel_response = "cancel";
 		const string discard_response = "discard";

@@ -81,7 +81,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			return true;
 
 		// If the document already has a filename, just re-save it
-		return await SaveFile (e.Document, null, null, chrome.MainWindow);
+		return await SaveFile (e.Document, null, null, chrome.GetMainWindow ());
 	}
 
 	// This is actually both for "Save As" and saving a file that never
@@ -90,7 +90,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 	{
 		var fcd = Gtk.FileChooserNative.New (
 			Translations.GetString ("Save Image File"),
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			Gtk.FileChooserAction.Save,
 			Translations.GetString ("Save"),
 			Translations.GetString ("Cancel"));
@@ -164,7 +164,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 
 			// If saving the file failed or was cancelled, let the user select
 			// a different file type.
-			if (!await SaveFile (document, file, format, chrome.MainWindow)) {
+			if (!await SaveFile (document, file, format, chrome.GetMainWindow ())) {
 				// Re-set the current name and directory
 				fcd.SetCurrentName (displayName);
 				fcd.SetCurrentFolder (directory);
@@ -216,7 +216,6 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 		if (format is null || !format.IsExportAvailable ()) {
 
 			await chrome.ShowMessageDialog (
-				parent,
 				Translations.GetString ("Pinta does not support saving images in this file format."),
 				// Use this instead of file.GetDisplayName() in case file was not created
 				file.GetSafeDisplayName ());
@@ -240,7 +239,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			string primary = Translations.GetString ("Image too large");
 			string secondary = Translations.GetString ("ICO files can not be larger than 256 x 256 pixels.");
 
-			await chrome.ShowMessageDialog (parent, primary, secondary);
+			await chrome.ShowMessageDialog (primary, secondary);
 
 			return false;
 
@@ -254,7 +253,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			// Translators: {0} is the name of a file that the user does not have write permission for.
 			string secondary = Translations.GetString ("You do not have access to modify '{0}'. The file or folder may be read-only.", fileName);
 
-			await chrome.ShowMessageDialog (parent, primary, secondary);
+			await chrome.ShowMessageDialog (primary, secondary);
 
 			return false;
 
@@ -287,7 +286,7 @@ internal sealed class SaveDocumentImplmentationAction : IActionHandler
 			string heading = Translations.GetString ("This format does not support layers. Flatten image?");
 			string body = Translations.GetString ("Flattening the image will merge all layers into a single layer.");
 
-			using Adw.MessageDialog dialog = Adw.MessageDialog.New (chrome.MainWindow, heading, body);
+			using Adw.MessageDialog dialog = Adw.MessageDialog.New (chrome.GetMainWindow (), heading, body);
 			dialog.AddResponse (RESPONSE_CANCEL, Translations.GetString ("_Cancel"));
 			dialog.AddResponse (RESPONSE_FLATTEN, Translations.GetString ("Flatten"));
 			dialog.SetResponseAppearance (RESPONSE_FLATTEN, Adw.ResponseAppearance.Suggested);

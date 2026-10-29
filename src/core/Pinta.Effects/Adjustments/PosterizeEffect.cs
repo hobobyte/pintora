@@ -30,33 +30,17 @@ public sealed class PosterizeEffect : BaseEffect
 
 	public PosterizeData Data => (PosterizeData) EffectData!;  // NRT - Set in constructor
 
-	private readonly ChromeManager chrome;
 	private readonly IEffectConfigurationService? configurationService;
 
 	public PosterizeEffect (IServiceProvider services)
 	{
-		chrome = (ChromeManager) services.GetService<IChromeService> ();
 		configurationService = services.GetService<IEffectConfigurationService> ();
 
 		EffectData = new PosterizeData ();
 	}
 
-	public override async Task<bool> LaunchConfiguration ()
-	{
-		if (configurationService is not null)
-			return await configurationService.ConfigureAsync (this);
-
-		using PosterizeDialog dialog = PosterizeDialog.New (chrome);
-		dialog.Title = Name;
-		dialog.IconName = Icon;
-		dialog.EffectData = Data; // TODO: Delegate `EffectData` changes to event handlers or similar
-
-		Gtk.ResponseType response = await dialog.RunAsync ();
-
-		dialog.Destroy ();
-
-		return Gtk.ResponseType.Ok == response;
-	}
+	public override Task<bool> LaunchConfiguration ()
+		=> configurationService?.ConfigureAsync (this) ?? Task.FromResult (false);
 
 	public override void Render (ImageSurface src, ImageSurface dest, ReadOnlySpan<RectangleI> rois)
 	{

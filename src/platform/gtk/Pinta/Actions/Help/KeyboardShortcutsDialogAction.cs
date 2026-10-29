@@ -106,7 +106,7 @@ internal sealed class KeyboardShortcutsDialogAction : IActionHandler
 		AddSection (Translations.GetString ("Window"), GetCommands (actions.Window));
 		AddSection (Translations.GetString ("Help"), GetCommands (actions.Help));
 
-		dialog.Present (chrome.MainWindow);
+		dialog.Present (chrome.GetMainWindow ());
 	}
 
 	private static IEnumerable<Command> GetCommands (object actionCollection)

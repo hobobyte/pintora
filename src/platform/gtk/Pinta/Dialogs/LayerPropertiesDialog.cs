@@ -153,7 +153,7 @@ public sealed partial class LayerPropertiesDialog
 	private void Configure (ChromeManager chrome, WorkspaceManager workspace)
 	{
 		this.workspace = workspace;
-		TransientFor = chrome.MainWindow;
+		TransientFor = chrome.GetMainWindow ();
 
 		Document doc = workspace.ActiveDocument;
 

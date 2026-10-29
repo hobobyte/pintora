@@ -67,7 +67,7 @@ internal sealed class ResizePaletteAction : IActionHandler
 	{
 		using SpinButtonEntryDialog dialog = SpinButtonEntryDialog.New ();
 		dialog.Title = Translations.GetString ("Resize Palette");
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		dialog.LabelText = Translations.GetString ("New palette size:");
 		dialog.SetRange (1, 96);
 		dialog.Value = palette.CurrentPalette.Colors.Count;

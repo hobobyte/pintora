@@ -93,7 +93,7 @@ public sealed partial class AlignmentDialog
 	public static AlignmentDialog New (ChromeManager chrome)
 	{
 		AlignmentDialog dialog = NewWithProperties ([]);
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		return dialog;
 	}
 

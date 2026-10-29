@@ -180,7 +180,7 @@ internal sealed class MainClass
 
 	private static void OnUnhandledException (Exception e)
 	{
-		_ = PintaCore.Chrome.ShowErrorDialog (PintaCore.Chrome.MainWindow,
+		_ = PintaCore.Chrome.ShowErrorDialog (
 				"Unhandled exception", e.Message, e.ToString ());
 	}
 
@@ -198,7 +198,7 @@ internal sealed class MainClass
 		};
 
 		MacInterop.ApplicationEvents.Reopen += (sender, e) => {
-			var window = PintaCore.Chrome.MainWindow;
+			var window = PintaCore.Chrome.GetMainWindow ();
 			window.Unminimize ();
 			window.Hide ();
 			window.Show ();

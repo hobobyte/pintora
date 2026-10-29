@@ -66,7 +66,7 @@ public sealed class RotateZoomLayerAction : IActionHandler
 		RotateZoomData data = new ();
 
 		using SimpleEffectDialog dialog = SimpleEffectDialog.New (
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			Translations.GetString ("Rotate / Zoom Layer"),
 			Resources.Icons.LayerRotateZoom,
 			data,

@@ -60,7 +60,7 @@ internal sealed class AboutDialogAction : IActionHandler
 	private async void Activated (object sender, EventArgs e)
 	{
 		using Adw.AboutWindow dialog = Adw.AboutWindow.New ();
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		dialog.Title = Translations.GetString ("About Pinta");
 		dialog.ApplicationName = Translations.GetString ("Pinta");
 		dialog.ApplicationIcon = Icons.Pinta;

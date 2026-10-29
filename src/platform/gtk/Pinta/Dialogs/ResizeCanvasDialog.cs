@@ -250,7 +250,7 @@ public sealed partial class ResizeCanvasDialog
 
 	private void Configure (ChromeManager chrome, IWorkspaceService workspace, ISettingsService settings)
 	{
-		TransientFor = chrome.MainWindow;
+		TransientFor = chrome.GetMainWindow ();
 		this.workspace = workspace;
 		this.settings = settings;
 

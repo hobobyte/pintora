@@ -320,7 +320,7 @@ public sealed partial class LevelsDialog
 		LevelsData effectData)
 	{
 		LevelsDialog dialog = NewWithProperties ([]);
-		dialog.TransientFor = chrome.MainWindow;
+		dialog.TransientFor = chrome.GetMainWindow ();
 		dialog.chrome = chrome;
 		dialog.palette = palette;
 		dialog.workspace = workspace;
@@ -658,7 +658,7 @@ public sealed partial class LevelsDialog
 				throw new Exception ("Controller widget should be non-null");
 
 		using ColorPickerDialog ccd = ColorPickerDialog.New (
-			chrome.MainWindow,
+			chrome.GetMainWindow (),
 			palette,
 			new SingleColor (panel.CairoColor),
 			primarySelected: true,
