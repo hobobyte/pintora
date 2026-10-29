@@ -140,16 +140,18 @@ internal sealed class SlashBrush : BasePaintBrush
 	{
 		double scale = workspace.GetScale ();
 		/*
-			If we do not override a 0 angle with 180, the logic in GdkExtensions will 
+			If we do not override a 0 angle with 180, the logic in GdkExtensions will
 			step into the "rectangle" path which will look inconsistent (unfilled) to all
 			other angles, so call a 0 angle with 180 for cursor creation so that it looks
 			consistent.
 		*/
-		var icon = GdkExtensions.CreateIconWithShape ("Cursor.Paintbrush.png",
-						CursorShape.Rectangle, scale, 2, line_width, angle == 0 ? 180 : angle, 8, 24,
-						out var iconOffsetX, out var iconOffsetY);
-
-		return GdkExtensions.CreateCursorFromTexture (icon, iconOffsetX, iconOffsetY);
+		int cursorAngle = angle == 0 ? 180 : angle;
+		return PintaCore.Services.GetService<ICursorService> ().CreateShapedIconCursor (
+			new CursorDescriptor ("Cursor.Paintbrush.png", 8, 24),
+			CursorShape.Rectangle,
+			scale,
+			line_width,
+			cursorAngle);
 	}
 
 	private PointD OffsetPoint (PointD point, double multiplier, double offset, float angle_in_degrees)

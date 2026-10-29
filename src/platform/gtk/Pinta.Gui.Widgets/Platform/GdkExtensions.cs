@@ -1,28 +1,10 @@
 //
 // GdkExtensions.cs
 //
-// Author:
-//       Jonathan Pobst <monkey@jpobst.com>
+// GTK/GDK interop helpers (cursor icons, textures, content providers).
+// Lives in the GTK platform assembly (Pinta.Gui.Widgets); namespace kept as
+// Pinta.Core so call sites need no using changes.
 //
-// Copyright (c) 2010 Jonathan Pobst
-//
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
 
 using System;
 using System.Collections.Generic;
@@ -30,6 +12,8 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Cairo;
+
+
 
 namespace Pinta.Core;
 
@@ -45,35 +29,6 @@ public static class GdkExtensions
 			osxLibraryName: "libgtk-4.1.dylib"
 		);
 	}
-	public static bool IsShiftPressed (this Gdk.ModifierType m)
-		=> m.HasFlag (Gdk.ModifierType.ShiftMask);
-
-	/// <summary>
-	/// Returns whether a Ctrl modifier is pressed (or the Cmd key on macOS).
-	/// </summary>
-	public static bool IsControlPressed (this Gdk.ModifierType m)
-	{
-		if (PintaCore.System.OperatingSystem == OS.Mac)
-			return m.HasFlag (Gdk.ModifierType.MetaMask);
-		else
-			return m.HasFlag (Gdk.ModifierType.ControlMask);
-	}
-
-	public static bool IsAltPressed (this Gdk.ModifierType m)
-		=> m.HasFlag (Gdk.ModifierType.AltMask);
-
-	public static bool IsLeftMousePressed (this Gdk.ModifierType m)
-		=> m.HasFlag (Gdk.ModifierType.Button1Mask);
-
-	public static bool IsRightMousePressed (this Gdk.ModifierType m)
-		=> m.HasFlag (Gdk.ModifierType.Button3Mask);
-
-	/// <summary>
-	/// Returns whether any of the Ctrl/Cmd/Shift/Alt modifiers are active.
-	/// This prevents Caps Lock, Num Lock, etc from appearing as active modifier keys.
-	/// </summary>
-	public static bool HasModifierKey (this Gdk.ModifierType current_state)
-		=> current_state.IsControlPressed () || current_state.IsShiftPressed () || current_state.IsAltPressed ();
 
 	/// <summary>
 	/// Create a cursor icon with a shape that visually represents the tool's thickness.
@@ -262,11 +217,6 @@ public static class GdkExtensions
 	public static Gdk.Cursor CreateCursorFromTexture (Gdk.Texture icon, int hotspotX, int hotspotY)
 		=> Gdk.Cursor.NewFromTexture (icon, hotspotX, hotspotY, null);
 
-	/// <summary>
-	/// Convert from Gdk.RGBA to Cairo.Color.
-	/// </summary>
-	public static Cairo.Color ToCairoColor (this Gdk.RGBA color)
-		=> new (color.Red, color.Green, color.Blue, color.Alpha);
 
 	/// <summary>
 	/// Convert from Cairo.Color to Gdk.RGBA.
