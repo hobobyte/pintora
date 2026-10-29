@@ -221,7 +221,10 @@ public abstract class SelectTool : BaseTool
 			handle.GetCursorAtPoint (viewPos) :
 			null;
 
-		SetCursor (cursorName is null ? DefaultCursor : GdkExtensions.CursorFromName (cursorName));
+		if (cursorName is null)
+			SetCursor (DefaultCursor);
+		else
+			SetCursor (cursorName);
 	}
 
 	protected override void OnAfterUndo (Document document)

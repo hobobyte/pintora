@@ -73,7 +73,7 @@ public sealed class GradientTool : BaseTool
 	{
 		tb.Append (GradientLabel.NativeWidget);
 		tb.Append (GradientDropDown.NativeWidget);
-		tb.Append (GtkExtensions.CreateToolBarSeparator ());
+		tb.Append (WidgetFactory.CreateSeparator ().NativeWidget);
 		tb.Append (ModeLabel.NativeWidget);
 		tb.Append (ColorModeDropDown.NativeWidget);
 
@@ -192,7 +192,10 @@ public sealed class GradientTool : BaseTool
 	private void UpdateCursorAndHandle (PointD canvasPoint, Document document)
 	{
 		string? cursorName = handle.UpdateHoverHandle (canvasPoint, out RectangleI handleDirtyRegion);
-		SetCursor (cursorName is null ? DefaultCursor : GdkExtensions.CursorFromName (cursorName));
+		if (cursorName is null)
+			SetCursor (DefaultCursor);
+		else
+			SetCursor (cursorName);
 		document.Workspace.InvalidateWindowRect (handleDirtyRegion);
 	}
 
