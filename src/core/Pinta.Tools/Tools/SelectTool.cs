@@ -215,11 +215,11 @@ public abstract class SelectTool : BaseTool
 
 	private void UpdateCursor (PointD viewPos)
 	{
-		Gdk.Cursor? cursor = handle.Active ?
+		string? cursorName = handle.Active ?
 			handle.GetCursorAtPoint (viewPos) :
 			null;
 
-		SetCursor (cursor ?? DefaultCursor);
+		SetCursor (cursorName is null ? DefaultCursor : GdkExtensions.CursorFromName (cursorName));
 	}
 
 	protected override void OnAfterUndo (Document document)

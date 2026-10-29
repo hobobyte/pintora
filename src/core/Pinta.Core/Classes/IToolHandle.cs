@@ -25,6 +25,6 @@ public interface IToolHandle
 	/// into the correct space.
 	/// Use InvalidateWindowRect() to trigger a repaint when the handle's position / size / etc. changes.
 	/// </summary>
-	public void Draw (Gtk.Snapshot snapshot);
+	public void Draw (IToolHandleRenderer renderer);
 }
 

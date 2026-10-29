@@ -9,10 +9,9 @@ namespace Pinta.Tools;
 /// </summary>
 public sealed class MoveHandle : IToolHandle
 {
-	private static readonly Gdk.RGBA fill_color = new () { Red = 0, Green = 0, Blue = 1, Alpha = 1 };
-	private static readonly Gdk.RGBA selection_fill_color = new () { Red = 1, Green = 0.5f, Blue = 0, Alpha = 1 };
-	private static readonly Gdk.RGBA stroke_color = new () { Red = 1, Green = 1, Blue = 1, Alpha = 0.7f };
-	private static readonly Gdk.Cursor default_cursor = GdkExtensions.CursorFromName (Pinta.Resources.StandardCursors.Default);
+	private static readonly ColorD fill_color = new (0, 0, 1, 1);
+	private static readonly ColorD selection_fill_color = new (1, 0.5, 0, 1);
+	private static readonly ColorD stroke_color = new (1, 1, 1, 0.7);
 
 	private const double RADIUS = 4.5;
 
@@ -35,7 +34,12 @@ public sealed class MoveHandle : IToolHandle
 	/// </summary>
 	public bool Selected { get; set; } = false;
 
-	public Gdk.Cursor Cursor { get; init; } = default_cursor;
+	/// <summary>
+	/// Name of the cursor to display when hovering over this handle
+	/// (a standard CSS cursor name, see Pinta.Resources.StandardCursors).
+	/// The platform canvas converts the name to a native cursor.
+	/// </summary>
+	public string Cursor { get; init; } = Pinta.Resources.StandardCursors.Default;
 
 	/// <summary>
 	/// Tests whether the window point is inside the handle's area.
@@ -52,18 +56,14 @@ public sealed class MoveHandle : IToolHandle
 	/// <summary>
 	/// Draw the handle, at a constant window space size (i.e. not depending on the image zoom or resolution)
 	/// </summary>
-	public void Draw (Gtk.Snapshot snapshot)
+	public void Draw (IToolHandleRenderer renderer)
 	{
-		Gsk.PathBuilder pathBuilder = Gsk.PathBuilder.New ();
 		PointD windowPt = workspace.CanvasPointToView (CanvasPosition);
-		pathBuilder.AddCircle (windowPt.ToGraphenePoint (), (float) RADIUS);
-		Gsk.Path path = pathBuilder.ToPath ();
 
-		Gdk.RGBA fillColor = Selected ? selection_fill_color : fill_color;
-		snapshot.AppendFill (path, Gsk.FillRule.EvenOdd, fillColor);
+		ColorD fillColor = Selected ? selection_fill_color : fill_color;
+		renderer.FillCircle (windowPt, RADIUS, fillColor);
 
-		Gsk.Stroke stroke = Gsk.Stroke.New (lineWidth: 1.0f);
-		snapshot.AppendStroke (path, stroke, stroke_color);
+		renderer.StrokeCircle (windowPt, RADIUS, 1.0, stroke_color);
 	}
 
 	/// <summary>
@@ -91,4 +91,3 @@ public sealed class MoveHandle : IToolHandle
 		.DefaultIfEmpty (RectangleI.Zero)
 		.Aggregate ((accum, r) => accum.Union (r));
 }
-
