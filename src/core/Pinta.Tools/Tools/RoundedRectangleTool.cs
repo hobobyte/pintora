@@ -45,7 +45,7 @@ public sealed class RoundedRectangleTool : ShapeTool
 	public override string Icon
 		=> Pinta.Resources.Icons.ToolRectangleRounded;
 
-	public override Gdk.Cursor DefaultCursor { get; }
+	public override Gdk.Cursor? DefaultCursor { get; set; }
 
 	public override int Priority
 		=> 41;

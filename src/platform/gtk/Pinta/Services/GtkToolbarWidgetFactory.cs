@@ -22,4 +22,10 @@ internal sealed class GtkToolbarWidgetFactory : IToolbarWidgetFactory
 
 	public IToolBarCheckButton CreateCheckButton (string label)
 		=> new GtkToolBarCheckButton (label);
+
+	public IToolBarToggleButton CreateToggleButton (string iconName, string tooltipText)
+		=> new GtkToolBarToggleButton (iconName, tooltipText);
+
+	public IToolBarFontButton CreateFontButton (string? initialFont)
+		=> new GtkToolBarFontButton (initialFont);
 }

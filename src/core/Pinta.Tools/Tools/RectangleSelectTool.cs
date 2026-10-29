@@ -41,7 +41,7 @@ public sealed class RectangleSelectTool : SelectTool
 	public override string StatusBarText => Translations.GetString (
 		"Click and drag to draw a rectangular selection." +
 		"\nHold Shift to constrain to a square.");
-	public override Gdk.Cursor DefaultCursor { get; }
+	public override Gdk.Cursor? DefaultCursor { get; set; }
 	public override int Priority => 13;
 
 	protected override void DrawShape (Document document, RectangleD r, Layer l)

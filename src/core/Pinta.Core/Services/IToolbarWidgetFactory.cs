@@ -13,4 +13,11 @@ public interface IToolbarWidgetFactory
 	IToolBarSeparator CreateSeparator ();
 	IToolBarSpinButton CreateSpinButton (double min, double max, double step, double initialValue);
 	IToolBarCheckButton CreateCheckButton (string label);
+	IToolBarToggleButton CreateToggleButton (string iconName, string tooltipText);
+
+	/// <summary>
+	/// Create a font selection button. When initialFont is null or empty,
+	/// the platform default font is used.
+	/// </summary>
+	IToolBarFontButton CreateFontButton (string? initialFont);
 }

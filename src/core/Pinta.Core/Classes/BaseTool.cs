@@ -85,11 +85,24 @@ public abstract class BaseTool
 	public virtual string StatusBarText
 		=> string.Empty;
 
+	private Cursor? default_cursor;
+
 	/// <summary>
 	/// The default cursor used by the tool. Return 'null' for the default pointer.
+	/// Tools that don't set this property can instead override <see cref="DefaultCursorName"/>
+	/// to use a neutral (standard) cursor name without referencing platform types.
 	/// </summary>
-	public virtual Cursor? DefaultCursor
-		=> null;
+	public virtual Cursor? DefaultCursor {
+		get => default_cursor ?? (DefaultCursorName is null ? null : (Cursor?) CursorService.CreateCursor (new CursorDescriptor (DefaultCursorName)));
+		set => default_cursor = value;
+	}
+
+	/// <summary>
+	/// Neutral name of the tool's default cursor (a standard CSS cursor name, see
+	/// Pinta.Resources.StandardCursors), used when <see cref="DefaultCursor"/> was not set.
+	/// Return null for the default pointer.
+	/// </summary>
+	public virtual string? DefaultCursorName => null;
 
 	/// <summary>
 	/// The current cursor for this tool. Return 'null' for the default pointer.
@@ -120,9 +133,18 @@ public abstract class BaseTool
 	/// <summary>
 	/// The shortcut key used to activate this tool in the toolbox.
 	/// Return Gdk.Key.Invalid for no shortcut key.
+	/// Tools that don't want to reference key types can override
+	/// <see cref="ShortcutKeyStandard"/> instead.
 	/// </summary>
 	public virtual Gdk.Key ShortcutKey
-		=> Gdk.Key.Invalid;
+		=> ShortcutKeyStandard is { } key ? new Gdk.Key (key.ToKeyValue ()) : Gdk.Key.Invalid;
+
+	/// <summary>
+	/// Neutral shortcut key used to activate this tool in the toolbox.
+	/// Return null for no shortcut key.
+	/// </summary>
+	public virtual StandardKey? ShortcutKeyStandard
+		=> null;
 
 	/// <summary>
 	/// Affects the order of the tool in the toolbox. Lower numbers will appear first.
@@ -328,6 +350,12 @@ public abstract class BaseTool
 			workspace.ActiveWorkspace.Canvas.Cursor = cursor;
 	}
 
+	/// <summary>
+	/// Change the application cursor to a standard cursor given by its neutral name.
+	/// </summary>
+	public void SetCursor (string cursorName)
+		=> SetCursor ((Cursor?) CursorService.CreateCursor (new CursorDescriptor (cursorName)));
+
 	protected bool IsActiveTool ()
 	{
 		return tools.CurrentTool == this;
@@ -416,7 +444,7 @@ public abstract class BaseTool
 
 	internal void DoDeactivated (Document? document, BaseTool? newTool)
 	{
-		SetCursor (null);
+		SetCursor ((Gdk.Cursor?) null);
 		OnDeactivated (document, newTool);
 	}
 
