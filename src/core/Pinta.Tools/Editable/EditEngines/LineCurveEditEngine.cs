@@ -67,7 +67,7 @@ public sealed class LineCurveEditEngine : ArrowedEditEngine
 		AddLinePoints (ctrlKey, clickedOnControlPoint, newEngine, prevSelPoint);
 
 		//Set the new shape's DashPattern option.
-		newEngine.DashPattern = dash_pattern_box.ComboBox!.ComboBox.GetActiveText ()!; // NRT - Code assumes this is not-null
+		newEngine.DashPattern = dash_pattern_box!.Pattern; // NRT - Code assumes the toolbar was built
 
 		//Set the new arrow's settings to be the same as what's in the toolbar settings.
 		setNewArrowSettings (newEngine);

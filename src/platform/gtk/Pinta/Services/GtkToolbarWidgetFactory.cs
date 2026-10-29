@@ -7,4 +7,7 @@ internal sealed class GtkToolbarWidgetFactory : IToolbarWidgetFactory
 {
 	public IToolBarDropDownButton CreateDropDownButton (bool showLabel = false)
 		=> ToolBarDropDownButton.New (showLabel);
+
+	public IDashPatternBox CreateDashPatternBox ()
+		=> new GtkDashPatternBox ();
 }
