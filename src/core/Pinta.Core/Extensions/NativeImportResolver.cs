@@ -60,14 +60,27 @@ public static class NativeImportResolver
 
 	public static void RegisterLibrary (string library, string windowsLibraryName, string linuxLibraryName, string osxLibraryName)
 	{
-		library_infos.Add (library, new LibraryInfo (windowsLibraryName, linuxLibraryName, osxLibraryName));
+		library_infos.TryAdd (library, new LibraryInfo (windowsLibraryName, linuxLibraryName, osxLibraryName));
 		RegisterResolver (Assembly.GetCallingAssembly ());
+	}
+
+	/// <summary>Registers the library and attaches the resolver to a specific assembly (e.g. a GirCore binding assembly).</summary>
+	public static void RegisterLibrary (string library, string windowsLibraryName, string linuxLibraryName, string osxLibraryName, Assembly targetAssembly)
+	{
+		library_infos.TryAdd (library, new LibraryInfo (windowsLibraryName, linuxLibraryName, osxLibraryName));
+		RegisterResolver (targetAssembly);
 	}
 
 	private static void RegisterResolver (Assembly assembly)
 	{
-		if (registered_assemblies.Add (assembly))
+		if (!registered_assemblies.Add (assembly))
+			return;
+
+		try {
 			NativeLibrary.SetDllImportResolver (assembly, Resolve);
+		} catch (InvalidOperationException) {
+			// GirCore installs its own resolver for some binding assemblies; ours is only a fallback.
+		}
 	}
 
 	public static IntPtr Resolve (string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
