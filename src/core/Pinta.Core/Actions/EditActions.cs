@@ -201,6 +201,7 @@ public sealed class EditActions
 		this.workspace = workspace;
 	}
 
+<<<<<<< HEAD
 	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
 		IActionMenu paste_section = menu.CreateSubmenu ();
@@ -231,6 +232,38 @@ public sealed class EditActions
 
 		menu.AppendItem (Undo);
 		menu.AppendItem (Redo);
+=======
+	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
+	{
+		Gio.Menu paste_section = Gio.Menu.New ();
+		paste_section.AppendItem (Cut.CreateMenuItem ());
+		paste_section.AppendItem (Copy.CreateMenuItem ());
+		paste_section.AppendItem (CopyMerged.CreateMenuItem ());
+		paste_section.AppendItem (Paste.CreateMenuItem ());
+		paste_section.AppendItem (PasteIntoNewLayer.CreateMenuItem ());
+		paste_section.AppendItem (PasteIntoNewImage.CreateMenuItem ());
+
+		Gio.Menu sel_section = Gio.Menu.New ();
+		sel_section.AppendItem (SelectAll.CreateMenuItem ());
+		sel_section.AppendItem (Deselect.CreateMenuItem ());
+
+		Gio.Menu edit_sel_section = Gio.Menu.New ();
+		edit_sel_section.AppendItem (EraseSelection.CreateMenuItem ());
+		edit_sel_section.AppendItem (FillSelection.CreateMenuItem ());
+		edit_sel_section.AppendItem (InvertSelection.CreateMenuItem ());
+		edit_sel_section.AppendItem (OffsetSelection.CreateMenuItem ());
+
+		Gio.Menu palette_section = Gio.Menu.New ();
+
+		Gio.Menu palette_menu = Gio.Menu.New ();
+		palette_menu.AppendItem (LoadPalette.CreateMenuItem ());
+		palette_menu.AppendItem (SavePalette.CreateMenuItem ());
+		palette_menu.AppendItem (ResetPalette.CreateMenuItem ());
+		palette_menu.AppendItem (ResizePalette.CreateMenuItem ());
+
+		menu.AppendItem (Undo.CreateMenuItem ());
+		menu.AppendItem (Redo.CreateMenuItem ());
+>>>>>>> origin/master
 		menu.AppendSection (null, paste_section);
 		menu.AppendSection (null, sel_section);
 		menu.AppendSection (null, edit_sel_section);

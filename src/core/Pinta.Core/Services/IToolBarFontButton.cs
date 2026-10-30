@@ -9,8 +9,13 @@ namespace Pinta.Core;
 /// </summary>
 public interface IToolBarFontButton
 {
+<<<<<<< HEAD
 	/// <summary>The currently selected font (never null in practice).</summary>
 	TextFont Font { get; set; }
+=======
+	/// <summary>The currently selected font description (never null in practice).</summary>
+	Pango.FontDescription Font { get; set; }
+>>>>>>> origin/master
 
 	/// <summary>Raised after the selected font has changed.</summary>
 	event EventHandler? FontChanged;

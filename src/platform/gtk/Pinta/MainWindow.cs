@@ -233,12 +233,26 @@ internal sealed class MainWindow
 		};
 
 		PintaCore.Actions.View.Rulers.Toggled += (active, _) => { canvas.RulersVisible = active; };
+<<<<<<< HEAD
 		PintaCore.Actions.View.RulerMetric.Changed += _ => { canvas.RulerMetric = GetCurrentRulerMetric (); };
+=======
+		PintaCore.Actions.View.RulerMetric.OnActivate += (o, args) => {
+			PintaCore.Actions.View.RulerMetric.ChangeState (args.Parameter!);
+			canvas.RulerMetric = GetCurrentRulerMetric ();
+		};
+>>>>>>> origin/master
 	}
 
 	private static MetricType GetCurrentRulerMetric ()
 	{
+<<<<<<< HEAD
 		return (MetricType) PintaCore.Actions.View.RulerMetric.Value;
+=======
+		GLib.Variant state = PintaCore.Actions.View.RulerMetric.GetState () ??
+			throw new InvalidOperationException ("action should not be stateless");
+
+		return (MetricType) state.GetInt32 ();
+>>>>>>> origin/master
 	}
 
 	private bool HandleGlobalKeyPress (
@@ -345,7 +359,11 @@ internal sealed class MainWindow
 		int height = PintaCore.Settings.GetSetting (SettingNames.WINDOW_SIZE_HEIGHT, 750);
 		bool maximize = PintaCore.Settings.GetSetting (SettingNames.WINDOW_MAXIMIZED, false);
 
+<<<<<<< HEAD
 		GtkIconProvider.LoadCssStyles ();
+=======
+		ResourceLoader.LoadCssStyles ();
+>>>>>>> origin/master
 
 		window_shell = new WindowShell (
 			app,
@@ -428,6 +446,7 @@ internal sealed class MainWindow
 		IActionRegistrar actionRegistrar = new GtkActionRegistrar (app);
 		PintaCore.Actions.App.RegisterActions (actionRegistrar);
 
+<<<<<<< HEAD
 		PintaCore.Actions.File.RegisterActions (actionRegistrar, new GioActionMenu (fileMenu));
 		PintaCore.Actions.Edit.RegisterActions (actionRegistrar, new GioActionMenu (editMenu));
 		PintaCore.Actions.View.RegisterActions (actionRegistrar, new GioActionMenu (viewMenu));
@@ -436,12 +455,26 @@ internal sealed class MainWindow
 		PintaCore.Actions.Addins.RegisterActions (actionRegistrar, new GioActionMenu (addinsMenu));
 		PintaCore.Actions.Window.RegisterActions (actionRegistrar, new GioActionMenu (windowMenu));
 		PintaCore.Actions.Help.RegisterActions (actionRegistrar, new GioActionMenu (helpMenu));
+=======
+		PintaCore.Actions.File.RegisterActions (actionRegistrar, fileMenu);
+		PintaCore.Actions.Edit.RegisterActions (actionRegistrar, editMenu);
+		PintaCore.Actions.View.RegisterActions (actionRegistrar, viewMenu);
+		PintaCore.Actions.Image.RegisterActions (actionRegistrar, imageMenu);
+		PintaCore.Actions.Layers.RegisterActions (actionRegistrar);
+		PintaCore.Actions.Addins.RegisterActions (actionRegistrar, addinsMenu);
+		PintaCore.Actions.Window.RegisterActions (actionRegistrar, windowMenu);
+		PintaCore.Actions.Help.RegisterActions (actionRegistrar, helpMenu);
+>>>>>>> origin/master
 
 		// When using a header bar, show preferences in the main menu.
 		// Otherwise, add it to the Edit menu (except for macOS, which shows this in the App menu).
 		if (!usingMenuBar || !isMac) {
 			Gio.Menu prefsSection = Gio.Menu.New ();
+<<<<<<< HEAD
 			prefsSection.AppendItem (PintaCore.Actions.App.Preferences.CreateMenuItem ().ToGioMenuItem ());
+=======
+			prefsSection.AppendItem (PintaCore.Actions.App.Preferences.CreateMenuItem ());
+>>>>>>> origin/master
 
 			if (!usingMenuBar) {
 				menuBar.AppendSection (null, prefsSection);
@@ -453,7 +486,11 @@ internal sealed class MainWindow
 		adjustments_menu = adjustmentsMenu;
 		effects_menu = effectsMenu;
 		PintaCore.Chrome.InitializeMenuAdapter (
+<<<<<<< HEAD
 			addAdjustment: command => adjustments_menu.AppendMenuItemSorted (command.CreateMenuItem ().ToGioMenuItem ()),
+=======
+			addAdjustment: command => adjustments_menu.AppendMenuItemSorted (command.CreateMenuItem ()),
+>>>>>>> origin/master
 			removeAdjustment: command => adjustments_menu.Remove (command),
 			addEffect: (category, command) => AddEffectMenuItem (category, command),
 			removeEffect: (category, command) => RemoveEffectMenuItem (category, command));
@@ -511,7 +548,11 @@ internal sealed class MainWindow
 			effects_menu.AppendMenuItemSorted (Gio.MenuItem.NewSubmenu (category, menu));
 		}
 
+<<<<<<< HEAD
 		menu.AppendMenuItemSorted (command.CreateMenuItem ().ToGioMenuItem ());
+=======
+		menu.AppendMenuItemSorted (command.CreateMenuItem ());
+>>>>>>> origin/master
 	}
 
 	private void RemoveEffectMenuItem (string category, Command command)
@@ -605,7 +646,11 @@ internal sealed class MainWindow
 			PintaCore.RecentFiles.LastDialogDirectory = new PathFileReference (Gio.FileHelper.NewForUri (dialog_uri).GetParseName ());
 
 		MetricType ruler_metric = (MetricType) PintaCore.Settings.GetSetting (SettingNames.RULER_METRIC, (int) MetricType.Pixels);
+<<<<<<< HEAD
 		PintaCore.Actions.View.RulerMetric.Activate ((int) ruler_metric);
+=======
+		PintaCore.Actions.View.RulerMetric.Activate (GLib.Variant.NewInt32 ((int) ruler_metric));
+>>>>>>> origin/master
 	}
 
 	private void SaveUserSettings ()

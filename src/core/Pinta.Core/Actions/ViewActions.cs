@@ -44,7 +44,11 @@ public sealed class ViewActions
 	public ToggleCommand StatusBar { get; }
 	public ToggleCommand ToolBox { get; }
 	public ToggleCommand Rulers { get; }
+<<<<<<< HEAD
 	public IntStateCommand RulerMetric { get; }
+=======
+	public Gio.SimpleAction RulerMetric { get; }
+>>>>>>> origin/master
 	public Command Fullscreen { get; }
 
 	public IToolBarComboBox ZoomComboBox { get; }
@@ -142,7 +146,14 @@ public sealed class ViewActions
 			null,
 			Resources.Icons.ViewRulers);
 
+<<<<<<< HEAD
 		RulerMetric = new IntStateCommand ("rulermetric", 0);
+=======
+		RulerMetric = Gio.SimpleAction.NewStateful ( // TODO: Make `Command`
+			"rulermetric",
+			GLib.VariantType.New ("i"),
+			GLib.Variant.NewInt32 (0));
+>>>>>>> origin/master
 
 		Fullscreen = new Command (
 			"Fullscreen",
@@ -194,6 +205,7 @@ public sealed class ViewActions
 
 	#region Initialization
 
+<<<<<<< HEAD
 	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
 		bool mainToolbarPresent = true;
@@ -207,10 +219,26 @@ public sealed class ViewActions
 		grid_section.AppendItem (EditCanvasGrid);
 
 		IActionMenu metric_menu = menu.CreateSubmenu ();
+=======
+	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
+	{
+		bool mainToolbarPresent = true;
+
+		Gio.Menu zoom_section = Gio.Menu.New ();
+		zoom_section.AppendItem (ActualSize.CreateMenuItem ());
+		zoom_section.AppendItem (ZoomToWindow.CreateMenuItem ());
+		zoom_section.AppendItem (Fullscreen.CreateMenuItem ());
+
+		Gio.Menu grid_section = Gio.Menu.New ();
+		grid_section.AppendItem (EditCanvasGrid.CreateMenuItem ());
+
+		Gio.Menu metric_menu = Gio.Menu.New ();
+>>>>>>> origin/master
 		metric_menu.Append (Translations.GetString ("Pixels"), $"app.{RulerMetric.Name}(0)");
 		metric_menu.Append (Translations.GetString ("Inches"), $"app.{RulerMetric.Name}(1)");
 		metric_menu.Append (Translations.GetString ("Centimeters"), $"app.{RulerMetric.Name}(2)");
 
+<<<<<<< HEAD
 		IActionMenu metric_section = menu.CreateSubmenu ();
 		metric_section.AppendSubmenu (Translations.GetString ("Ruler Units"), metric_menu);
 
@@ -223,6 +251,20 @@ public sealed class ViewActions
 		if (mainToolbarPresent) show_hide_menu.AppendItem (ToolBar);
 
 		IActionMenu show_hide_section = menu.CreateSubmenu ();
+=======
+		Gio.Menu metric_section = Gio.Menu.New ();
+		metric_section.AppendSubmenu (Translations.GetString ("Ruler Units"), metric_menu);
+
+		Gio.Menu show_hide_menu = Gio.Menu.New ();
+		show_hide_menu.AppendItem (Rulers.CreateMenuItem ());
+		show_hide_menu.AppendItem (StatusBar.CreateMenuItem ());
+		show_hide_menu.AppendItem (ToolBox.CreateMenuItem ());
+		show_hide_menu.AppendItem (ImageTabs.CreateMenuItem ());
+		show_hide_menu.AppendItem (ToolWindows.CreateMenuItem ());
+		if (mainToolbarPresent) show_hide_menu.AppendItem (ToolBar.CreateMenuItem ());
+
+		Gio.Menu show_hide_section = Gio.Menu.New ();
+>>>>>>> origin/master
 		show_hide_section.AppendSubmenu (Translations.GetString ("Show/Hide"), show_hide_menu);
 
 		menu.AppendSection (null, zoom_section);
@@ -244,7 +286,12 @@ public sealed class ViewActions
 			ToolWindows,
 		]);
 
+<<<<<<< HEAD
 		registrar.AddIntStateCommand (RulerMetric);
+=======
+		// TODO: Make `Command`s
+		registrar.AddNativeAction (RulerMetric);
+>>>>>>> origin/master
 
 		if (mainToolbarPresent)
 			registrar.AddCommand (ToolBar);

@@ -9,7 +9,11 @@
     <InformationalVersion>0.0.2-alpha</InformationalVersion>
     <Authors>Pintora contributors</Authors>
     <Product>Pintora Raster Editor</Product>
+<<<<<<< HEAD
     <ApplicationIcon>Pintora.ico</ApplicationIcon>
+=======
+    <ApplicationIcon />
+>>>>>>> origin/master
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 

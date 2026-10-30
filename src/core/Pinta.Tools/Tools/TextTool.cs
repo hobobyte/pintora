@@ -190,43 +190,71 @@ public sealed class TextTool : BaseTool
 				// Translators: 'Normal' refers to the font-variant text property
 				Translations.GetString ("Normal"),
 				Pinta.Resources.Icons.TextVariantNormal,
+<<<<<<< HEAD
 				TextFontVariant.Normal
+=======
+				Pango.Variant.Normal
+>>>>>>> origin/master
 			);
 			variant_btn.AddItem (
 				// Translators: 'Small Caps' refers to the font-variant text property
 				Translations.GetString ("Small Caps"),
 				Pinta.Resources.Icons.TextVariantSmallCaps,
+<<<<<<< HEAD
 				TextFontVariant.SmallCaps
+=======
+				Pango.Variant.SmallCaps
+>>>>>>> origin/master
 			);
 			variant_btn.AddItem (
 				// Translators: 'All Small Caps' refers to the font-variant text property
 				Translations.GetString ("All Small Caps"),
 				Pinta.Resources.Icons.TextVariantAllSmallCaps,
+<<<<<<< HEAD
 				TextFontVariant.AllSmallCaps
+=======
+				Pango.Variant.AllSmallCaps
+>>>>>>> origin/master
 			);
 			variant_btn.AddItem (
 				// Translators: 'Petite Caps' refers to the font-variant text property
 				Translations.GetString ("Petite Caps"),
 				Pinta.Resources.Icons.TextVariantPetiteCaps,
+<<<<<<< HEAD
 				TextFontVariant.PetiteCaps
+=======
+				Pango.Variant.PetiteCaps
+>>>>>>> origin/master
 			);
 			variant_btn.AddItem (
 				// Translators: 'All Petite Caps' refers to the font-variant text property
 				Translations.GetString ("All Petite Caps"),
 				Pinta.Resources.Icons.TextVariantAllPetiteCaps,
+<<<<<<< HEAD
 				TextFontVariant.AllPetiteCaps
+=======
+				Pango.Variant.AllPetiteCaps
+>>>>>>> origin/master
 			);
 			variant_btn.AddItem (
 				// Translators: 'Unicase' refers to the font-variant text property
 				Translations.GetString ("Unicase"),
 				Pinta.Resources.Icons.TextVariantUnicase,
+<<<<<<< HEAD
 				TextFontVariant.Unicase
+=======
+				Pango.Variant.Unicase
+>>>>>>> origin/master
 			);
 			variant_btn.AddItem (
 				// Translators: 'Title Caps' refers to the font-variant text property
 				Translations.GetString ("Title Caps"),
 				Pinta.Resources.Icons.TextVariantTitleCaps,
+<<<<<<< HEAD
 				TextFontVariant.Normal
+=======
+				Pango.Variant.Normal
+>>>>>>> origin/master
 			);
 
 			variant_btn.SelectedIndex = Settings.GetSetting (SettingNames.TEXT_VARIANT, 0);
@@ -242,7 +270,11 @@ public sealed class TextTool : BaseTool
 				1,
 				2000,
 				1,
+<<<<<<< HEAD
 				PangoExtensions.UnitsToPixels (font_button.Font.SizePangoUnits));
+=======
+				PangoExtensions.UnitsToPixels (font_button.Font.GetSize ()));
+>>>>>>> origin/master
 			font_size.TooltipText = Translations.GetString ("Change font size. Shortcut keys: [ ]");
 			font_size.TooltipText = Translations.GetString ("Change font size.") + "\n"
 				   + "\n" + Translations.GetString ("Shortcut keys:")
@@ -262,73 +294,121 @@ public sealed class TextTool : BaseTool
 				// Translators: 'Thin' (100) refers to the font-weight text property
 				Translations.GetString ("Thin") + " 100",
 				Pinta.Resources.Icons.TextExtraLight,
+<<<<<<< HEAD
 				TextFontWeight.Thin
+=======
+				Pango.Weight.Thin
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Ultralight' (200) refers to the font-weight text property
 				Translations.GetString ("Ultralight") + " 200",
 				Pinta.Resources.Icons.TextExtraLight,
+<<<<<<< HEAD
 				TextFontWeight.Ultralight
+=======
+				Pango.Weight.Ultralight
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Light' (300) refers to the font-weight text property
 				Translations.GetString ("Light") + " 300",
 				Pinta.Resources.Icons.TextLight,
+<<<<<<< HEAD
 				TextFontWeight.Light
+=======
+				Pango.Weight.Light
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Semilight' (350) refers to the font-weight text property
 				Translations.GetString ("Semilight") + " 350",
 				Pinta.Resources.Icons.TextLight,
+<<<<<<< HEAD
 				TextFontWeight.Semilight
+=======
+				Pango.Weight.Semilight
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Book' (380) refers to the font-weight text property
 				Translations.GetString ("Book") + " 380",
 				Pinta.Resources.Icons.TextNormal,
+<<<<<<< HEAD
 				TextFontWeight.Book
+=======
+				Pango.Weight.Book
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Normal' (400) refers to the font-weight text property
 				Translations.GetString ("Normal") + " 400",
 				Pinta.Resources.Icons.TextNormal,
+<<<<<<< HEAD
 				TextFontWeight.Normal
+=======
+				Pango.Weight.Normal
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Medium' (500) refers to the font-weight text property
 				Translations.GetString ("Medium") + " 500",
 				Pinta.Resources.Icons.TextNormal,
+<<<<<<< HEAD
 				TextFontWeight.Medium
+=======
+				Pango.Weight.Medium
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Semibold' (600) refers to the font-weight text property
 				Translations.GetString ("Semibold") + " 600",
 				Pinta.Resources.Icons.TextBold,
+<<<<<<< HEAD
 				TextFontWeight.Semibold
+=======
+				Pango.Weight.Semibold
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Bold' (700) refers to the font-weight text property
 				Translations.GetString ("Bold") + " 700",
 				Pinta.Resources.Icons.TextBold,
+<<<<<<< HEAD
 				TextFontWeight.Bold
+=======
+				Pango.Weight.Bold
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Ultrabold' (800) refers to the font-weight text property
 				Translations.GetString ("Ultrabold") + " 800",
 				Pinta.Resources.Icons.TextExtraBold,
+<<<<<<< HEAD
 				TextFontWeight.Ultrabold
+=======
+				Pango.Weight.Ultrabold
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Heavy' (900) refers to the font-weight text property
 				Translations.GetString ("Heavy") + " 900",
 				Pinta.Resources.Icons.TextExtraBold,
+<<<<<<< HEAD
 				TextFontWeight.Heavy
+=======
+				Pango.Weight.Heavy
+>>>>>>> origin/master
 			);
 			weight_btn.AddItem (
 				// Translators: 'Ultraheavy' (1000) refers to the font-weight text property
 				Translations.GetString ("Ultraheavy") + " 1000",
 				Pinta.Resources.Icons.TextExtraBold,
+<<<<<<< HEAD
 				TextFontWeight.Ultraheavy
+=======
+				Pango.Weight.Ultraheavy
+>>>>>>> origin/master
 			);
 
 			weight_btn.SelectedIndex = Settings.GetSetting (SettingNames.TEXT_WEIGHT, 5);
@@ -477,9 +557,15 @@ public sealed class TextTool : BaseTool
 
 	private void HandleFontSizeChanged (object? sender, EventArgs e)
 	{
+<<<<<<< HEAD
 		font_button.Font = font_button.Font with {
 			SizePangoUnits = PangoExtensions.UnitsFromPixels ((int) font_size.Value)
 		};
+=======
+		var font = font_button.Font.Copy ()!;
+		font.SetSize (PangoExtensions.UnitsFromPixels ((int) font_size.Value));
+		font_button.Font = font;
+>>>>>>> origin/master
 
 		UpdateFont ();
 	}
@@ -518,9 +604,15 @@ public sealed class TextTool : BaseTool
 
 	private void HandleFontChanged ()
 	{
+<<<<<<< HEAD
 		font_button.Font = font_button.Font with {
 			SizePangoUnits = PangoExtensions.UnitsFromPixels ((int) font_size.Value)
 		};
+=======
+		var font = font_button.Font.Copy ()!;
+		font.SetSize (PangoExtensions.UnitsFromPixels ((int) font_size.Value));
+		font_button.Font = font;
+>>>>>>> origin/master
 
 		if (workspace.HasOpenDocuments)
 			workspace.ActiveDocument.Workspace.GrabFocusToCanvas ();
@@ -628,11 +720,18 @@ public sealed class TextTool : BaseTool
 	{
 		if (workspace.HasOpenDocuments) {
 
+<<<<<<< HEAD
 			var font = font_button.Font with {
 				Variant = variant_btn.SelectedItem.GetTagOrDefault (TextFontVariant.Normal),
 				Weight = weight_btn.SelectedItem.GetTagOrDefault (TextFontWeight.Normal),
 				Style = italic_btn.Active ? TextFontStyle.Italic : TextFontStyle.Normal,
 			};
+=======
+			var font = font_button.Font.Copy ()!; // NRT: Only nullable when nullptr is passed.
+			font.SetVariant ((Pango.Variant) variant_btn.SelectedItem.GetTagOrDefault (Pango.Variant.Normal));
+			font.SetWeight ((Pango.Weight) weight_btn.SelectedItem.GetTagOrDefault (Pango.Weight.Normal));
+			font.SetStyle (italic_btn.Active ? Pango.Style.Italic : Pango.Style.Normal);
+>>>>>>> origin/master
 
 			CurrentTextEngine.SetFont (font, Alignment, underscore_btn.Active);
 		}
@@ -1207,7 +1306,11 @@ public sealed class TextTool : BaseTool
 		}
 
 		g.Save ();
+<<<<<<< HEAD
 		PangoCairo.Functions.ContextSetFontOptions ((Pango.Context) chrome.TextContext, options);
+=======
+		PangoCairo.Functions.ContextSetFontOptions (chrome.TextContext, options);
+>>>>>>> origin/master
 
 
 		// Show selection if on text layer

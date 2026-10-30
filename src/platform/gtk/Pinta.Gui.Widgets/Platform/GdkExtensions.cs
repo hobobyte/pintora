@@ -67,7 +67,11 @@ public static class GdkExtensions
 		out int shapeX,
 		out int shapeY)
 	{
+<<<<<<< HEAD
 		Gdk.Texture img = GtkIconProvider.GetIcon (imgName);
+=======
+		Gdk.Texture img = PintaCore.Resources.GetIcon (imgName);
+>>>>>>> origin/master
 
 		double zoom =
 			(PintaCore.Workspace.HasOpenDocuments)

@@ -134,10 +134,16 @@ public sealed class LivePreviewManager : ILivePreview
 
 			session.Start ();
 
+<<<<<<< HEAD
 			IUiScheduler uiScheduler = PintaCore.Services.GetService<IUiScheduler> ()
 				?? throw new InvalidOperationException ("No IUiScheduler service is registered.");
 			using IDisposable _ = uiScheduler.StartTimer (
 				TimeSpan.FromMilliseconds (UPDATE_MILLISECONDS),
+=======
+			using GLibTimer _ = GLib.Functions.TimeoutAdd (
+				0,
+				UPDATE_MILLISECONDS,
+>>>>>>> origin/master
 				() => {
 					if (!renderAlive) return false;
 					PollForUpdate (session.CurrentRender);

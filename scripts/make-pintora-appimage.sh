@@ -9,9 +9,13 @@ APPDIR="$OUTPUT_DIR/Pintora.AppDir"
 APPIMAGETOOL="${APPIMAGETOOL:-appimagetool}"
 mkdir -p "$APPDIR/usr/bin" "$OUTPUT_DIR"
 cp -R "$PUBLISH_DIR"/. "$APPDIR/usr/bin/"
+<<<<<<< HEAD
 # AppImage requires every bundled file to be readable/traversable by all users.
 chmod -R a+rX "$APPDIR"
 chmod a+rx "$APPDIR/usr/bin/Pintora"
+=======
+chmod +x "$APPDIR/usr/bin/Pintora"
+>>>>>>> origin/master
 cp installer/avalonia/pintora.desktop "$APPDIR/Pintora.desktop"
 cp src/core/Pinta.Resources/icons/hicolor/96x96/apps/com.github.PintaProject.Pinta.png "$APPDIR/pintora.png"
 cat > "$APPDIR/AppRun" <<'APPRUN'
