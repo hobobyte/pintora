@@ -124,24 +124,24 @@ public sealed class ImageActions
 		this.view = view;
 	}
 
-	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
-		Gio.Menu flip_section = Gio.Menu.New ();
-		flip_section.AppendItem (FlipHorizontal.CreateMenuItem ());
-		flip_section.AppendItem (FlipVertical.CreateMenuItem ());
+		IActionMenu flip_section = menu.CreateSubmenu ();
+		flip_section.AppendItem (FlipHorizontal);
+		flip_section.AppendItem (FlipVertical);
 
-		Gio.Menu rotate_section = Gio.Menu.New ();
-		rotate_section.AppendItem (RotateCW.CreateMenuItem ());
-		rotate_section.AppendItem (RotateCCW.CreateMenuItem ());
+		IActionMenu rotate_section = menu.CreateSubmenu ();
+		rotate_section.AppendItem (RotateCW);
+		rotate_section.AppendItem (RotateCCW);
 		rotate_section.AppendItem (Rotate180.CreateMenuItem ());
 
-		Gio.Menu flatten_section = Gio.Menu.New ();
-		flatten_section.AppendItem (Flatten.CreateMenuItem ());
+		IActionMenu flatten_section = menu.CreateSubmenu ();
+		flatten_section.AppendItem (Flatten);
 
-		menu.AppendItem (CropToSelection.CreateMenuItem ());
-		menu.AppendItem (AutoCrop.CreateMenuItem ());
-		menu.AppendItem (Resize.CreateMenuItem ());
-		menu.AppendItem (CanvasSize.CreateMenuItem ());
+		menu.AppendItem (CropToSelection);
+		menu.AppendItem (AutoCrop);
+		menu.AppendItem (Resize);
+		menu.AppendItem (CanvasSize);
 		menu.AppendSection (null, flip_section);
 		menu.AppendSection (null, rotate_section);
 		menu.AppendSection (null, flatten_section);
@@ -184,7 +184,7 @@ public sealed class ImageActions
 		};
 	}
 
-	private void HandlePintaCoreActionsImageRotateCCWActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageRotateCCWActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -194,7 +194,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.Rotate90CCW));
 	}
 
-	private void HandlePintaCoreActionsImageRotateCWActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageRotateCWActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -204,7 +204,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.Rotate90CW));
 	}
 
-	private void HandlePintaCoreActionsImageFlattenActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageFlattenActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -230,7 +230,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (hist);
 	}
 
-	private void HandlePintaCoreActionsImageRotate180Activated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageRotate180Activated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -240,7 +240,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.Rotate180));
 	}
 
-	private void HandlePintaCoreActionsImageFlipVerticalActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageFlipVerticalActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -250,7 +250,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.FlipVertical));
 	}
 
-	private void HandlePintaCoreActionsImageFlipHorizontalActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageFlipHorizontalActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -260,7 +260,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.FlipHorizontal));
 	}
 
-	private void HandlePintaCoreActionsImageCropToSelectionActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageCropToSelectionActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -271,7 +271,7 @@ public sealed class ImageActions
 		CropImageToRectangle (doc, rect, doc.Selection.SelectionPath);
 	}
 
-	private void HandlePintaCoreActionsImageAutoCropActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageAutoCropActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 

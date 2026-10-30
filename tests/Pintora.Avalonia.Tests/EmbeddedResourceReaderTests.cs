@@ -10,7 +10,7 @@ internal sealed class EmbeddedResourceReaderTests
 	[Test]
 	public void ReadsEmbeddedResourceBytesWithoutGtk ()
 	{
-		var assembly = typeof (ResourceLoader).Assembly;
+		var assembly = typeof (Styles).Assembly;
 		string resourceName = assembly.GetManifestResourceNames ().First (name => name.EndsWith ("Cursor.Paintbrush.png", System.StringComparison.Ordinal));
 
 		byte[]? bytes = EmbeddedResourceReader.Read (assembly, resourceName);
@@ -21,7 +21,7 @@ internal sealed class EmbeddedResourceReaderTests
 	[Test]
 	public void MissingEmbeddedResourceReturnsNull ()
 	{
-		byte[]? bytes = EmbeddedResourceReader.Read (typeof (ResourceLoader).Assembly, "missing-resource");
+		byte[]? bytes = EmbeddedResourceReader.Read (typeof (Styles).Assembly, "missing-resource");
 
 		Assert.That (bytes, Is.Null);
 	}
@@ -30,6 +30,6 @@ internal sealed class EmbeddedResourceReaderTests
 	public void ReflectionReaderImplementsNeutralContract ()
 	{
 		IEmbeddedResourceReader reader = new ReflectionEmbeddedResourceReader ();
-		Assert.That (reader.Read (typeof (ResourceLoader).Assembly, "missing-resource"), Is.Null);
+		Assert.That (reader.Read (typeof (Styles).Assembly, "missing-resource"), Is.Null);
 	}
 }

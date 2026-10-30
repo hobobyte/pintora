@@ -1,4 +1,5 @@
 using System;
+using Pinta.Core;
 
 namespace Pinta.Core;
 
@@ -27,9 +28,9 @@ public sealed class GtkToolBarFontButton : IToolBarFontButton
 		Gtk.FontDialogButton.FontDescPropertyDefinition.Notify (button, (_, _) => fontChanged?.Invoke (this, EventArgs.Empty));
 	}
 
-	public Pango.FontDescription Font {
-		get => button.FontDesc!;
-		set => button.FontDesc = value;
+	public TextFont Font {
+		get => ToTextFont (button.FontDesc!);
+		set => button.FontDesc = ToFontDescription (value);
 	}
 
 	public event EventHandler? FontChanged {
@@ -42,5 +43,28 @@ public sealed class GtkToolBarFontButton : IToolBarFontButton
 	public bool Visible {
 		get => button.Visible;
 		set => button.Visible = value;
+	}
+
+	public static TextFont ToTextFont (Pango.FontDescription desc)
+	{
+		return new TextFont (
+			desc.GetFamily () ?? string.Empty,
+			desc.GetSize (),
+			(TextFontVariant) desc.GetVariant (),
+			(TextFontWeight) desc.GetWeight (),
+			(TextFontStyle) desc.GetStyle ());
+	}
+
+	public static Pango.FontDescription ToFontDescription (TextFont font)
+	{
+		var desc = Pango.FontDescription.New ();
+		if (!string.IsNullOrEmpty (font.Family))
+			desc.SetFamily (font.Family);
+		if (font.SizePangoUnits > 0)
+			desc.SetSize (font.SizePangoUnits);
+		desc.SetVariant ((Pango.Variant) font.Variant);
+		desc.SetWeight ((Pango.Weight) font.Weight);
+		desc.SetStyle ((Pango.Style) font.Style);
+		return desc;
 	}
 }

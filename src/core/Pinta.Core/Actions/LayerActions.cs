@@ -205,7 +205,7 @@ public sealed class LayerActions
 		return new FileDialogFilter (Translations.GetString ("Image files"), extensions);
 	}
 
-	private async void HandlePintaCoreActionsLayersImportFromFileActivated (object sender, EventArgs e)
+	private async void HandlePintaCoreActionsLayersImportFromFileActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -221,16 +221,10 @@ public sealed class LayerActions
 		// Open the image and add it to the layers
 		UserLayer layer = doc.Layers.AddNewLayer (choice.DisplayName);
 
-		Gio.File gioChoice = Gio.FileHelper.NewForPath ((choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed."));
-		using (Gio.FileInputStream fs = gioChoice.Read (null)) {
-			try {
-				using GdkPixbuf.Pixbuf bg = GdkPixbuf.Pixbuf.NewFromStream (fs, cancellable: null)!; // NRT: only nullable when an error is thrown
-				using Cairo.Context context = new (layer.CairoSurface);
-				context.DrawPixbuf (bg, PointD.Zero);
-			} finally {
-				fs.Close (null);
-			}
-		}
+		string path = (choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed.");
+		using GdkPixbuf.Pixbuf bg = GdkPixbuf.Pixbuf.NewFromFile (path)!; // NRT: only nullable when an error is thrown
+		using Cairo.Context context = new (layer.CairoSurface);
+		context.DrawPixbuf (bg, PointD.Zero);
 
 		AddLayerHistoryItem hist = new (
 			Resources.Icons.LayerImport,
@@ -244,7 +238,7 @@ public sealed class LayerActions
 		doc.Workspace.Invalidate ();
 	}
 
-	private void HandlePintaCoreActionsLayersFlipVerticalActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsLayersFlipVerticalActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -255,7 +249,7 @@ public sealed class LayerActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.FlipLayerVertical, doc.Layers.CurrentUserLayerIndex));
 	}
 
-	private void HandlePintaCoreActionsLayersFlipHorizontalActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsLayersFlipHorizontalActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -266,7 +260,7 @@ public sealed class LayerActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.FlipLayerHorizontal, doc.Layers.CurrentUserLayerIndex));
 	}
 
-	private void HandlePintaCoreActionsLayersMoveLayerUpActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsLayersMoveLayerUpActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -282,7 +276,7 @@ public sealed class LayerActions
 		doc.History.PushNewItem (hist);
 	}
 
-	private void HandlePintaCoreActionsLayersMoveLayerDownActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsLayersMoveLayerDownActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -298,7 +292,7 @@ public sealed class LayerActions
 		doc.History.PushNewItem (hist);
 	}
 
-	private void HandlePintaCoreActionsLayersMergeLayerDownActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsLayersMergeLayerDownActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -330,7 +324,7 @@ public sealed class LayerActions
 		doc.History.PushNewItem (hist);
 	}
 
-	private void HandlePintaCoreActionsLayersDuplicateLayerActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsLayersDuplicateLayerActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -348,7 +342,7 @@ public sealed class LayerActions
 		doc.History.PushNewItem (hist);
 	}
 
-	private void HandlePintaCoreActionsLayersDeleteLayerActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsLayersDeleteLayerActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -365,7 +359,7 @@ public sealed class LayerActions
 		doc.History.PushNewItem (hist);
 	}
 
-	private void HandlePintaCoreActionsLayersAddNewLayerActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsLayersAddNewLayerActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 		tools.Commit ();

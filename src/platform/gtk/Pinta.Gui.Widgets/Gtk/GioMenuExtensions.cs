@@ -1,5 +1,5 @@
 //
-// GioExtensions.cs
+// GioMenuExtensions.cs
 //
 // Author:
 //       Jonathan Pobst <monkey@jpobst.com>

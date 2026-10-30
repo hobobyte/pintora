@@ -27,21 +27,25 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
-using GObject;
 
 namespace Pinta.Core;
 
 /// <summary>
-/// Wrapper around a Glib.SimpleAction to store additional data such as the label.
+/// Platform-neutral application command (name, label, shortcuts, sensitivity, activation).
+/// The platform action object (e.g. Gio.SimpleAction) is attached by the
+/// <see cref="IActionRegistrar"/> at registration time; neutral code never sees it.
 /// </summary>
 public class Command
 {
-	public Gio.SimpleAction Action { get; }
-	public string Name => Action.Name!;
-	public event SignalHandler<Gio.SimpleAction, Gio.SimpleAction.ActivateSignalArgs>? Activated;
-	public void Activate ()
+	/// <summary>The platform-native action object (e.g. Gio.SimpleAction), set by the registrar.</summary>
+	public object? NativeAction { get; internal set; }
+
+	public string Name { get; }
+	public event EventHandler? Activated;
+
+	public virtual void Activate ()
 	{
-		Action.Activate (null);
+		Activated?.Invoke (this, EventArgs.Empty);
 	}
 
 	public string Label { get; }
@@ -50,10 +54,20 @@ public class Command
 	public string? IconName { get; }
 	public string FullName => $"app.{Name}";
 	public bool IsImportant { get; } = false;
+
+	private bool sensitive = true;
 	public bool Sensitive {
-		get => Action.Enabled;
-		set => Action.Enabled = value;
+		get => sensitive;
+		set {
+			if (value == sensitive) return;
+			sensitive = value;
+			SensitivityChanged?.Invoke (this, EventArgs.Empty);
+		}
 	}
+
+	/// <summary>Raised when <see cref="Sensitive"/> changes; the platform registrar mirrors it onto the native action.</summary>
+	public event EventHandler? SensitivityChanged;
+
 	public ImmutableArray<string> Shortcuts { get; }
 
 	public Command (
@@ -61,16 +75,9 @@ public class Command
 		string label,
 		string? tooltip,
 		string? icon_name,
-		GLib.Variant? state = null,
 		IReadOnlyList<string>? shortcuts = null)
 	{
-		Action =
-			state is null
-			? Gio.SimpleAction.New (name, null)
-			: Gio.SimpleAction.NewStateful (name, null, state);
-
-		Action.OnActivate += (o, args) => Activated?.Invoke (o, args);
-
+		Name = name;
 		Label = label;
 		Tooltip = tooltip;
 		IconName = icon_name;
@@ -81,8 +88,8 @@ public class Command
 			: [.. shortcuts];
 	}
 
-	public Gio.MenuItem CreateMenuItem ()
-		=> Gio.MenuItem.New (Label, FullName);
+	public CommandMenuItem CreateMenuItem ()
+		=> new (Label, FullName);
 }
 
 public sealed class ToggleCommand : Command
@@ -99,28 +106,29 @@ public sealed class ToggleCommand : Command
 			label,
 			tooltip,
 			stock_id,
-			GLib.Variant.NewBoolean (false),
 			shortcuts
 		)
 	{
 		Activated += (_, _) => {
-			bool active = !State.GetBoolean ();
+			bool active = !value;
 			Toggled?.Invoke (active, interactive: true);
-			Action.ChangeState (GLib.Variant.NewBoolean (active));
+			value = active;
 		};
 	}
 
+	private bool value;
 	public bool Value {
-		get => State.GetBoolean ();
+		get => value;
 		set {
-			if (value == Value) return;
+			if (value == this.value) return;
 			Toggled?.Invoke (value, interactive: false);
-			Action.ChangeState (GLib.Variant.NewBoolean (value));
+			this.value = value;
 		}
 	}
 
 	public delegate void ToggledHandler (bool value, bool interactive);
 	public event ToggledHandler? Toggled;
-
-	private GLib.Variant State => Action.GetState () ?? throw new InvalidOperationException ("Action should not be stateless!");
 }
+
+/// <summary>Neutral description of a menu entry bound to an action id.</summary>
+public sealed record CommandMenuItem (string Label, string ActionId);

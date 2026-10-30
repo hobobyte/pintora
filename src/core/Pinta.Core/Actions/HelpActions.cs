@@ -69,15 +69,15 @@ public sealed class HelpActions
 		this.system = system;
 		this.app = app;
 	}
-	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
-		menu.AppendItem (Contents.CreateMenuItem ());
+		menu.AppendItem (Contents);
 
-		menu.AppendItem (app.KeyboardShortcuts.CreateMenuItem ());
+		menu.AppendItem (app.KeyboardShortcuts);
 
-		menu.AppendItem (Website.CreateMenuItem ());
-		menu.AppendItem (Bugs.CreateMenuItem ());
-		menu.AppendItem (Translate.CreateMenuItem ());
+		menu.AppendItem (Website);
+		menu.AppendItem (Bugs);
+		menu.AppendItem (Translate);
 
 		registrar.AddCommands ([
 			Contents,
@@ -88,9 +88,9 @@ public sealed class HelpActions
 		// This is part of the application menu on macOS.
 		if (system.OperatingSystem != OS.Mac) {
 
-			var about_section = Gio.Menu.New ();
+			IActionMenu about_section = menu.CreateSubmenu ();
 			menu.AppendSection (null, about_section);
-			about_section.AppendItem (app.About.CreateMenuItem ());
+			about_section.AppendItem (app.About);
 		}
 	}
 
@@ -102,22 +102,22 @@ public sealed class HelpActions
 		Translate.Activated += Translate_Activated;
 	}
 
-	private async void Bugs_Activated (object sender, EventArgs e)
+	private async void Bugs_Activated (object? sender, EventArgs e)
 	{
 		await system.LaunchUri ("https://github.com/PintaProject/Pinta/issues");
 	}
 
-	private async void DisplayHelp (object sender, EventArgs e)
+	private async void DisplayHelp (object? sender, EventArgs e)
 	{
 		await system.LaunchUri ("https://pinta-project.com/user-guide");
 	}
 
-	private async void Translate_Activated (object sender, EventArgs e)
+	private async void Translate_Activated (object? sender, EventArgs e)
 	{
 		await system.LaunchUri ("https://hosted.weblate.org/engage/pinta/");
 	}
 
-	private async void Website_Activated (object sender, EventArgs e)
+	private async void Website_Activated (object? sender, EventArgs e)
 	{
 		await system.LaunchUri ("https://www.pinta-project.com");
 	}

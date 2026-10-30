@@ -50,7 +50,7 @@ public sealed class TextLayout
 
 	public TextLayout (IChromeService chrome)
 	{
-		Layout = Pango.Layout.New (chrome.TextContext);
+		Layout = Pango.Layout.New ((Pango.Context) chrome.TextContext);
 	}
 
 	public ImmutableArray<RectangleI> GetSelectionRectangles ()
@@ -134,7 +134,7 @@ public sealed class TextLayout
 				break;
 		}
 
-		Layout.SetFontDescription (engine.Font);
+		Layout.SetFontDescription (engine.Font.ToFontDescription ());
 
 		Layout.SetMarkup (markup, -1);
 	}

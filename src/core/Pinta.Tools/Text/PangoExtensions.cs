@@ -98,3 +98,19 @@ public static partial class PangoExtensions
 	public static int UnitsFromPixels (int pixels)
 		=> Pango.Functions.UnitsFromDouble (pixels);
 }
+
+public static class TextFontExtensions
+{
+	public static Pango.FontDescription ToFontDescription (this TextFont font)
+	{
+		var desc = Pango.FontDescription.New ();
+		if (!string.IsNullOrEmpty (font.Family))
+			desc.SetFamily (font.Family);
+		if (font.SizePangoUnits > 0)
+			desc.SetSize (font.SizePangoUnits);
+		desc.SetVariant ((Pango.Variant) font.Variant);
+		desc.SetWeight ((Pango.Weight) font.Weight);
+		desc.SetStyle ((Pango.Style) font.Style);
+		return desc;
+	}
+}

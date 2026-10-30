@@ -264,7 +264,13 @@ public sealed class DocumentWorkspace
 			: document.ImageSize.Height / rect.Height;
 
 		actions.View.ZoomComboBox.SetEntryText (ViewActions.ToPercent (ratio));
-		GLib.MainContext.Default ().Iteration (false); //Force update of scrollbar upper before recenter
+
+		// The recenter below needs the scrollbar range to be updated first, which only
+		// happens after a layout pass. Pumping pending main-loop work is the one spot where
+		// synchronous processing is required; everything else should use Post().
+		IUiScheduler uiScheduler = PintaCore.Services.GetService<IUiScheduler> ()
+			?? throw new InvalidOperationException ("No IUiScheduler service is registered.");
+		uiScheduler.PumpPending ();
 
 		PointD newPoint = new (
 			X: rect.X + rect.Width / 2,

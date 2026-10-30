@@ -1,5 +1,5 @@
 //
-// ResourceLoader.cs
+// GtkIconProvider.cs
 //
 // Author:
 //       Jonathan Pobst <monkey@jpobst.com>
@@ -25,16 +25,16 @@
 // THE SOFTWARE.
 
 using System;
-using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Cairo;
 using GLib;
+using Pinta.Resources;
 
-namespace Pinta.Resources;
+namespace Pinta.Core;
 
-public static class ResourceLoader
+/// <summary>GTK icon theme / embedded-resource icon loading and themed CSS.</summary>
+public static class GtkIconProvider
 {
 	[MethodImpl (MethodImplOptions.NoInlining)]
 	public static Gdk.Texture GetIcon (string name, int size)
@@ -55,6 +55,11 @@ public static class ResourceLoader
 
 		// If even the "missing image" is missing, make one on the fly
 		return CreateMissingImage (size);
+	}
+
+	public static Gdk.Texture GetIcon (string name)
+	{
+		return GetIcon (name, 16);
 	}
 
 	public static void LoadCssStyles ()

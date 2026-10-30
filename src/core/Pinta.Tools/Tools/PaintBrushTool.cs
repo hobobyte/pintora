@@ -42,7 +42,7 @@ public sealed class PaintBrushTool : BaseBrushTool
 	private BasePaintBrush? active_brush;
 	private PointI? last_point = PointI.Zero;
 	private RectangleI? stroke_dirty_rect;
-	private uint? open_repeating_draw_id;
+	private IDisposable? open_repeating_draw_timer;
 	private IToolbarContainer brush_specific_options_box;
 
 	public PaintBrushTool (IServiceProvider services) : base (services)
@@ -180,10 +180,14 @@ public sealed class PaintBrushTool : BaseBrushTool
 			document.Workspace.Invalidate (document.ClampToImageSize (invalidate_rect));
 
 		if (active_brush.MillisecondsBeforeReapply != 0) {
-			open_repeating_draw_id = GLib.Functions.TimeoutAdd (GLib.Constants.PRIORITY_DEFAULT, active_brush.MillisecondsBeforeReapply, () => {
-				OnMouseMove (document, e);
-				return true;
-			});
+			IUiScheduler uiScheduler = PintaCore.Services.GetService<IUiScheduler> ()
+				?? throw new InvalidOperationException ("No IUiScheduler service is registered.");
+			open_repeating_draw_timer = uiScheduler.StartTimer (
+				TimeSpan.FromMilliseconds (active_brush.MillisecondsBeforeReapply),
+				() => {
+					OnMouseMove (document, e);
+					return true;
+				});
 		}
 		last_point = e.Point;
 	}
@@ -284,10 +288,8 @@ public sealed class PaintBrushTool : BaseBrushTool
 
 	private void CancelRepeatingDraw ()
 	{
-		if (open_repeating_draw_id != null) {
-			GLib.Functions.SourceRemove (open_repeating_draw_id.Value);
-			open_repeating_draw_id = null;
-		}
+		open_repeating_draw_timer?.Dispose ();
+		open_repeating_draw_timer = null;
 	}
 
 	private void RebuildBrushSpecificOptions ()

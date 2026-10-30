@@ -27,6 +27,7 @@
 using System;
 using Cairo;
 using GdkPixbuf;
+using Pinta.Gui.Widgets;
 
 namespace Pinta.Core;
 
@@ -60,7 +61,7 @@ public class GdkPixbufFormat : IImageImporter, IImageExporter
 			PintaCore.Tools,
 			PintaCore.Workspace,
 			imageSize,
-			file,
+			new GioFileReference (file),
 			filetype);
 
 		Layer layer = newDocument.Layers.AddNewLayer (file.GetDisplayName ());

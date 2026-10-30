@@ -107,21 +107,21 @@ public sealed class FileActions
 		this.app = app;
 	}
 
-	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
 		bool isMac = system.OperatingSystem == OS.Mac;
 
-		Gio.Menu save_section = Gio.Menu.New ();
-		save_section.AppendItem (Save.CreateMenuItem ());
-		save_section.AppendItem (SaveAs.CreateMenuItem ());
+		IActionMenu save_section = menu.CreateSubmenu ();
+		save_section.AppendItem (Save);
+		save_section.AppendItem (SaveAs);
 
-		Gio.Menu close_section = Gio.Menu.New ();
-		close_section.AppendItem (Close.CreateMenuItem ());
-		if (!isMac) close_section.AppendItem (app.Exit.CreateMenuItem ()); // This is part of the application menu on macOS
+		IActionMenu close_section = menu.CreateSubmenu ();
+		close_section.AppendItem (Close);
+		if (!isMac) close_section.AppendItem (app.Exit); // This is part of the application menu on macOS
 
-		menu.AppendItem (New.CreateMenuItem ());
-		menu.AppendItem (NewScreenshot.CreateMenuItem ());
-		menu.AppendItem (Open.CreateMenuItem ());
+		menu.AppendItem (New);
+		menu.AppendItem (NewScreenshot);
+		menu.AppendItem (Open);
 		menu.AppendSection (null, save_section);
 		menu.AppendSection (null, close_section);
 		registrar.AddCommands ([

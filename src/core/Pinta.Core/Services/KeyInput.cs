@@ -62,20 +62,20 @@ public readonly record struct ToolKey (uint Value)
 	public static ToolKey Invalid { get; } = new (KeyValues.VoidSymbol);
 
 	// GDK_KEY_Control_L / GDK_KEY_Control_R / GDK_KEY_Meta_L / GDK_KEY_Meta_R (fixed X11 values).
-	private const uint ControlL = 0xffe3;
-	private const uint ControlR = 0xffe4;
-	private const uint MetaL = 0xffe7;
-	private const uint MetaR = 0xffe8;
+	private const uint ControlLeft = 0xffe3;
+	private const uint ControlRight = 0xffe4;
+	private const uint MetaLeft = 0xffe7;
+	private const uint MetaRight = 0xffe8;
 
 	/// <summary>
 	/// Returns whether this key is a Ctrl key (or the Cmd key on macOS).
 	/// </summary>
 	public bool IsControlKey ()
 	{
-		if (PintaCore.System.OperatingSystem == OS.Mac)
-			return Value == MetaL || Value == MetaR;
+			if (PintaCore.System.OperatingSystem == OS.Mac)
+				return Value == MetaLeft || Value == MetaRight;
 		else
-			return Value == ControlL || Value == ControlR;
+				return Value == ControlLeft || Value == ControlRight;
 	}
 
 	/// <summary>
