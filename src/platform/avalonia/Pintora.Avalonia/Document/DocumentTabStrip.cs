@@ -216,6 +216,11 @@ public sealed class DocumentTabStrip : UserControl
 		// every container is built with the DisplayTitle binding already set.
 		tab_control.ItemTemplate = new global::Avalonia.Controls.Templates.FuncDataTemplate<DocumentTab> (
 			(_, _) => BuildHeader ());
+		// The strip is a header-only control: the host renders the active
+		// canvas separately, so the TabControl content area must stay empty.
+		// Without a template it would display DocumentTab.ToString().
+		tab_control.ContentTemplate = new global::Avalonia.Controls.Templates.FuncDataTemplate<DocumentTab> (
+			(_, _) => new Border ());
 		tab_control.ItemsSource = adapter.Tabs;
 		SyncSelection ();
 	}

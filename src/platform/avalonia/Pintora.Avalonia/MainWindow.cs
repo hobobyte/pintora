@@ -1120,14 +1120,14 @@ public sealed class MainWindow : Window
 			case CanvasHost.CanvasTool.Pencil:
 				break;
 			case CanvasHost.CanvasTool.Shapes:
-				tool_options.Children.Add (new TextBlock { Text = "Shape Type:", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (new TextBlock { Text = "Shape:", VerticalAlignment = VerticalAlignment.Center });
 				var shape = new ComboBox {
 					ItemsSource = new[] { "Line", "Rectangle", "Ellipse", "Rounded rectangle" },
 					SelectedIndex = (int) canvas.SelectedShape,
 					MinWidth = 135
 				};
 				tool_options.Children.Add (shape);
-				tool_options.Children.Add (new TextBlock { Text = "Fill Style:", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (new TextBlock { Text = "Fill:", VerticalAlignment = VerticalAlignment.Center });
 				var fill = new ComboBox {
 					ItemsSource = new[] { "Outline", "Fill", "Fill + outline" },
 					SelectedIndex = (int) canvas.FillStyle,
@@ -1138,7 +1138,7 @@ public sealed class MainWindow : Window
 					if (fill.SelectedIndex >= 0) canvas.FillStyle = (CanvasHost.ShapeFillStyle) fill.SelectedIndex;
 				};
 				tool_options.Children.Add (fill);
-				tool_options.Children.Add (new TextBlock { Text = "Outline width:", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (new TextBlock { Text = "Width:", VerticalAlignment = VerticalAlignment.Center });
 				tool_options.Children.Add (CreateShapeWidthInput (canvas));
 				tool_options.Children.Add (new TextBlock { Text = "Dash:", VerticalAlignment = VerticalAlignment.Center });
 				var dash = new ComboBox {
@@ -1546,8 +1546,16 @@ public sealed class MainWindow : Window
 			for (int i = canvas.Layers.Count - 1; i >= 0; i--) {
 				int index = i;
 				AvaloniaLayer layer = canvas.Layers[index];
-				var visibility = new CheckBox { IsChecked = layer.IsVisible, Content = layer.Name };
-				var locked = new CheckBox { IsChecked = layer.IsLocked, Content = "Lock" };
+				var visibility = new CheckBox { IsChecked = layer.IsVisible };
+				ToolTip.SetTip (visibility, "Layer visible");
+				var locked = new CheckBox { IsChecked = layer.IsLocked };
+				ToolTip.SetTip (locked, "Layer locked");
+				var name = new TextBlock {
+					Text = layer.Name,
+					VerticalAlignment = VerticalAlignment.Center,
+					MaxWidth = 96,
+					TextTrimming = TextTrimming.CharacterEllipsis
+				};
 				visibility.IsCheckedChanged += (_, _) => {
 					ActiveCanvas.SetLayerVisibility (index, visibility.IsChecked == true);
 				};
@@ -1561,7 +1569,7 @@ public sealed class MainWindow : Window
 						Children = {
 						new TextBlock { Text = index == canvas.ActiveLayerIndex ? "▣" : "□" },
 						thumbnail,
-						visibility, locked
+						visibility, name, locked
 					}
 					},
 					HorizontalContentAlignment = HorizontalAlignment.Left,
@@ -1608,8 +1616,8 @@ public sealed class MainWindow : Window
 				CreateCompactCommand ("⧉", "Duplicate layer", () => { ActiveCanvas.DuplicateActiveLayer (); RebuildLayers (); }),
 				CreateCompactCommand ("↑", "Move layer up", () => { ActiveCanvas.MoveLayer (1); RebuildLayers (); }),
 				CreateCompactCommand ("↓", "Move layer down", () => { ActiveCanvas.MoveLayer (-1); RebuildLayers (); }),
-				CreateCompactCommand ("Merge", "Merge layer down", () => { ActiveCanvas.MergeActiveLayerDown (); RebuildLayers (); }),
-				CreateCompactCommand ("Name", "Rename layer", () => new LayerRenameWindow (ActiveCanvas, ActiveCanvas.Layers[ActiveCanvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
+				CreateCompactCommand ("⧨", "Merge layer down", () => { ActiveCanvas.MergeActiveLayerDown (); RebuildLayers (); }),
+				CreateCompactCommand ("✎", "Rename layer", () => new LayerRenameWindow (ActiveCanvas, ActiveCanvas.Layers[ActiveCanvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
 				CreateCompactCommand ("↶", "Undo layer operation", () => { ActiveCanvas.UndoLayerOperation (); RebuildLayers (); }),
 				CreateCompactCommand ("↷", "Redo layer operation", () => { ActiveCanvas.RedoLayerOperation (); RebuildLayers (); })
 			} }
