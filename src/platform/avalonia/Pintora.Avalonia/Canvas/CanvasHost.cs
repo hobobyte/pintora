@@ -2105,6 +2105,27 @@ public sealed class CanvasHost : Control, IDisposable
 		BrushSize = Math.Clamp (BrushSize + delta, 1, 1000);
 	}
 
+	/// <summary>
+	/// Commits the in-progress shape (like the Paint.NET Finish button / Enter key):
+	/// an active drag-edit is committed; otherwise the selected shape is deselected.
+	/// Returns true when there was something to finish.
+	/// </summary>
+	public bool FinishShape ()
+	{
+		if (shape_tool.IsEditing)
+			return shape_tool.CommitEdit (Surface as MemoryImageSurface, CommitStroke);
+		if (shape_tool.SelectedShape is not null) {
+			shape_tool.ClearSelectedShape ();
+			bitmap = null;
+			InvalidateVisual ();
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>True while a shape drag-edit is in progress or a shape stays selected.</summary>
+	public bool HasActiveShape => shape_tool.IsEditing || shape_tool.SelectedShape is not null;
+
 	public void PaintViewPoint (Point viewPoint, ColorBgra color)
 	{
 		Rect canvasRect = GetCanvasRect ();
@@ -2511,6 +2532,18 @@ public sealed class CanvasHost : Control, IDisposable
 				shape_tool.CancelEdit (CancelCurrentStroke);
 			else
 				CancelCurrentStroke ();
+			e.Handled = true;
+		} else if (e.Key == Key.Enter) {
+			if (FinishShape ())
+				e.Handled = true;
+		} else if (e.Key is Key.OemOpenBrackets or Key.OemCloseBrackets) {
+			int step = (e.KeyModifiers & KeyModifiers.Control) != 0 ? 5 : 1;
+			if (e.Key == Key.OemOpenBrackets)
+				step = -step;
+			if (ActiveTool == CanvasTool.Shapes)
+				ShapeOutlineWidth += step;
+			else
+				AdjustBrushSize (step);
 			e.Handled = true;
 		} else if (selected_annotation is not null && (e.Key is Key.Delete or Key.Back)) {
 			if (RemoveAnnotation (selected_annotation))

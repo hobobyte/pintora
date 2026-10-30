@@ -41,6 +41,7 @@ public sealed class MainWindow : Window
 	private Action? refresh_layers;
 	private Action? rebuild_layers_panel;
 	private StackPanel? tool_options;
+	private global::Avalonia.Controls.Primitives.ToggleButton? antialias_toggle;
 	private readonly EditorCommandRegistry commands = new ();
 	private readonly DocumentTabManager tab_manager;
 	private readonly DocumentCloseCoordinator close_coordinator;
@@ -237,12 +238,54 @@ public sealed class MainWindow : Window
 	private Control CreateToolbar (CanvasHost canvas)
 	{
 		tool_options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+		// Paint.NET keeps rasterization (antialiasing), Finish and zoom as global
+		// toolbar controls rather than per-tool options, so they live outside the
+		// options ScrollViewer at the right end of the bar.
+		var antialias = new global::Avalonia.Controls.Primitives.ToggleButton {
+			Content = "AA",
+			MinWidth = 34,
+			Height = 30,
+			IsChecked = canvas.ShapeAntialias,
+			VerticalAlignment = VerticalAlignment.Center
+		};
+		antialias.IsCheckedChanged += (_, _) => {
+			if (ActiveCanvas is { } active)
+				active.ShapeAntialias = antialias.IsChecked == true;
+		};
+		antialias_toggle = antialias;
+		ToolTip.SetTip (antialias, "Antialiasing (smooth / pixelated edges)");
+		var finish = new Button {
+			Content = "Finish",
+			MinWidth = 34,
+			Height = 30,
+			Padding = new global::Avalonia.Thickness (8, 2),
+			VerticalAlignment = VerticalAlignment.Center
+		};
+		finish.Click += (_, _) => {
+			if (ActiveCanvas is { } active)
+				active.FinishShape ();
+		};
+		ToolTip.SetTip (finish, "Finish shape editing (Enter)");
+		var global_controls = new StackPanel {
+			Orientation = Orientation.Horizontal,
+			Spacing = 4,
+			Margin = new global::Avalonia.Thickness (8, 0, 0, 0),
+			VerticalAlignment = VerticalAlignment.Center,
+			Children = { antialias, finish }
+		};
+		DockPanel.SetDock (global_controls, Dock.Right);
 		var toolbar = new Border {
 			Padding = new global::Avalonia.Thickness (8, 4),
-			Child = new ScrollViewer {
-				HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-				VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-				Content = tool_options
+			Child = new DockPanel {
+				LastChildFill = true,
+				Children = {
+					global_controls,
+					new ScrollViewer {
+						HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+						VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+						Content = tool_options
+					}
+				}
 			}
 		};
 		RefreshToolOptions (canvas);
@@ -551,6 +594,12 @@ public sealed class MainWindow : Window
 	{
 		var input = new NumericUpDown { Minimum = 1, Maximum = 256, Value = canvas.BrushSize, Width = 70 };
 		input.ValueChanged += (_, args) => canvas.BrushSize = (int) (args.NewValue ?? 1);
+		// Paint.NET-style wheel adjustment: hover the width control and scroll.
+		input.PointerWheelChanged += (_, args) => {
+			canvas.AdjustBrushSize (args.Delta.Y > 0 ? 1 : -1);
+			input.Value = canvas.BrushSize;
+			args.Handled = true;
+		};
 		return input;
 	}
 
@@ -573,7 +622,14 @@ public sealed class MainWindow : Window
 		Button increase = new () { Content = "+", Width = 30, Height = 30 };
 		decrease.Click += (_, _) => { canvas.ShapeOutlineWidth--; value.Text = canvas.ShapeOutlineWidth.ToString (); };
 		increase.Click += (_, _) => { canvas.ShapeOutlineWidth++; value.Text = canvas.ShapeOutlineWidth.ToString (); };
-		return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { value, decrease, increase } };
+		var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { value, decrease, increase } };
+		// Paint.NET-style wheel adjustment: hover the width control and scroll.
+		panel.PointerWheelChanged += (_, args) => {
+			canvas.ShapeOutlineWidth += args.Delta.Y > 0 ? 1 : -1;
+			value.Text = canvas.ShapeOutlineWidth.ToString ();
+			args.Handled = true;
+		};
+		return panel;
 	}
 
 	private static Slider CreateBrushSlider (double minimum, double maximum, double value, Action<double> changed, double width)
@@ -1040,6 +1096,8 @@ public sealed class MainWindow : Window
 		if (tool_options is null)
 			return;
 		tool_options.Children.Clear ();
+		if (antialias_toggle is not null)
+			antialias_toggle.IsChecked = canvas.ShapeAntialias;
 		switch (canvas.ActiveTool) {
 			case CanvasHost.CanvasTool.Selection:
 				tool_options.Children.Add (CreateBrushButton ("Select all", () => canvas.SelectAll ()));
@@ -1150,13 +1208,6 @@ public sealed class MainWindow : Window
 					if (dash.SelectedIndex >= 0) canvas.DashStyle = (CanvasHost.ShapeDashStyle) dash.SelectedIndex;
 				};
 				tool_options.Children.Add (dash);
-				var smoothing = new ComboBox {
-					ItemsSource = new[] { "Smooth", "Pixelated" },
-					SelectedIndex = canvas.ShapeAntialias ? 0 : 1,
-					MinWidth = 105
-				};
-				smoothing.SelectionChanged += (_, _) => canvas.ShapeAntialias = smoothing.SelectedIndex == 0;
-				tool_options.Children.Add (smoothing);
 				var corner = new NumericUpDown { Minimum = 1, Maximum = 256, Value = canvas.ShapeCornerRadius, Width = 70, IsVisible = canvas.SelectedShape == CanvasHost.ShapeKind.RoundedRectangle };
 				corner.ValueChanged += (_, args) => canvas.ShapeCornerRadius = (int) (args.NewValue ?? 8);
 				tool_options.Children.Add (corner);
