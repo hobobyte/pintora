@@ -195,19 +195,19 @@ public sealed partial class LayersListViewItemWidget
 		LayerActions actions = PintaCore.Actions.Layers;
 
 		Gio.Menu operationsSection = Gio.Menu.New ();
-		operationsSection.AppendItem (actions.DeleteLayer.CreateMenuItem ());
-		operationsSection.AppendItem (actions.DuplicateLayer.CreateMenuItem ());
-		operationsSection.AppendItem (actions.MergeLayerDown.CreateMenuItem ());
-		operationsSection.AppendItem (actions.MoveLayerUp.CreateMenuItem ());
-		operationsSection.AppendItem (actions.MoveLayerDown.CreateMenuItem ());
+		operationsSection.AppendItem (actions.DeleteLayer.CreateMenuItem ().ToGioMenuItem ());
+		operationsSection.AppendItem (actions.DuplicateLayer.CreateMenuItem ().ToGioMenuItem ());
+		operationsSection.AppendItem (actions.MergeLayerDown.CreateMenuItem ().ToGioMenuItem ());
+		operationsSection.AppendItem (actions.MoveLayerUp.CreateMenuItem ().ToGioMenuItem ());
+		operationsSection.AppendItem (actions.MoveLayerDown.CreateMenuItem ().ToGioMenuItem ());
 
 		Gio.Menu flipSection = Gio.Menu.New ();
-		flipSection.AppendItem (actions.FlipHorizontal.CreateMenuItem ());
-		flipSection.AppendItem (actions.FlipVertical.CreateMenuItem ());
-		flipSection.AppendItem (actions.RotateZoom.CreateMenuItem ());
+		flipSection.AppendItem (actions.FlipHorizontal.CreateMenuItem ().ToGioMenuItem ());
+		flipSection.AppendItem (actions.FlipVertical.CreateMenuItem ().ToGioMenuItem ());
+		flipSection.AppendItem (actions.RotateZoom.CreateMenuItem ().ToGioMenuItem ());
 
 		Gio.Menu propertiesSection = Gio.Menu.New ();
-		propertiesSection.AppendItem (actions.Properties.CreateMenuItem ());
+		propertiesSection.AppendItem (actions.Properties.CreateMenuItem ().ToGioMenuItem ());
 
 		Gio.Menu menu = Gio.Menu.New ();
 		menu.AppendSection (null, operationsSection);

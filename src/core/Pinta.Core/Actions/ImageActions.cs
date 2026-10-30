@@ -124,24 +124,24 @@ public sealed class ImageActions
 		this.view = view;
 	}
 
-	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
-		Gio.Menu flip_section = Gio.Menu.New ();
-		flip_section.AppendItem (FlipHorizontal.CreateMenuItem ());
-		flip_section.AppendItem (FlipVertical.CreateMenuItem ());
+		IActionMenu flip_section = menu.CreateSubmenu ();
+		flip_section.AppendItem (FlipHorizontal);
+		flip_section.AppendItem (FlipVertical);
 
-		Gio.Menu rotate_section = Gio.Menu.New ();
-		rotate_section.AppendItem (RotateCW.CreateMenuItem ());
-		rotate_section.AppendItem (RotateCCW.CreateMenuItem ());
+		IActionMenu rotate_section = menu.CreateSubmenu ();
+		rotate_section.AppendItem (RotateCW);
+		rotate_section.AppendItem (RotateCCW);
 		rotate_section.AppendItem (Rotate180.CreateMenuItem ());
 
-		Gio.Menu flatten_section = Gio.Menu.New ();
-		flatten_section.AppendItem (Flatten.CreateMenuItem ());
+		IActionMenu flatten_section = menu.CreateSubmenu ();
+		flatten_section.AppendItem (Flatten);
 
-		menu.AppendItem (CropToSelection.CreateMenuItem ());
-		menu.AppendItem (AutoCrop.CreateMenuItem ());
-		menu.AppendItem (Resize.CreateMenuItem ());
-		menu.AppendItem (CanvasSize.CreateMenuItem ());
+		menu.AppendItem (CropToSelection);
+		menu.AppendItem (AutoCrop);
+		menu.AppendItem (Resize);
+		menu.AppendItem (CanvasSize);
 		menu.AppendSection (null, flip_section);
 		menu.AppendSection (null, rotate_section);
 		menu.AppendSection (null, flatten_section);

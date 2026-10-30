@@ -20,4 +20,7 @@ public interface IActionRegistrar
 
 	/// <summary>Set the accelerators for an already-registered action.</summary>
 	void SetAccelerators (string actionName, string[] accelerators);
+
+	/// <summary>Register a stateful integer command (e.g. ruler metric).</summary>
+	void AddIntStateCommand (IntStateCommand command);
 }

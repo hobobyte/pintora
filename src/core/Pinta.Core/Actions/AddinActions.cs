@@ -29,7 +29,7 @@ namespace Pinta.Core;
 
 public sealed class AddinActions
 {
-	private Gio.Menu addins_menu = null!; // NRT - Set by RegisterActions
+	private IActionMenu addins_menu = null!; // NRT - Set by RegisterActions
 
 	public Command AddinManager { get; }
 
@@ -45,7 +45,7 @@ public sealed class AddinActions
 	/// <summary>
 	/// Adds a new item to the Add-ins menu.
 	/// </summary>
-	public void AddMenuItem (Gio.MenuItem item)
+	public void AddMenuItem (CommandMenuItem item)
 	{
 		addins_menu.AppendItem (item);
 	}
@@ -53,22 +53,19 @@ public sealed class AddinActions
 	/// <summary>
 	/// Removes an item from the Add-ins menu.
 	/// </summary>
-	public void RemoveMenuItem (Gio.MenuItem item)
+	public void RemoveMenuItem (CommandMenuItem item)
 	{
 		// TODO-GTK3 (addins)
 		throw new NotImplementedException ();
-#if false
-		addins_menu.Remove (item);
-#endif
 	}
 
 	#region Initialization
-	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
+	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
 		registrar.AddCommand (AddinManager);
-		menu.AppendItem (AddinManager.CreateMenuItem ());
+		menu.AppendItem (AddinManager);
 
-		addins_menu = Gio.Menu.New ();
+		addins_menu = menu.CreateSubmenu ();
 		menu.AppendSection (null, addins_menu);
 	}
 	#endregion
