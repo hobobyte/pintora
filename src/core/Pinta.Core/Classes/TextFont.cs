@@ -29,6 +29,13 @@ public enum TextFontWeight {
 	Ultraheavy = 1000,
 }
 
+/// <summary>Font style for text rendering (mirrors Pango style values).</summary>
+public enum TextFontStyle {
+	Normal = 0,
+	Italic = 1,
+	Oblique = 2,
+}
+
 /// <summary>
 /// Platform-neutral font description for the text engine.
 /// Size is expressed in Pango units (points * 1024) so existing unit conversions stay valid.
@@ -38,16 +45,16 @@ public sealed record TextFont (
 	int SizePangoUnits,
 	TextFontVariant Variant,
 	TextFontWeight Weight,
-	bool Italic)
+	TextFontStyle Style)
 {
 	/// <summary>Default font matching a blank Pango font description.</summary>
-	public static TextFont Empty { get; } = new (string.Empty, 0, TextFontVariant.Normal, TextFontWeight.Normal, false);
+	public static TextFont Empty { get; } = new (string.Empty, 0, TextFontVariant.Normal, TextFontWeight.Normal, TextFontStyle.Normal);
 
 	/// <summary>Produces a Pango-style font string (e.g. "Sans Bold Italic 12") for settings persistence.</summary>
 	public override string ToString ()
 	{
 		var result = Family;
-		if (Italic) result += " Italic";
+		if (Style != TextFontStyle.Normal) result += $" {Style}";
 		if (Variant != TextFontVariant.Normal) result += $" {Variant}";
 		if (Weight != TextFontWeight.Normal) result += $" {Weight}";
 		if (SizePangoUnits > 0) result += $" {SizePangoUnits / 1024.0}";

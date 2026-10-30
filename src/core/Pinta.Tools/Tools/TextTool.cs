@@ -631,7 +631,7 @@ public sealed class TextTool : BaseTool
 			var font = font_button.Font with {
 				Variant = variant_btn.SelectedItem.GetTagOrDefault (TextFontVariant.Normal),
 				Weight = weight_btn.SelectedItem.GetTagOrDefault (TextFontWeight.Normal),
-				Italic = italic_btn.Active,
+				Style = italic_btn.Active ? TextFontStyle.Italic : TextFontStyle.Normal,
 			};
 
 			CurrentTextEngine.SetFont (font, Alignment, underscore_btn.Active);

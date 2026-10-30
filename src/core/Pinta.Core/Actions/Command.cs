@@ -54,7 +54,20 @@ public class Command
 	public string? IconName { get; }
 	public string FullName => $"app.{Name}";
 	public bool IsImportant { get; } = false;
-	public bool Sensitive { get; set; }
+
+	private bool sensitive = true;
+	public bool Sensitive {
+		get => sensitive;
+		set {
+			if (value == sensitive) return;
+			sensitive = value;
+			SensitivityChanged?.Invoke (this, EventArgs.Empty);
+		}
+	}
+
+	/// <summary>Raised when <see cref="Sensitive"/> changes; the platform registrar mirrors it onto the native action.</summary>
+	public event EventHandler? SensitivityChanged;
+
 	public ImmutableArray<string> Shortcuts { get; }
 
 	public Command (

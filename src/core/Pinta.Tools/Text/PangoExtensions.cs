@@ -110,7 +110,7 @@ public static class TextFontExtensions
 			desc.SetSize (font.SizePangoUnits);
 		desc.SetVariant ((Pango.Variant) font.Variant);
 		desc.SetWeight ((Pango.Weight) font.Weight);
-		desc.SetStyle (font.Italic ? Pango.Style.Italic : Pango.Style.Normal);
+		desc.SetStyle ((Pango.Style) font.Style);
 		return desc;
 	}
 }

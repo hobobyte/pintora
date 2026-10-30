@@ -18,6 +18,7 @@ internal sealed class GtkActionRegistrar : IActionRegistrar
 		var action = Gio.SimpleAction.New (command.Name, null);
 		action.OnActivate += (_, _) => command.Activate ();
 		action.Enabled = command.Sensitive;
+		command.SensitivityChanged += (_, _) => action.Enabled = command.Sensitive;
 		command.NativeAction = action;
 		app.AddAction (action);
 		SetAccelerators (command.FullName, [.. command.Shortcuts]);
@@ -41,6 +42,8 @@ internal sealed class GtkActionRegistrar : IActionRegistrar
 			action.ChangeState (args.Parameter!);
 			command.Activate (newValue);
 		};
+
+		command.Changed += v => action.ChangeState (GLib.Variant.NewInt32 (v));
 
 		command.NativeAction = action;
 		app.AddAction (action);

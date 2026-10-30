@@ -52,7 +52,7 @@ public sealed class GtkToolBarFontButton : IToolBarFontButton
 			desc.GetSize (),
 			(TextFontVariant) desc.GetVariant (),
 			(TextFontWeight) desc.GetWeight (),
-			desc.GetStyle () == Pango.Style.Italic);
+			(TextFontStyle) desc.GetStyle ());
 	}
 
 	public static Pango.FontDescription ToFontDescription (TextFont font)
@@ -64,7 +64,7 @@ public sealed class GtkToolBarFontButton : IToolBarFontButton
 			desc.SetSize (font.SizePangoUnits);
 		desc.SetVariant ((Pango.Variant) font.Variant);
 		desc.SetWeight ((Pango.Weight) font.Weight);
-		desc.SetStyle (font.Italic ? Pango.Style.Italic : Pango.Style.Normal);
+		desc.SetStyle ((Pango.Style) font.Style);
 		return desc;
 	}
 }
