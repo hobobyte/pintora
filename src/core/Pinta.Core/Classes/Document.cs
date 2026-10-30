@@ -60,7 +60,7 @@ public sealed class Document
 	private static int name_counter = 1;
 
 	public Document (ActionManager actions, ToolManager tools, WorkspaceManager workspace, Size size)
-		: this (actions, tools, workspace, size, (Gio.File?) null, null)
+		: this (actions, tools, workspace, size, null, null, unused: false)
 	{ }
 
 	/// <summary>
@@ -73,24 +73,20 @@ public sealed class Document
 		Size size,
 		IFileReference fileReference,
 		string fileType)
-		: this (actions, tools, workspace, size, (Gio.File?) null, fileType)
-	{
-		FileReference = fileReference ?? throw new ArgumentNullException (nameof (fileReference));
-		if (string.IsNullOrEmpty (fileType))
-			throw new ArgumentNullException (nameof (fileType));
-		FileType = fileType;
-	}
+		: this (actions, tools, workspace, size, fileReference, fileType, unused: false)
+	{ }
 
 	private readonly ActionManager actions;
 	private readonly ToolManager tools;
 	private readonly WorkspaceManager workspace;
-	public Document (
+	private Document (
 		ActionManager actions,
 		ToolManager tools,
 		WorkspaceManager workspace,
 		Size size,
-		Gio.File? file,
-		string? fileType)
+		IFileReference? file,
+		string? fileType,
+		bool unused)
 	{
 		// --- Mandatory fields
 
@@ -114,7 +110,7 @@ public sealed class Document
 			if (string.IsNullOrEmpty (fileType))
 				throw new ArgumentNullException ($"nameof{fileType} must contain value.");
 
-			FileReference = new PathFileReference (file.GetParseName ());
+			FileReference = file;
 			FileType = fileType;
 		} else
 			DisplayName = Translations.GetString ("Unsaved Image {0}", name_counter++);
