@@ -6,8 +6,11 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.VisualTree;
+using Pintora.Avalonia.Canvas;
 
 namespace Pintora.Avalonia.Document;
 
@@ -180,6 +183,7 @@ public sealed class DocumentTabStrip : UserControl
 	private DocumentTabStripAdapter? adapter;
 	private Func<DocumentTab, Task<CloseDecision>>? async_close_decision;
 	private readonly HashSet<DocumentTab> closing_tabs = new ();
+	private DocumentTab? dragging_tab;
 
 	/// <summary>Creates an empty strip; call <see cref="Attach"/> to bind it.</summary>
 	public DocumentTabStrip ()
@@ -218,9 +222,9 @@ public sealed class DocumentTabStrip : UserControl
 			(_, _) => BuildHeader ());
 		// The strip is a header-only control: the host renders the active
 		// canvas separately, so the TabControl content area must stay empty.
-		// Without a template it would display DocumentTab.ToString().
+		// Without a hidden template it would display DocumentTab.ToString().
 		tab_control.ContentTemplate = new global::Avalonia.Controls.Templates.FuncDataTemplate<DocumentTab> (
-			(_, _) => new Border ());
+			(_, _) => new Border { IsVisible = false, Height = 0 });
 		tab_control.ItemsSource = adapter.Tabs;
 		SyncSelection ();
 	}
@@ -252,13 +256,28 @@ public sealed class DocumentTabStrip : UserControl
 
 	private Control BuildHeader ()
 	{
-		var label = new TextBlock { VerticalAlignment = VerticalAlignment.Center };
-		// Seed the text from the current DataContext so a recycled header never
-		// shows a blank frame (or stale text) while the binding resolves.
-		if (label.DataContext is DocumentTab tab)
-			label.Text = tab.DisplayTitle;
-		label.Bind (TextBlock.TextProperty, new global::Avalonia.Data.Binding (nameof (DocumentTab.DisplayTitle)));
-
+		var thumbnail = new Image {
+			Width = 42,
+			Height = 26,
+			Stretch = Stretch.Uniform,
+			Margin = new Thickness (0, 0, 6, 0)
+		};
+		DocumentTab? subscribed_tab = null;
+		void RefreshThumbnail ()
+		{
+			if (subscribed_tab is not null)
+				thumbnail.Source = subscribed_tab.Canvas.CreateThumbnail (64, 40);
+		}
+		void UnsubscribeThumbnail ()
+		{
+			if (subscribed_tab is null)
+				return;
+			subscribed_tab.Canvas.HistoryChanged -= OnCanvasChanged;
+			subscribed_tab.Canvas.LayersChanged -= OnCanvasLayersChanged;
+			subscribed_tab = null;
+		}
+		void OnCanvasChanged (object? sender, EventArgs e) => RefreshThumbnail ();
+		void OnCanvasLayersChanged (object? sender, EventArgs e) => RefreshThumbnail ();
 		var close = new Button {
 			Content = "×",
 			Padding = new Thickness (4, 0),
@@ -266,23 +285,70 @@ public sealed class DocumentTabStrip : UserControl
 			Background = Brushes.Transparent,
 			BorderThickness = new Thickness (0),
 			VerticalAlignment = VerticalAlignment.Center,
+			Focusable = false,
 		};
+		close.Bind (Button.TagProperty, new global::Avalonia.Data.Binding ());
 		close.Click += OnCloseClicked;
 		// Detach the handler when the header is recycled so a stale button
 		// cannot keep the strip (and its adapter) alive.
 		close.DetachedFromVisualTree += (_, _) => close.Click -= OnCloseClicked;
 
 		var panel = new StackPanel { Orientation = Orientation.Horizontal };
-		panel.Children.Add (label);
+		panel.DataContextChanged += (_, _) => {
+			UnsubscribeThumbnail ();
+			if (panel.DataContext is DocumentTab tab) {
+				subscribed_tab = tab;
+				subscribed_tab.Canvas.HistoryChanged += OnCanvasChanged;
+				subscribed_tab.Canvas.LayersChanged += OnCanvasLayersChanged;
+				RefreshThumbnail ();
+			}
+		};
+		panel.DetachedFromVisualTree += (_, _) => UnsubscribeThumbnail ();
+		panel.PointerPressed += OnTabPointerPressed;
+		panel.PointerReleased += OnTabPointerReleased;
+		panel.Children.Add (thumbnail);
 		panel.Children.Add (close);
 		return panel;
+	}
+
+	private void OnTabPointerPressed (object? sender, PointerPressedEventArgs e)
+	{
+		if (e.Source is Button)
+			return;
+		dragging_tab = (sender as Control)?.DataContext as DocumentTab;
+	}
+
+	private void OnTabPointerReleased (object? sender, PointerReleasedEventArgs e)
+	{
+		DocumentTab? source = dragging_tab;
+		dragging_tab = null;
+		if (source is null || adapter is null)
+			return;
+		DocumentTab? target = FindTabDataContext (e.Source as Visual);
+		if (target is null || ReferenceEquals (source, target))
+			return;
+		int from = adapter.Tabs.IndexOf (source);
+		int to = adapter.Tabs.IndexOf (target);
+		if (from >= 0 && to >= 0)
+			adapter.Manager.MoveTab (from, to);
+	}
+
+	private static DocumentTab? FindTabDataContext (Visual? visual)
+	{
+		while (visual is not null) {
+			if (visual is TabItem { DataContext: DocumentTab tab })
+				return tab;
+			visual = visual.GetVisualParent();
+		}
+		return null;
 	}
 
 	private async void OnCloseClicked (object? sender, global::Avalonia.Interactivity.RoutedEventArgs e)
 	{
 		DocumentTabStripAdapter? current = adapter;
-		if (current is null || sender is not Control { DataContext: DocumentTab tab })
+		if (sender is not Button button || current is null || button.Tag is not DocumentTab tab)
 			return;
+		e.Handled = true;
 		if (!closing_tabs.Add (tab))
 			return;
 		try {

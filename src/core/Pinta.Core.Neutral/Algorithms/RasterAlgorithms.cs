@@ -93,6 +93,37 @@ public static class RasterAlgorithms
 		return true;
 	}
 
+	/// <summary>Samples a center-cropped raster into a fixed thumbnail size.</summary>
+	public static (int Width, int Height, ColorBgra[] Pixels) SampleThumbnail (IImageSurface surface, int width, int height)
+	{
+		ArgumentNullException.ThrowIfNull (surface);
+		if (width <= 0 || height <= 0)
+			throw new ArgumentOutOfRangeException (nameof (width));
+		if (surface.Width <= 0 || surface.Height <= 0)
+			return (width, height, new ColorBgra[width * height]);
+
+		double targetAspect = width / (double) height;
+		double sourceAspect = surface.Width / (double) surface.Height;
+		int cropWidth = surface.Width;
+		int cropHeight = surface.Height;
+		if (sourceAspect > targetAspect)
+			cropWidth = Math.Max (1, (int) Math.Round (surface.Height * targetAspect));
+		else
+			cropHeight = Math.Max (1, (int) Math.Round (surface.Width / targetAspect));
+		int cropLeft = (surface.Width - cropWidth) / 2;
+		int cropTop = (surface.Height - cropHeight) / 2;
+		ReadOnlySpan<ColorBgra> source = surface.GetReadOnlyPixelData ();
+		var pixels = new ColorBgra[width * height];
+		for (int y = 0; y < height; y++) {
+			int sourceY = cropTop + Math.Min (cropHeight - 1, y * cropHeight / height);
+			for (int x = 0; x < width; x++) {
+				int sourceX = cropLeft + Math.Min (cropWidth - 1, x * cropWidth / width);
+				pixels[y * width + x] = source[sourceY * surface.Width + sourceX];
+			}
+		}
+		return (width, height, pixels);
+	}
+
 	public static bool FloodFill (IImageSurface? surface, PointD point, ColorBgra color, int tolerance)
 	{
 		if (surface is null)

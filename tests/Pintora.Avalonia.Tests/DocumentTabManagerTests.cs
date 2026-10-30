@@ -121,6 +121,20 @@ internal sealed class DocumentTabManagerTests
 	}
 
 	[Test]
+	public void MoveTabReordersWithoutChangingActiveDocument ()
+	{
+		DocumentTabManager manager = CreateManager ();
+		DocumentTab first = manager.AddNewDocument (8, 8);
+		DocumentTab second = manager.AddNewDocument (8, 8);
+		DocumentTab third = manager.AddNewDocument (8, 8);
+		manager.SwitchTo (1);
+
+		Assert.That (manager.MoveTab (0, 2), Is.True);
+		Assert.That (manager.Tabs, Is.EqualTo (new[] { second, third, first }));
+		Assert.That (manager.ActiveTab, Is.SameAs (second));
+	}
+
+	[Test]
 	public void CleanCloseRemovesTabAndSelectsNeighbor ()
 	{
 		DocumentTabManager manager = CreateManager ();

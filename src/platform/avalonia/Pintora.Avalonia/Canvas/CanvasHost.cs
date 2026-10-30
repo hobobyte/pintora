@@ -884,6 +884,27 @@ public sealed class CanvasHost : Control, IDisposable
 	public Pinta.Core.Size ImageSize => session.ImageSize;
 	public Pinta.Core.Size ViewSize => session.ViewSize;
 	public IImageSurface? Surface => session.Surface;
+
+	/// <summary>Creates a center-cropped composite preview for a document tab.</summary>
+	public Bitmap CreateThumbnail (int width = 64, int height = 40)
+	{
+		using MemoryImageSurface composite = CreateCompositeSurface ();
+		(int sampledWidth, int sampledHeight, ColorBgra[] pixels) = RasterAlgorithms.SampleThumbnail (composite, width, height);
+		var thumbnail = new WriteableBitmap (new PixelSize (sampledWidth, sampledHeight), new Vector (96, 96), PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+		using (ILockedFramebuffer locked = thumbnail.Lock ()) {
+			for (int y = 0; y < sampledHeight; y++) {
+				for (int x = 0; x < sampledWidth; x++) {
+					ColorBgra color = pixels[y * sampledWidth + x];
+					IntPtr pixel = IntPtr.Add (locked.Address, y * locked.RowBytes + x * ColorBgra.SizeOf);
+					Marshal.WriteByte (pixel, 0, color.B);
+					Marshal.WriteByte (pixel, 1, color.G);
+					Marshal.WriteByte (pixel, 2, color.R);
+					Marshal.WriteByte (pixel, 3, color.A);
+				}
+			}
+		}
+		return thumbnail;
+	}
 	public bool IsActiveLayerLocked => session.ActiveLayer?.IsLocked == true;
 	internal AvaloniaLayer? ActiveLayer => session.ActiveLayer;
 	public IReadOnlyList<AvaloniaLayer> Layers => session.Layers;
@@ -1994,7 +2015,6 @@ public sealed class CanvasHost : Control, IDisposable
 		history_kinds.Push (HistoryKind.Raster);
 		redo_history_kinds.Clear ();
 		has_current_stroke = true;
-		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
 
 	public void CancelCurrentStroke ()
@@ -2037,7 +2057,10 @@ public sealed class CanvasHost : Control, IDisposable
 
 	public void CommitStroke ()
 	{
+		if (!has_current_stroke)
+			return;
 		has_current_stroke = false;
+		HistoryChanged?.Invoke (this, EventArgs.Empty);
 	}
 
 	public bool ClearActiveLayer ()
@@ -2514,7 +2537,7 @@ public sealed class CanvasHost : Control, IDisposable
 		is_painting = false;
 		pointer_action_tool = null;
 		last_canvas_point = null;
-		has_current_stroke = false;
+		CommitStroke ();
 		InvalidateVisual ();
 		e.Pointer.Capture (null);
 	}

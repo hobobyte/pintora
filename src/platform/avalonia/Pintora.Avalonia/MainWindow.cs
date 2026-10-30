@@ -49,6 +49,7 @@ public sealed class MainWindow : Window
 	private readonly DocumentCloseCoordinator close_coordinator;
 	private readonly DocumentTabStrip tab_strip = new ();
 	private readonly ContentControl canvas_host = new ();
+	private CanvasHost? startup_canvas;
 	private Control? toolbar_control;
 	private Control? toolbox_control;
 	private Control? status_bar_control;
@@ -84,12 +85,12 @@ public sealed class MainWindow : Window
 		keyboard = new PintoraKeyboardSettings (settings);
 		view_settings = new PintoraViewSettings (settings);
 		CanvasHost canvas = CreateCanvasHost (keyboard);
+		startup_canvas = canvas;
 		// Close prompts perform the save asynchronously before asking the manager
 		// to remove the tab; the synchronous delegate is therefore a final guard.
 		tab_manager = new DocumentTabManager (_ => true, tab => tab.Canvas.Dispose ());
 		close_coordinator = new DocumentCloseCoordinator (tab_manager, PromptCloseDecisionAsync, SaveTabAsync);
-		// Subscribe before AddTab: the initial AddTab raises ActiveTabChanged,
-		// which is what wires RebindActiveCanvas (canvas events, thumbnails).
+		// The first document is added only after the startup size dialog is accepted.
 		tab_manager.ActiveTabChanged += (_, _) => {
 			CanvasHost active = ActiveCanvas;
 			ApplyGridViewSettings (active);
@@ -102,8 +103,6 @@ public sealed class MainWindow : Window
 			RebindActiveCanvas ();
 			rebuild_layers_panel?.Invoke ();
 		};
-		tab_manager.AddTab (canvas, canvas.DocumentSession);
-		SyncActiveCanvas ();
 		clipboard_service = Clipboard is null ? null : new AvaloniaClipboardService (Clipboard);
 		if (Clipboard is not null)
 			application.Services.ReplaceService<Pinta.Core.IClipboardService> (new AvaloniaNeutralClipboardService (Clipboard));
@@ -200,13 +199,38 @@ public sealed class MainWindow : Window
 		Content = new Grid {
 			RowDefinitions = new RowDefinitions ("Auto,Auto,*,Auto"),
 			Children = {
-				CreateMainMenu (canvas),
+				CreateMenuBar (canvas),
 				CreateToolbar (canvas),
 				CreateWorkspace (canvas),
 				CreateStatusBar (canvas)
 			}
 		};
 		ApplyChromeViewSettings ();
+		Opened += async (_, _) => await ShowStartupDocumentDialogAsync (canvas);
+	}
+
+	private Control CreateMenuBar (CanvasHost canvas)
+	{
+		Menu menu = CreateMainMenu (canvas);
+		tab_strip.AttachAsync (tab_manager, RequestCloseDecisionAsync);
+		var tabs_host = new Border {
+			MinHeight = 34,
+			Padding = new global::Avalonia.Thickness (4, 0),
+			Child = new ScrollViewer {
+				HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+				VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
+				HorizontalContentAlignment = HorizontalAlignment.Left,
+				Content = tab_strip
+			}
+		};
+		tab_strip_host = tabs_host;
+		var bar = new Grid {
+			ColumnDefinitions = new ColumnDefinitions ("Auto,*"),
+			Children = { menu, tabs_host }
+		};
+		Grid.SetColumn (tabs_host, 1);
+		bar.Bind (Grid.BackgroundProperty, new DynamicResourceExtension ("Pintora.Toolbar.Background"));
+		return bar;
 	}
 
 	private static Button CreateCompactCommand (string label, string tooltip, Action action)
@@ -480,7 +504,22 @@ public sealed class MainWindow : Window
 		return menu;
 	}
 
-	private CanvasHost ActiveCanvas => tab_manager.ActiveTab?.Canvas ?? throw new InvalidOperationException ("No active document tab.");
+	private CanvasHost ActiveCanvas
+		=> tab_manager.ActiveTab?.Canvas ?? startup_canvas ?? throw new InvalidOperationException ("No active document tab.");
+
+	private async Task ShowStartupDocumentDialogAsync (CanvasHost canvas)
+	{
+		var dialog = new NewDocumentWindow (canvas);
+		await dialog.ShowDialog (this);
+		if (!dialog.Created) {
+			Close ();
+			return;
+		}
+		startup_canvas = null;
+		tab_manager.AddTab (canvas, canvas.DocumentSession);
+		SyncActiveCanvas ();
+		UpdateDocumentTitle (canvas, version);
+	}
 
 	private MenuItem CreateViewGridToggle ()
 	{
@@ -1564,43 +1603,35 @@ public sealed class MainWindow : Window
 		if (!tab.IsDirty)
 			return CloseDecision.Discard;
 
-		var result = new TaskCompletionSource<CloseDecision> (TaskCreationOptions.RunContinuationsAsynchronously);
-		var cancel = new Button { Content = "Cancel", Tag = CloseDecision.Cancel, MinWidth = 92, IsCancel = true };
-		var discard = new Button { Content = "Discard", Tag = CloseDecision.Discard, MinWidth = 92 };
-		var save = new Button { Content = "Save", Tag = CloseDecision.Save, MinWidth = 92, IsDefault = true };
+		var cancel = new Button { Content = "Cancel", MinWidth = 92, IsCancel = true };
+		var discard = new Button { Content = "Discard", MinWidth = 92 };
+		var save = new Button { Content = "Save", MinWidth = 92, IsDefault = true };
 		var buttons = new StackPanel {
 			Orientation = Orientation.Horizontal,
 			HorizontalAlignment = HorizontalAlignment.Right,
 			Spacing = 10,
 			Children = { cancel, discard, save }
 		};
-		var content = new Grid {
-			RowDefinitions = new RowDefinitions ("Auto,*,Auto"),
-			Margin = new Thickness (22, 18, 22, 18),
+		var content = new StackPanel {
+			Spacing = 18,
+			Margin = new Thickness (22, 18),
 			Children = {
 				new TextBlock { Text = "Save changes before closing?", FontSize = 16, FontWeight = FontWeight.Bold },
-				new TextBlock { Text = $"{tab.Title} has unsaved changes.", TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center },
 				buttons
 			}
 		};
-		Grid.SetRow (content.Children[1], 1);
-		Grid.SetRow (buttons, 2);
 		var dialog = new Window {
 			Title = $"Save changes to {tab.Title}?",
-			Width = 460,
-			MinHeight = 180,
+			MinWidth = 320,
+			SizeToContent = SizeToContent.WidthAndHeight,
 			CanResize = false,
 			WindowStartupLocation = WindowStartupLocation.CenterOwner,
 			Content = content
 		};
-		foreach (Button button in buttons.Children)
-			button.Click += (_, _) => {
-				result.TrySetResult ((CloseDecision) button.Tag!);
-				dialog.Close ();
-			};
-		dialog.Closed += (_, _) => result.TrySetResult (CloseDecision.Cancel);
-		await dialog.ShowDialog (this);
-		return await result.Task;
+		cancel.Click += (_, _) => dialog.Close (CloseDecision.Cancel);
+		discard.Click += (_, _) => dialog.Close (CloseDecision.Discard);
+		save.Click += (_, _) => dialog.Close (CloseDecision.Save);
+		return await dialog.ShowDialog<CloseDecision> (this);
 	}
 
 	private async Task<CloseDecision> RequestCloseDecisionAsync (DocumentTab tab)
@@ -1714,21 +1745,10 @@ public sealed class MainWindow : Window
 
 	private Control CreateCanvasPlaceholder (CanvasHost canvas)
 	{
-		tab_strip.AttachAsync (tab_manager, RequestCloseDecisionAsync);
-		var tabs_host = new Border {
-			Child = tab_strip
-		};
-		tab_strip_host = tabs_host;
 		var canvas_panel = new Border {
 			Margin = new global::Avalonia.Thickness (96, 10, 252, 190),
-			Child = new DockPanel {
-				Children = {
-					tabs_host,
-					canvas_host
-				}
-			}
+			Child = canvas_host
 		};
-		DockPanel.SetDock (tabs_host, Dock.Top);
 		canvas_panel_control = canvas_panel;
 		return canvas_panel;
 	}
