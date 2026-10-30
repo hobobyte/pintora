@@ -24,26 +24,16 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-<<<<<<< HEAD
 using System;
 
-=======
->>>>>>> origin/master
 namespace Pinta.Core;
 
 public sealed class WindowActions
 {
-<<<<<<< HEAD
 	private IActionMenu doc_section = null!; // NRT - Set in RegisterActions
 	private static readonly string doc_action_id = "active_document";
 	private readonly IntStateCommand active_document;
 	private IDisposable? deferred_update_timer;
-=======
-	private Gio.Menu doc_section = null!; // NRT - Set in RegisterActions
-	private static readonly string doc_action_id = "active_document";
-	private readonly Gio.SimpleAction active_doc_action;
-	private uint deferred_update_event;
->>>>>>> origin/master
 
 	public Command SaveAll { get; }
 	public Command CloseAll { get; }
@@ -65,23 +55,9 @@ public sealed class WindowActions
 			Resources.StandardIcons.WindowClose,
 			shortcuts: ["<Primary><Shift>W"]);
 
-<<<<<<< HEAD
 		active_document = new IntStateCommand (doc_action_id, -1);
 
 		active_document.Activated += idx => workspace.SetActiveDocument (idx);
-=======
-		// TODO: Make `Command`
-		active_doc_action = Gio.SimpleAction.NewStateful (
-			doc_action_id,
-			GLib.VariantType.New ("i"),
-			GLib.Variant.NewInt32 (-1));
-
-		active_doc_action.OnActivate += (o, e) => {
-			int idx = e.Parameter!.GetInt32 ();
-			workspace.SetActiveDocument (idx);
-			active_doc_action.ChangeState (e.Parameter);
-		};
->>>>>>> origin/master
 
 		workspace.DocumentActivated += (o, e) => {
 			e.Document.Renamed += (_, _) => RebuildDocumentMenu ();
@@ -97,32 +73,19 @@ public sealed class WindowActions
 
 	public void RegisterActions (
 		IActionRegistrar registrar,
-<<<<<<< HEAD
 		IActionMenu menu)
 	{
 		menu.AppendItem (SaveAll);
 		menu.AppendItem (CloseAll);
 
 		doc_section = menu.CreateSubmenu ();
-=======
-		Gio.Menu menu)
-	{
-		menu.AppendItem (SaveAll.CreateMenuItem ());
-		menu.AppendItem (CloseAll.CreateMenuItem ());
-
-		doc_section = Gio.Menu.New ();
->>>>>>> origin/master
 		menu.AppendSection (null, doc_section);
 
 		registrar.AddCommands ([
 			SaveAll,
 			CloseAll]);
 
-<<<<<<< HEAD
 		registrar.AddIntStateCommand (active_document);
-=======
-		registrar.AddNativeAction (active_doc_action);
->>>>>>> origin/master
 
 		// Assign accelerators up to Alt-9 for the active documents.
 		for (int i = 0; i < 9; ++i)
@@ -135,12 +98,7 @@ public sealed class WindowActions
 		string actionId = BuildActionId (idx);
 		string label = $"{doc.DisplayName}{(doc.IsDirty ? "*" : string.Empty)}";
 
-<<<<<<< HEAD
 		doc_section.AppendItem (new CommandMenuItem (label, actionId));
-=======
-		Gio.MenuItem menuItem = Gio.MenuItem.New (label, actionId);
-		doc_section.AppendItem (menuItem);
->>>>>>> origin/master
 	}
 
 	private static string BuildActionId (int idx) => $"app.{doc_action_id}({idx})";
@@ -159,7 +117,6 @@ public sealed class WindowActions
 	{
 		// Updating the action's state can be surprisingly expensive when e.g. opening
 		// many documents (bug #1574), so an update is deferred until we return to the event loop.
-<<<<<<< HEAD
 		if (deferred_update_timer is not null)
 			return;
 
@@ -168,14 +125,6 @@ public sealed class WindowActions
 		deferred_update_timer = uiScheduler.StartTimer (TimeSpan.FromMilliseconds (0), () => {
 			active_document.Value = workspace.ActiveDocumentIndex;
 			deferred_update_timer = null;
-=======
-		if (deferred_update_event > 0)
-			return;
-
-		deferred_update_event = GLib.Functions.IdleAdd (GLib.Constants.PRIORITY_DEFAULT, () => {
-			active_doc_action.ChangeState (GLib.Variant.NewInt32 (workspace.ActiveDocumentIndex));
-			deferred_update_event = 0;
->>>>>>> origin/master
 			return false;
 		});
 	}

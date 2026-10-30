@@ -1,9 +1,5 @@
 //
-<<<<<<<< HEAD:src/platform/gtk/Pinta.Gui.Widgets/Gtk/GioMenuExtensions.cs
 // GioMenuExtensions.cs
-========
-// GioExtensions.cs
->>>>>>>> origin/master:src/core/Pinta.Core/Extensions/MenuExtensions.cs
 //
 // Author:
 //       Jonathan Pobst <monkey@jpobst.com>

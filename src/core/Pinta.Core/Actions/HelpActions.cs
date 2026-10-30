@@ -69,7 +69,6 @@ public sealed class HelpActions
 		this.system = system;
 		this.app = app;
 	}
-<<<<<<< HEAD
 	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
 		menu.AppendItem (Contents);
@@ -79,17 +78,6 @@ public sealed class HelpActions
 		menu.AppendItem (Website);
 		menu.AppendItem (Bugs);
 		menu.AppendItem (Translate);
-=======
-	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
-	{
-		menu.AppendItem (Contents.CreateMenuItem ());
-
-		menu.AppendItem (app.KeyboardShortcuts.CreateMenuItem ());
-
-		menu.AppendItem (Website.CreateMenuItem ());
-		menu.AppendItem (Bugs.CreateMenuItem ());
-		menu.AppendItem (Translate.CreateMenuItem ());
->>>>>>> origin/master
 
 		registrar.AddCommands ([
 			Contents,
@@ -100,15 +88,9 @@ public sealed class HelpActions
 		// This is part of the application menu on macOS.
 		if (system.OperatingSystem != OS.Mac) {
 
-<<<<<<< HEAD
 			IActionMenu about_section = menu.CreateSubmenu ();
 			menu.AppendSection (null, about_section);
 			about_section.AppendItem (app.About);
-=======
-			var about_section = Gio.Menu.New ();
-			menu.AppendSection (null, about_section);
-			about_section.AppendItem (app.About.CreateMenuItem ());
->>>>>>> origin/master
 		}
 	}
 

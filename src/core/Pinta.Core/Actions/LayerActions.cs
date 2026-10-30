@@ -221,23 +221,10 @@ public sealed class LayerActions
 		// Open the image and add it to the layers
 		UserLayer layer = doc.Layers.AddNewLayer (choice.DisplayName);
 
-<<<<<<< HEAD
 		string path = (choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed.");
 		using GdkPixbuf.Pixbuf bg = GdkPixbuf.Pixbuf.NewFromFile (path)!; // NRT: only nullable when an error is thrown
 		using Cairo.Context context = new (layer.CairoSurface);
 		context.DrawPixbuf (bg, PointD.Zero);
-=======
-		Gio.File gioChoice = Gio.FileHelper.NewForPath ((choice as PathFileReference)?.Path ?? throw new InvalidOperationException ("The selected file is not path-backed."));
-		using (Gio.FileInputStream fs = gioChoice.Read (null)) {
-			try {
-				using GdkPixbuf.Pixbuf bg = GdkPixbuf.Pixbuf.NewFromStream (fs, cancellable: null)!; // NRT: only nullable when an error is thrown
-				using Cairo.Context context = new (layer.CairoSurface);
-				context.DrawPixbuf (bg, PointD.Zero);
-			} finally {
-				fs.Close (null);
-			}
-		}
->>>>>>> origin/master
 
 		AddLayerHistoryItem hist = new (
 			Resources.Icons.LayerImport,

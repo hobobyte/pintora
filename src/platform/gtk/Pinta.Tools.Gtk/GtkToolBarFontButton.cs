@@ -1,8 +1,5 @@
 using System;
-<<<<<<< HEAD
 using Pinta.Core;
-=======
->>>>>>> origin/master
 
 namespace Pinta.Core;
 
@@ -31,15 +28,9 @@ public sealed class GtkToolBarFontButton : IToolBarFontButton
 		Gtk.FontDialogButton.FontDescPropertyDefinition.Notify (button, (_, _) => fontChanged?.Invoke (this, EventArgs.Empty));
 	}
 
-<<<<<<< HEAD
 	public TextFont Font {
 		get => ToTextFont (button.FontDesc!);
 		set => button.FontDesc = ToFontDescription (value);
-=======
-	public Pango.FontDescription Font {
-		get => button.FontDesc!;
-		set => button.FontDesc = value;
->>>>>>> origin/master
 	}
 
 	public event EventHandler? FontChanged {
@@ -53,7 +44,6 @@ public sealed class GtkToolBarFontButton : IToolBarFontButton
 		get => button.Visible;
 		set => button.Visible = value;
 	}
-<<<<<<< HEAD
 
 	public static TextFont ToTextFont (Pango.FontDescription desc)
 	{
@@ -77,6 +67,4 @@ public sealed class GtkToolBarFontButton : IToolBarFontButton
 		desc.SetStyle ((Pango.Style) font.Style);
 		return desc;
 	}
-=======
->>>>>>> origin/master
 }

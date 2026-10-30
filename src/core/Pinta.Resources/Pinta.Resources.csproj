@@ -67,8 +67,4 @@
     </EmbeddedResource>
   </ItemGroup>
 
-<<<<<<< HEAD
-=======
-  <Import Project="../../../properties/ReferenceGirCoreGtk40.props" />
->>>>>>> origin/master
 </Project>

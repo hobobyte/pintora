@@ -124,7 +124,6 @@ public sealed class ImageActions
 		this.view = view;
 	}
 
-<<<<<<< HEAD
 	public void RegisterActions (IActionRegistrar registrar, IActionMenu menu)
 	{
 		IActionMenu flip_section = menu.CreateSubmenu ();
@@ -143,26 +142,6 @@ public sealed class ImageActions
 		menu.AppendItem (AutoCrop);
 		menu.AppendItem (Resize);
 		menu.AppendItem (CanvasSize);
-=======
-	public void RegisterActions (IActionRegistrar registrar, Gio.Menu menu)
-	{
-		Gio.Menu flip_section = Gio.Menu.New ();
-		flip_section.AppendItem (FlipHorizontal.CreateMenuItem ());
-		flip_section.AppendItem (FlipVertical.CreateMenuItem ());
-
-		Gio.Menu rotate_section = Gio.Menu.New ();
-		rotate_section.AppendItem (RotateCW.CreateMenuItem ());
-		rotate_section.AppendItem (RotateCCW.CreateMenuItem ());
-		rotate_section.AppendItem (Rotate180.CreateMenuItem ());
-
-		Gio.Menu flatten_section = Gio.Menu.New ();
-		flatten_section.AppendItem (Flatten.CreateMenuItem ());
-
-		menu.AppendItem (CropToSelection.CreateMenuItem ());
-		menu.AppendItem (AutoCrop.CreateMenuItem ());
-		menu.AppendItem (Resize.CreateMenuItem ());
-		menu.AppendItem (CanvasSize.CreateMenuItem ());
->>>>>>> origin/master
 		menu.AppendSection (null, flip_section);
 		menu.AppendSection (null, rotate_section);
 		menu.AppendSection (null, flatten_section);

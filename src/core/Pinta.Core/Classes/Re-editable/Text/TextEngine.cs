@@ -26,11 +26,7 @@ public sealed partial class TextEngine
 	private TextPosition current_pos;
 	private TextPosition selection_start;
 
-<<<<<<< HEAD
 	public TextFont Font { get; private set; } = TextFont.Empty;
-=======
-	public Pango.FontDescription Font { get; private set; } = Pango.FontDescription.New ();
->>>>>>> origin/master
 
 	private Color primary_color = new (0, 0, 0);
 
@@ -98,11 +94,7 @@ public sealed partial class TextEngine
 			State = State,
 			current_pos = current_pos,
 			selection_start = selection_start,
-<<<<<<< HEAD
 			Font = Font,
-=======
-			Font = Font.Copy ()!, // NRT: pango_font_description_copy only returns null when given nullptr
->>>>>>> origin/master
 			PrimaryColor = primary_color,
 			SecondaryColor = secondary_color,
 			Alignment = Alignment,
@@ -155,11 +147,7 @@ public sealed partial class TextEngine
 			ClearSelection ();
 	}
 
-<<<<<<< HEAD
 	public void SetFont (TextFont font, TextAlignment alignment, bool underline)
-=======
-	public void SetFont (Pango.FontDescription font, TextAlignment alignment, bool underline)
->>>>>>> origin/master
 	{
 		Font = font;
 		Alignment = alignment;

@@ -15,16 +15,12 @@ internal sealed class GtkActionRegistrar : IActionRegistrar
 
 	public void AddCommand (Command command)
 	{
-<<<<<<< HEAD
 		var action = Gio.SimpleAction.New (command.Name, null);
 		action.OnActivate += (_, _) => command.Activate ();
 		action.Enabled = command.Sensitive;
 		command.SensitivityChanged += (_, _) => action.Enabled = command.Sensitive;
 		command.NativeAction = action;
 		app.AddAction (action);
-=======
-		app.AddAction (command.Action);
->>>>>>> origin/master
 		SetAccelerators (command.FullName, [.. command.Shortcuts]);
 	}
 
@@ -34,7 +30,6 @@ internal sealed class GtkActionRegistrar : IActionRegistrar
 			AddCommand (command);
 	}
 
-<<<<<<< HEAD
 	public void AddIntStateCommand (IntStateCommand command)
 	{
 		var action = Gio.SimpleAction.NewStateful (
@@ -54,8 +49,6 @@ internal sealed class GtkActionRegistrar : IActionRegistrar
 		app.AddAction (action);
 	}
 
-=======
->>>>>>> origin/master
 	public void AddNativeAction (object action)
 		=> app.AddAction ((Gio.SimpleAction) action);
 

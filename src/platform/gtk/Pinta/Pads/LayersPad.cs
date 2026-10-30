@@ -51,7 +51,6 @@ internal sealed class LayersPad : IDockPad
 		Gio.Menu hamburger_menu = Gio.Menu.New ();
 
 		Gio.Menu flip_section = Gio.Menu.New ();
-<<<<<<< HEAD
 		flip_section.AppendItem (layer_actions.FlipHorizontal.CreateMenuItem ().ToGioMenuItem ());
 		flip_section.AppendItem (layer_actions.FlipVertical.CreateMenuItem ().ToGioMenuItem ());
 		flip_section.AppendItem (layer_actions.RotateZoom.CreateMenuItem ().ToGioMenuItem ());
@@ -60,16 +59,6 @@ internal sealed class LayersPad : IDockPad
 		prop_section.AppendItem (layer_actions.Properties.CreateMenuItem ().ToGioMenuItem ());
 
 		hamburger_menu.AppendItem (layer_actions.ImportFromFile.CreateMenuItem ().ToGioMenuItem ());
-=======
-		flip_section.AppendItem (layer_actions.FlipHorizontal.CreateMenuItem ());
-		flip_section.AppendItem (layer_actions.FlipVertical.CreateMenuItem ());
-		flip_section.AppendItem (layer_actions.RotateZoom.CreateMenuItem ());
-
-		Gio.Menu prop_section = Gio.Menu.New ();
-		prop_section.AppendItem (layer_actions.Properties.CreateMenuItem ());
-
-		hamburger_menu.AppendItem (layer_actions.ImportFromFile.CreateMenuItem ());
->>>>>>> origin/master
 		hamburger_menu.AppendSection (null, flip_section);
 		hamburger_menu.AppendSection (null, prop_section);
 
