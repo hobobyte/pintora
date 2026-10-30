@@ -184,7 +184,7 @@ public sealed class ImageActions
 		};
 	}
 
-	private void HandlePintaCoreActionsImageRotateCCWActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageRotateCCWActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -194,7 +194,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.Rotate90CCW));
 	}
 
-	private void HandlePintaCoreActionsImageRotateCWActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageRotateCWActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -204,7 +204,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.Rotate90CW));
 	}
 
-	private void HandlePintaCoreActionsImageFlattenActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageFlattenActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -230,7 +230,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (hist);
 	}
 
-	private void HandlePintaCoreActionsImageRotate180Activated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageRotate180Activated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -240,7 +240,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.Rotate180));
 	}
 
-	private void HandlePintaCoreActionsImageFlipVerticalActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageFlipVerticalActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -250,7 +250,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.FlipVertical));
 	}
 
-	private void HandlePintaCoreActionsImageFlipHorizontalActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageFlipHorizontalActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -260,7 +260,7 @@ public sealed class ImageActions
 		doc.History.PushNewItem (new InvertHistoryItem (InvertType.FlipHorizontal));
 	}
 
-	private void HandlePintaCoreActionsImageCropToSelectionActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageCropToSelectionActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -271,7 +271,7 @@ public sealed class ImageActions
 		CropImageToRectangle (doc, rect, doc.Selection.SelectionPath);
 	}
 
-	private void HandlePintaCoreActionsImageAutoCropActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsImageAutoCropActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 

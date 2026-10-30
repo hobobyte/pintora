@@ -301,7 +301,7 @@ public sealed class EditActions
 	}
 
 	#region Action Handlers
-	private void HandlePintaCoreActionsEditFillSelectionActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsEditFillSelectionActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -328,7 +328,7 @@ public sealed class EditActions
 		);
 	}
 
-	private void HandlePintaCoreActionsEditSelectAllActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsEditSelectAllActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -348,7 +348,7 @@ public sealed class EditActions
 		doc.Workspace.Invalidate ();
 	}
 
-	private void HandlePintaCoreActionsEditEraseSelectionActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsEditEraseSelectionActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -374,7 +374,7 @@ public sealed class EditActions
 		);
 	}
 
-	private void HandlePintaCoreActionsEditDeselectActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsEditDeselectActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -393,7 +393,7 @@ public sealed class EditActions
 		doc.Workspace.Invalidate ();
 	}
 
-	private void HandlerPintaCoreActionsEditCopyActivated (object sender, EventArgs e)
+	private void HandlerPintaCoreActionsEditCopyActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 		IClipboardService cb = PintaCore.Services.GetService<IClipboardService> ();
@@ -405,7 +405,7 @@ public sealed class EditActions
 		CopyLayersToClipboard (doc, doc.Layers.CurrentUserLayer.GetLayersToPaint (), cb);
 	}
 
-	private void HandlerPintaCoreActionsEditCopyMergedActivated (object sender, EventArgs e)
+	private void HandlerPintaCoreActionsEditCopyMergedActivated (object? sender, EventArgs e)
 	{
 		tools.Commit ();
 
@@ -444,7 +444,7 @@ public sealed class EditActions
 		clipboard.WriteImage (new ClipboardImageData (CairoImageSurface.Wrap (image), srcPos));
 	}
 
-	private void HandlerPintaCoreActionsEditCutActivated (object sender, EventArgs e)
+	private void HandlerPintaCoreActionsEditCutActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -462,7 +462,7 @@ public sealed class EditActions
 		HandlePintaCoreActionsEditEraseSelectionActivated ("Cut", e);
 	}
 
-	private void HandlerPintaCoreActionsEditUndoActivated (object sender, EventArgs e)
+	private void HandlerPintaCoreActionsEditUndoActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -474,7 +474,7 @@ public sealed class EditActions
 		tools.CurrentTool?.DoAfterUndo (doc);
 	}
 
-	private void HandlerPintaCoreActionsEditRedoActivated (object sender, EventArgs e)
+	private void HandlerPintaCoreActionsEditRedoActivated (object? sender, EventArgs e)
 	{
 		Document doc = workspace.ActiveDocument;
 
@@ -486,7 +486,7 @@ public sealed class EditActions
 		tools.CurrentTool?.DoAfterRedo (doc);
 	}
 
-	private async void HandlerPintaCoreActionsEditLoadPaletteActivated (object sender, EventArgs e)
+	private async void HandlerPintaCoreActionsEditLoadPaletteActivated (object? sender, EventArgs e)
 	{
 
 		IFileReference? choice = await FileDialogs.OpenFileAsync (new FileDialogOptions (
@@ -513,7 +513,7 @@ public sealed class EditActions
 		}
 	}
 
-	private async void HandlerPintaCoreActionsEditSavePaletteActivated (object sender, EventArgs e)
+	private async void HandlerPintaCoreActionsEditSavePaletteActivated (object? sender, EventArgs e)
 	{
 		var writableFormats = palette_formats.Formats.Where (format => !format.IsReadOnly ()).ToArray ();
 		var filters = writableFormats.Select (format => new FileDialogFilter (format.DisplayName, format.Extensions)).ToArray ();
@@ -556,12 +556,12 @@ public sealed class EditActions
 		return new FileDialogFilter (Translations.GetString ("Palette files"), extensions);
 	}
 
-	private void HandlerPintaCoreActionsEditResetPaletteActivated (object sender, EventArgs e)
+	private void HandlerPintaCoreActionsEditResetPaletteActivated (object? sender, EventArgs e)
 	{
 		palette.CurrentPalette.LoadDefault ();
 	}
 
-	void HandleInvertSelectionActivated (object sender, EventArgs e)
+	void HandleInvertSelectionActivated (object? sender, EventArgs e)
 	{
 		tools.Commit ();
 

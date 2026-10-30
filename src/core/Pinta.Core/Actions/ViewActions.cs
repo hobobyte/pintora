@@ -368,7 +368,7 @@ public sealed class ViewActions
 	}
 
 	#region Action Handlers
-	private void HandlePintaCoreActionsViewActualSizeActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsViewActualSizeActivated (object? sender, EventArgs e)
 	{
 		int default_zoom = DefaultZoomIndex ();
 		if (ZoomComboBox.Active == default_zoom) return;
@@ -384,12 +384,12 @@ public sealed class ViewActions
 		workspace.ActiveDocument.Workspace.ZoomManually ();
 	}
 
-	private void HandlePintaCoreActionsViewZoomOutActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsViewZoomOutActivated (object? sender, EventArgs e)
 	{
 		workspace.ActiveDocument.Workspace.ZoomOut ();
 	}
 
-	private void HandlePintaCoreActionsViewZoomInActivated (object sender, EventArgs e)
+	private void HandlePintaCoreActionsViewZoomInActivated (object? sender, EventArgs e)
 	{
 		workspace.ActiveDocument.Workspace.ZoomIn ();
 	}

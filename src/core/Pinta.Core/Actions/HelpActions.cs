@@ -102,22 +102,22 @@ public sealed class HelpActions
 		Translate.Activated += Translate_Activated;
 	}
 
-	private async void Bugs_Activated (object sender, EventArgs e)
+	private async void Bugs_Activated (object? sender, EventArgs e)
 	{
 		await system.LaunchUri ("https://github.com/PintaProject/Pinta/issues");
 	}
 
-	private async void DisplayHelp (object sender, EventArgs e)
+	private async void DisplayHelp (object? sender, EventArgs e)
 	{
 		await system.LaunchUri ("https://pinta-project.com/user-guide");
 	}
 
-	private async void Translate_Activated (object sender, EventArgs e)
+	private async void Translate_Activated (object? sender, EventArgs e)
 	{
 		await system.LaunchUri ("https://hosted.weblate.org/engage/pinta/");
 	}
 
-	private async void Website_Activated (object sender, EventArgs e)
+	private async void Website_Activated (object? sender, EventArgs e)
 	{
 		await system.LaunchUri ("https://www.pinta-project.com");
 	}
