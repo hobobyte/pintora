@@ -15,6 +15,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Styling;
 using Pinta.Core;
 using Pintora.Avalonia.Document;
 using Pintora.Avalonia.Editor.History;
@@ -35,6 +36,8 @@ public sealed class CanvasHost : Control, IDisposable
 {
 	private static readonly Pen grid_pen = new (new SolidColorBrush (Color.FromArgb (90, 80, 80, 80)), 1);
 	private static readonly Pen ruler_pen = new (Brushes.DimGray, 1);
+	private static readonly IBrush workspace_light_brush = new SolidColorBrush (Color.Parse ("#D9DEE4"));
+	private static readonly IBrush workspace_dark_brush = new SolidColorBrush (Color.Parse ("#1B2028"));
 	private bool disposed;
 	public enum CanvasTool
 	{
@@ -2181,7 +2184,7 @@ public sealed class CanvasHost : Control, IDisposable
 	{
 		base.Render (context);
 
-		context.FillRectangle (Brushes.White, new Rect (Bounds.Size));
+		context.FillRectangle (ActualThemeVariant == ThemeVariant.Dark ? workspace_dark_brush : workspace_light_brush, new Rect (Bounds.Size));
 
 		Pinta.Core.Size viewSize = session.ViewSize;
 		Point origin = GetCanvasOrigin ();
@@ -2266,14 +2269,6 @@ public sealed class CanvasHost : Control, IDisposable
 		if (ActiveTool == CanvasTool.Shapes && shape_tool.SelectedShape is ShapeTool.ShapeState selectedShape && !shape_tool.IsEditing)
 			shape_tool.DrawHandles (context, origin, Scale, selectedShape.Kind, selectedShape.From, selectedShape.To, selectedShape.Rotation);
 
-		var text = new FormattedText (
-			$"Canvas {session.ImageSize.Width} × {session.ImageSize.Height}\n{Scale:P0}",
-			System.Globalization.CultureInfo.InvariantCulture,
-			FlowDirection.LeftToRight,
-			Typeface.Default,
-			14,
-			Brushes.Gray);
-		context.DrawText (text, origin + new Vector (16, 16));
 	}
 
 	private static Rect GetAnnotationDisplayBounds (Annotation annotation)

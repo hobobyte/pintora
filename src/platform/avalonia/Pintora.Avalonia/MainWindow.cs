@@ -43,7 +43,6 @@ public sealed class MainWindow : Window
 	private Action? refresh_layers;
 	private Action? rebuild_layers_panel;
 	private StackPanel? tool_options;
-	private global::Avalonia.Controls.Primitives.ToggleButton? antialias_toggle;
 	private readonly EditorCommandRegistry commands = new ();
 	private readonly DocumentTabManager tab_manager;
 	private readonly DocumentCloseCoordinator close_coordinator;
@@ -74,7 +73,7 @@ public sealed class MainWindow : Window
 		int buildMetadata = version.IndexOf ('+');
 		if (buildMetadata >= 0)
 			version = version[..buildMetadata];
-		Title = $"Pintora {version} — Simple. Powerful. Creative.";
+		Title = string.Empty;
 		Width = 1200;
 		Height = 760;
 		MinWidth = 900;
@@ -92,7 +91,13 @@ public sealed class MainWindow : Window
 		close_coordinator = new DocumentCloseCoordinator (tab_manager, PromptCloseDecisionAsync, SaveTabAsync);
 		// The first document is added only after the startup size dialog is accepted.
 		tab_manager.ActiveTabChanged += (_, _) => {
-			CanvasHost active = ActiveCanvas;
+			if (tab_manager.ActiveTab is not { Canvas: { } active }) {
+				if (!closing_after_confirmation)
+					tab_manager.AddNewDocument ();
+				else
+					canvas_host.Content = null;
+				return;
+			}
 			ApplyGridViewSettings (active);
 			active.ShowRulers = view_settings.ShowRulers;
 			active.ActiveTool = active_tool;
@@ -235,57 +240,52 @@ public sealed class MainWindow : Window
 
 	private static Button CreateCompactCommand (string label, string tooltip, Action action)
 	{
-		var button = new Button { Content = label, MinWidth = 34, Height = 30, Padding = new global::Avalonia.Thickness (6, 2) };
+		var button = new Button {
+			Content = CreateCommandIcon (label) is { } icon ? icon : label,
+			MinWidth = 34,
+			Height = 30,
+			Padding = new global::Avalonia.Thickness (6, 2),
+			HorizontalContentAlignment = HorizontalAlignment.Center,
+			VerticalContentAlignment = VerticalAlignment.Center
+		};
 		button.Click += (_, _) => action ();
 		ToolTip.SetTip (button, tooltip);
 		return button;
 	}
 
+	private static PathIcon? CreateCommandIcon (string label)
+	{
+		string? path = label switch {
+			"−" or "-" => "M5 11h14v2H5z",
+			"+" => "M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z",
+			"×" => "M6 6l12 12m0-12L6 18",
+			"Select all" => "M4 4h16v16H4V4zm2 2v12h12V6H6z",
+			"Deselect" => "M6 6l12 12m0-12L6 18",
+			"Apply" => "M5 12l4 4L19 6l1.4 1.4L9 19 3.6 13.4 5 12z",
+			"Fit" => "M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z",
+			"⇄" => "M4 7h13l-3-3 1.4-1.4L21.8 9l-6.4 6.4L14 14l3-3H4V7zm16 10H7l3 3-1.4 1.4L2.2 15l6.4-6.4L10 10l-3 3h13v4z",
+			"◩" => "M5 5h10v10H5V5zm4-2h10v10h-2V5H9V3z",
+			"More…" => "M5 12a2 2 0 1 0 0 .1M12 12a2 2 0 1 0 0 .1M19 12a2 2 0 1 0 0 .1",
+			"⧉" => "M8 8h11v11H8V8zM5 5h11v2H7v9H5V5z",
+			"↑" => "M11 19V8l-4 4-1.4-1.4L12 4.2l6.4 6.4L17 12l-4-4v11h-2z",
+			"↓" => "M11 5v11l-4-4-1.4 1.4 6.4 6.4 6.4-6.4L17 12l-4 4V5h-2z",
+			"↶" => "M9 7H4v5h2V9.8c1.1-1 2.6-1.6 4.3-1.6 3.7 0 6.7 2.7 6.7 6.1s-3 6.1-6.7 6.1c-2.1 0-4-.9-5.2-2.4l-1.6 1.2C5.1 21.1 7.4 22 10.3 22 15.2 22 19 18.4 19 14.3S15.2 6.6 10.3 6.6L9 7z",
+			"↷" => "M15 7h5v5h-2V9.8c-1.1-1-2.6-1.6-4.3-1.6-3.7 0-6.7 2.7-6.7 6.1s3 6.1 6.7 6.1c2.1 0 4-.9 5.2-2.4l1.6 1.2C18.9 21.1 16.6 22 13.7 22 8.8 22 5 18.4 5 14.3s3.8-7.7 8.7-7.7L15 7z",
+			"⧨" => "M5 6h14v2H5V6zm2 4h10v2H7v-2zm3 4h4v2h-4v-2z",
+			"✎" => "M5 17.3V20h2.7L18.8 8.9l-2.7-2.7L5 17.3zM20.7 7c.4-.4.4-1 0-1.4l-2.3-2.3c-.4-.4-1-.4-1.4 0l-1.3 1.3 3.7 3.7L20.7 7z",
+			_ => null
+		};
+		return path is null ? null : new PathIcon { Data = StreamGeometry.Parse (path), Width = 16, Height = 16 };
+	}
+
 	private Control CreateToolbar (CanvasHost canvas)
 	{
 		tool_options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
-		// Paint.NET keeps rasterization (antialiasing), Finish and zoom as global
-		// toolbar controls rather than per-tool options, so they live outside the
-		// options ScrollViewer at the right end of the bar.
-		var antialias = new global::Avalonia.Controls.Primitives.ToggleButton {
-			Content = "AA",
-			MinWidth = 34,
-			Height = 30,
-			IsChecked = canvas.ShapeAntialias,
-			VerticalAlignment = VerticalAlignment.Center
-		};
-		antialias.IsCheckedChanged += (_, _) => {
-			if (ActiveCanvas is { } active)
-				active.ShapeAntialias = antialias.IsChecked == true;
-		};
-		antialias_toggle = antialias;
-		ToolTip.SetTip (antialias, "Antialiasing (smooth / pixelated edges)");
-		var finish = new Button {
-			Content = "Finish",
-			MinWidth = 34,
-			Height = 30,
-			Padding = new global::Avalonia.Thickness (8, 2),
-			VerticalAlignment = VerticalAlignment.Center
-		};
-		finish.Click += (_, _) => {
-			if (ActiveCanvas is { } active)
-				active.FinishShape ();
-		};
-		ToolTip.SetTip (finish, "Finish shape editing (Enter)");
-		var global_controls = new StackPanel {
-			Orientation = Orientation.Horizontal,
-			Spacing = 4,
-			Margin = new global::Avalonia.Thickness (8, 0, 0, 0),
-			VerticalAlignment = VerticalAlignment.Center,
-			Children = { antialias, finish }
-		};
-		DockPanel.SetDock (global_controls, Dock.Right);
 		var toolbar = new Border {
 			Padding = new global::Avalonia.Thickness (8, 4),
 			Child = new DockPanel {
 				LastChildFill = true,
 				Children = {
-					global_controls,
 					new ScrollViewer {
 						HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
 						VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
@@ -509,6 +509,9 @@ public sealed class MainWindow : Window
 
 	private async Task ShowStartupDocumentDialogAsync (CanvasHost canvas)
 	{
+		// Keep the startup document visible as a real tab while its dimensions are chosen.
+		if (tab_manager.ActiveTab is null)
+			tab_manager.AddTab (canvas, canvas.DocumentSession);
 		var dialog = new NewDocumentWindow (canvas);
 		await dialog.ShowDialog (this);
 		if (!dialog.Created) {
@@ -516,7 +519,6 @@ public sealed class MainWindow : Window
 			return;
 		}
 		startup_canvas = null;
-		tab_manager.AddTab (canvas, canvas.DocumentSession);
 		SyncActiveCanvas ();
 		UpdateDocumentTitle (canvas, version);
 	}
@@ -579,13 +581,10 @@ public sealed class MainWindow : Window
 		if (palette_control is not null) palette_control.IsVisible = view_settings.ShowToolWindows && view_settings.ShowColors;
 		if (layers_control is not null) layers_control.IsVisible = view_settings.ShowToolWindows && view_settings.ShowLayers;
 		if (tab_strip_host is not null) tab_strip_host.IsVisible = view_settings.ShowImageTabs;
-		if (canvas_panel_control is not null) {
-			canvas_panel_control.Margin = new global::Avalonia.Thickness (
-				view_settings.ShowToolbox ? 96 : 10,
-				10,
-				view_settings.ShowToolWindows && (view_settings.ShowColors || view_settings.ShowLayers) ? 252 : 10,
-				view_settings.ShowToolWindows && view_settings.ShowLayers ? 190 : 10);
-		}
+		// Tool windows float above the workspace, so the canvas keeps the full
+		// central area instead of reserving fixed margins for those panels.
+		if (canvas_panel_control is not null)
+			canvas_panel_control.Margin = new global::Avalonia.Thickness (0);
 	}
 
 	/// <summary>
@@ -607,17 +606,13 @@ public sealed class MainWindow : Window
 
 	private void UpdateDocumentTitle (CanvasHost canvas, string version)
 	{
-		DocumentSession document = canvas.DocumentSession;
-		string dirty_marker = document.IsDirty ? "* " : string.Empty;
-		string document_name = document.FilePath is null ? string.Empty : $" — {document.Title}";
-		Title = $"{dirty_marker}Pintora {version}{document_name} — Simple. Powerful. Creative.";
+		// Keep the native window chrome empty; document state is shown by the tab preview.
+		Title = string.Empty;
 	}
 
 	private static Button CreateBrushButton (string label, Action action)
 	{
-		var button = new Button { Content = label };
-		button.Click += (_, _) => action ();
-		return button;
+		return CreateCompactCommand (label, label, action);
 	}
 
 	private static NumericUpDown CreateBrushSizeInput (CanvasHost canvas)
@@ -638,8 +633,9 @@ public sealed class MainWindow : Window
 
 	private Control CreatePanelHeader (string title, Action hide)
 	{
+		bool collapsed = false;
 		var collapse = new Button {
-			Content = "−",
+			Content = CreateCommandIcon ("−"),
 			Width = 24,
 			Height = 24,
 			Padding = new global::Avalonia.Thickness (0),
@@ -647,7 +643,7 @@ public sealed class MainWindow : Window
 			VerticalContentAlignment = VerticalAlignment.Center
 		};
 		var button = new Button {
-			Content = "×",
+			Content = CreateCommandIcon ("×") is { } close_icon ? close_icon : "×",
 			Width = 24,
 			Height = 24,
 			Padding = new global::Avalonia.Thickness (0),
@@ -659,10 +655,10 @@ public sealed class MainWindow : Window
 		collapse.Click += (_, _) => {
 			if (collapse.Parent?.Parent is not StackPanel panel)
 				return;
-			bool collapsed = collapse.Content?.ToString () == "+";
+			collapsed = !collapsed;
 			foreach (Control child in panel.Children)
-				if (!ReferenceEquals (child, collapse.Parent)) child.IsVisible = collapsed;
-			collapse.Content = collapsed ? "−" : "+";
+				if (!ReferenceEquals (child, collapse.Parent)) child.IsVisible = !collapsed;
+			collapse.Content = CreateCommandIcon (collapsed ? "+" : "−");
 			ToolTip.SetTip (collapse, collapsed ? $"Collapse {title}" : $"Expand {title}");
 		};
 		button.Click += (_, _) => {
@@ -1006,8 +1002,11 @@ public sealed class MainWindow : Window
 			}
 		});
 
-		if (file.Count > 0)
-			tab_manager.AddExistingDocument (file[0].Path.LocalPath);
+		if (file.Count > 0) {
+			DocumentTab tab = tab_manager.AddExistingDocument (file[0].Path.LocalPath);
+			// Fit after layout so the new image uses the available viewport immediately.
+			global::Avalonia.Threading.Dispatcher.UIThread.Post (tab.Canvas.FitToWindow, global::Avalonia.Threading.DispatcherPriority.Loaded);
+		}
 	}
 
 	private async Task ImportImageLayerAsync (CanvasHost canvas)
@@ -1018,8 +1017,52 @@ public sealed class MainWindow : Window
 			AllowMultiple = false,
 			FileTypeFilter = new[] { new FilePickerFileType ("Image") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.tif", "*.tiff", "*.bmp", "*.gif", "*.svg" } } }
 		});
-		if (file.Count > 0)
-			canvas.ImportImageAsLayer (file[0].Path.LocalPath);
+		if (file.Count == 0)
+			return;
+
+		string path = file[0].Path.LocalPath;
+		if (!string.Equals (Path.GetExtension (path), ".svg", StringComparison.OrdinalIgnoreCase)) {
+			using var image = new Bitmap (path);
+			int width = image.PixelSize.Width;
+			int height = image.PixelSize.Height;
+			Pinta.Core.Size canvas_size = canvas.ImageSize;
+			if (width > canvas_size.Width || height > canvas_size.Height) {
+				bool expand = await ConfirmCanvasExpansionAsync (width, height);
+				if (!expand)
+					return;
+				canvas.ResizeCanvas (Math.Max (width, canvas_size.Width), Math.Max (height, canvas_size.Height));
+			}
+		}
+		canvas.ImportImageAsLayer (path);
+	}
+
+	private async Task<bool> ConfirmCanvasExpansionAsync (int width, int height)
+	{
+		var cancel = new Button { Content = "Cancel", MinWidth = 96, IsCancel = true };
+		var expand = new Button { Content = "Expand canvas", MinWidth = 112, IsDefault = true };
+		var dialog = new Window {
+			Title = "Image is larger than the canvas",
+			MinWidth = 380,
+			SizeToContent = SizeToContent.WidthAndHeight,
+			CanResize = false,
+			WindowStartupLocation = WindowStartupLocation.CenterOwner,
+			Content = new StackPanel {
+				Spacing = 16,
+				Margin = new Thickness (22, 18),
+				Children = {
+					new TextBlock { Text = $"The selected image is {width} × {height} px. Expand the canvas to fit it?", TextWrapping = TextWrapping.Wrap },
+					new StackPanel {
+						Orientation = Orientation.Horizontal,
+						HorizontalAlignment = HorizontalAlignment.Right,
+						Spacing = 10,
+						Children = { cancel, expand }
+					}
+				}
+			}
+		};
+		cancel.Click += (_, _) => dialog.Close (false);
+		expand.Click += (_, _) => dialog.Close (true);
+		return await dialog.ShowDialog<bool> (this);
 	}
 
 	private async Task InsertImageAnnotationAsync (CanvasHost canvas)
@@ -1378,8 +1421,6 @@ public sealed class MainWindow : Window
 		if (tool_options is null)
 			return;
 		tool_options.Children.Clear ();
-		if (antialias_toggle is not null)
-			antialias_toggle.IsChecked = canvas.ShapeAntialias;
 		switch (canvas.ActiveTool) {
 			case CanvasHost.CanvasTool.Selection:
 				tool_options.Children.Add (CreateBrushButton ("Select all", () => canvas.SelectAll ()));
@@ -1665,10 +1706,13 @@ public sealed class MainWindow : Window
 
 	private async Task ExitAsync ()
 	{
-		if (await close_coordinator.TryExitAsync ()) {
-			closing_after_confirmation = true;
+		if (closing_after_confirmation)
+			return;
+		closing_after_confirmation = true;
+		if (await close_coordinator.TryExitAsync ())
 			Close ();
-		}
+		else
+			closing_after_confirmation = false;
 	}
 
 	private async Task<bool> SaveTabAsync (DocumentTab tab)
@@ -1731,12 +1775,16 @@ public sealed class MainWindow : Window
 		}
 		e.Cancel = true;
 		close_in_progress = true;
+		closing_after_confirmation = true;
 		try {
 			if (!await close_coordinator.TryExitAsync ())
+			{
+				closing_after_confirmation = false;
 				return;
-			closing_after_confirmation = true;
+			}
 			Close ();
 		} catch (Exception exception) {
+			closing_after_confirmation = false;
 			System.Diagnostics.Debug.WriteLine ($"Failed to close window: {exception.Message}");
 		} finally {
 			close_in_progress = false;
@@ -1746,7 +1794,7 @@ public sealed class MainWindow : Window
 	private Control CreateCanvasPlaceholder (CanvasHost canvas)
 	{
 		var canvas_panel = new Border {
-			Margin = new global::Avalonia.Thickness (96, 10, 252, 190),
+			Margin = new global::Avalonia.Thickness (0),
 			Child = canvas_host
 		};
 		canvas_panel_control = canvas_panel;

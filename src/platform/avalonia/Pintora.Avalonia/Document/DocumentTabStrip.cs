@@ -236,8 +236,8 @@ public sealed class DocumentTabStrip : UserControl
 	{
 		ArgumentNullException.ThrowIfNull (manager);
 		ArgumentNullException.ThrowIfNull (close_decision);
-		async_close_decision = close_decision;
 		Attach (manager, _ => CloseDecision.Cancel);
+		async_close_decision = close_decision;
 	}
 
 	/// <summary>Unbinds the strip from its manager.</summary>
@@ -287,7 +287,6 @@ public sealed class DocumentTabStrip : UserControl
 			VerticalAlignment = VerticalAlignment.Center,
 			Focusable = false,
 		};
-		close.Bind (Button.TagProperty, new global::Avalonia.Data.Binding ());
 		close.Click += OnCloseClicked;
 		// Detach the handler when the header is recycled so a stale button
 		// cannot keep the strip (and its adapter) alive.
@@ -296,6 +295,7 @@ public sealed class DocumentTabStrip : UserControl
 		var panel = new StackPanel { Orientation = Orientation.Horizontal };
 		panel.DataContextChanged += (_, _) => {
 			UnsubscribeThumbnail ();
+			close.Tag = panel.DataContext;
 			if (panel.DataContext is DocumentTab tab) {
 				subscribed_tab = tab;
 				subscribed_tab.Canvas.HistoryChanged += OnCanvasChanged;
@@ -381,7 +381,7 @@ public sealed class DocumentTabStrip : UserControl
 	}
 
 	private void OnAdapterSelectedIndexChanged (object? sender, EventArgs e)
-		=> SyncSelection ();
+		=> global::Avalonia.Threading.Dispatcher.UIThread.Post (SyncSelection, global::Avalonia.Threading.DispatcherPriority.Loaded);
 
 	private void OnAdapterTabStateChanged (object? sender, DocumentTab tab)
 	{
@@ -393,7 +393,13 @@ public sealed class DocumentTabStrip : UserControl
 	{
 		if (adapter is null)
 			return;
-		int index = adapter.SelectedIndex;
+		int item_count = tab_control.ItemCount;
+		if (item_count == 0) {
+			if (tab_control.SelectedIndex != -1)
+				tab_control.SelectedIndex = -1;
+			return;
+		}
+		int index = Math.Clamp (adapter.SelectedIndex, -1, item_count - 1);
 		if (tab_control.SelectedIndex != index)
 			tab_control.SelectedIndex = index;
 	}
