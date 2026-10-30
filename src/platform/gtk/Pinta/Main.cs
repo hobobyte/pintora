@@ -113,6 +113,8 @@ internal sealed class MainClass
 		// Add our icons to the search path.
 		GtkExtensions.GetDefaultIconTheme ().AddSearchPath (Pinta.Core.SystemManager.GetDataRootDirectory () + "/icons");
 
+		PintaCore.Services.AddService<IUiScheduler> (new GtkUiScheduler ());
+
 		var main_window = new MainWindow (app);
 
 		if (SystemManager.GetOperatingSystem () == OS.Mac) {

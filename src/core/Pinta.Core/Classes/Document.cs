@@ -73,7 +73,7 @@ public sealed class Document
 		Size size,
 		IFileReference fileReference,
 		string fileType)
-		: this (actions, tools, workspace, size, fileReference, fileType, unused: false)
+		: this (actions, tools, workspace, size, fileReference ?? throw new ArgumentNullException (nameof (fileReference)), fileType, unused: false)
 	{ }
 
 	private readonly ActionManager actions;

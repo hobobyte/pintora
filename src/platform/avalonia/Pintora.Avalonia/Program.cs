@@ -12,6 +12,9 @@ internal static class Program
 	{
 		Translations.SetProvider (new ManagedGettextProvider ());
 		Translations.Init (Path.Combine (AppContext.BaseDirectory, "locale"), string.Empty);
+		// Core services (live preview, workspace recenter) resolve IUiScheduler from the
+		// static PintaCore service graph; back it with the Avalonia dispatcher.
+		PintaCore.Services.ReplaceService<IUiScheduler> (new AvaloniaUiScheduler ());
 		BuildAvaloniaApp ().StartWithClassicDesktopLifetime (args);
 	}
 
