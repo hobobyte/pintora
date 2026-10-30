@@ -21,8 +21,9 @@ internal sealed class MagicWandTool : ICanvasTool
 		CanvasHost host = context.Host;
 		if (host.Surface is not MemoryImageSurface surface)
 			return false;
-		int x = (int) Math.Clamp ((int) Math.Round (context.Point.X), 0, surface.Width - 1);
-		int y = (int) Math.Clamp ((int) Math.Round (context.Point.Y), 0, surface.Height - 1);
+		PointD bounded = SelectionAlgorithms.ClampPointToImage (context.Point, new Pinta.Core.Size (surface.Width - 1, surface.Height - 1));
+		int x = (int) bounded.X;
+		int y = (int) bounded.Y;
 
 		bool global = host.MagicWandGlobalMode || context.ShiftPressed;
 		int tolerance = FloodStencil.PercentToTolerance (host.MagicWandTolerance);

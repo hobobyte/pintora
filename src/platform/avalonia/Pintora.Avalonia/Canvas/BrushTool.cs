@@ -82,11 +82,11 @@ internal sealed class BrushTool : ICanvasTool
 					ColorBgra painted = erase ? ColorBgra.Zero : color;
 					if (color.A > 0 && hardness < 1 && radius > 0) {
 						double edge = Math.Max (Math.Abs (x - centerX), Math.Abs (y - centerY)) / (double) radius;
-						double softness = Math.Clamp ((1 - edge) / Math.Max (1 - hardness, 0.001), 0, 1);
+						double softness = BrushAlgorithms.HardnessCoverage (edge, hardness);
 						painted = softness <= 0 ? ColorBgra.Zero : ColorBgra.FromBgra (color.B, color.G, color.R, (byte) Math.Round (color.A * softness));
 					}
 					int index = y * surface.Width + x;
-					pixels[index] = erase ? painted : Blend (pixels[index], painted);
+					pixels[index] = erase ? painted : RasterAlgorithms.CompositeOver (pixels[index], painted);
 				}
 		return true;
 	}
@@ -96,15 +96,10 @@ internal sealed class BrushTool : ICanvasTool
 	{
 		if (surface is null)
 			return false;
-		double distance = Math.Sqrt (Math.Pow (to.X - from.X, 2) + Math.Pow (to.Y - from.Y, 2));
-		if (distance == 0)
+		if (from == to)
 			return DrawPoint (surface, from, color, size, opacity, hardness, erase);
-		int steps = Math.Max (1, (int) Math.Ceiling (distance));
-		for (int i = 0; i <= steps; i++) {
-			double progress = i / (double) steps;
-			DrawPoint (surface, new PointD (from.X + (to.X - from.X) * progress,
-				from.Y + (to.Y - from.Y) * progress), color, size, opacity, hardness, erase);
-		}
+		foreach (PointD point in BrushAlgorithms.InterpolateLine (from, to))
+			DrawPoint (surface, point, color, size, opacity, hardness, erase);
 		return true;
 	}
 
@@ -114,40 +109,24 @@ internal sealed class BrushTool : ICanvasTool
 			return false;
 		if (color.A > 0 && opacity < 1)
 			color = ColorBgra.FromBgra (color.B, color.G, color.R, (byte) Math.Round (color.A * Math.Clamp (opacity, 0, 1)));
-		double distance = Math.Sqrt (Math.Pow (to.X - from.X, 2) + Math.Pow (to.Y - from.Y, 2));
 		Span<ColorBgra> pixels = surface.GetPixelData ();
-		if (distance == 0) {
+		if (from == to) {
 			int x = (int) Math.Round (from.X), y = (int) Math.Round (from.Y);
 			if ((uint) x < surface.Width && (uint) y < surface.Height) {
 				int index = y * surface.Width + x;
-				pixels[index] = Blend (pixels[index], color);
+				pixels[index] = RasterAlgorithms.CompositeOver (pixels[index], color);
 			}
 			return true;
 		}
-		int steps = Math.Max (1, (int) Math.Ceiling (distance));
-		for (int i = 0; i <= steps; i++) {
-			double progress = i / (double) steps;
-			int x = (int) Math.Round (from.X + (to.X - from.X) * progress);
-			int y = (int) Math.Round (from.Y + (to.Y - from.Y) * progress);
+		foreach (PointD point in BrushAlgorithms.InterpolateLine (from, to)) {
+			int x = (int) Math.Round (point.X);
+			int y = (int) Math.Round (point.Y);
 			if ((uint) x < surface.Width && (uint) y < surface.Height) {
 				int index = y * surface.Width + x;
-				pixels[index] = Blend (pixels[index], color);
+				pixels[index] = RasterAlgorithms.CompositeOver (pixels[index], color);
 			}
 		}
 		return true;
 	}
 
-	private static ColorBgra Blend (ColorBgra destination, ColorBgra source)
-	{
-		if (source.A == 255) return source;
-		if (source.A == 0) return destination;
-		int sourceAlpha = source.A, destinationAlpha = destination.A;
-		int outputAlpha = sourceAlpha + destinationAlpha * (255 - sourceAlpha) / 255;
-		if (outputAlpha == 0) return ColorBgra.Zero;
-		return ColorBgra.FromBgra (
-			(byte) ((source.B * sourceAlpha + destination.B * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-			(byte) ((source.G * sourceAlpha + destination.G * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-			(byte) ((source.R * sourceAlpha + destination.R * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-			(byte) outputAlpha);
-	}
 }

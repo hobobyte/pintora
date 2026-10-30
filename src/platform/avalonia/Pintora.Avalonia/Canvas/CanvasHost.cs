@@ -44,6 +44,7 @@ public sealed class CanvasHost : Control, IDisposable
 		Shapes,
 		Gradient,
 		Fill,
+		Recolor,
 		ColorPicker,
 		Zoom,
 		Eraser,
@@ -78,6 +79,7 @@ public sealed class CanvasHost : Control, IDisposable
 	private GradientTool gradient_tool => tool_set.Get<GradientTool> (CanvasTool.Gradient);
 	public GradientToolOptions GetGradientToolOptions () => gradient_tool.Options;
 	private FillTool fill_tool => tool_set.Get<FillTool> (CanvasTool.Fill);
+	private RecolorTool recolor_tool => tool_set.Get<RecolorTool> (CanvasTool.Recolor);
 	private SelectionTool selection_tool => tool_set.Get<SelectionTool> (CanvasTool.Selection);
 	private ColorPickerTool color_picker_tool => tool_set.Get<ColorPickerTool> (CanvasTool.ColorPicker);
 	private ZoomTool zoom_tool => tool_set.Get<ZoomTool> (CanvasTool.Zoom);
@@ -531,10 +533,9 @@ public sealed class CanvasHost : Control, IDisposable
 			double scale = Math.Max (0.01, cursor.Scale);
 			bounds = new Rect (bounds.X - cursor.HotspotX * scale, bounds.Y - cursor.HotspotY * scale, bounds.Width * scale, bounds.Height * scale);
 		}
-		Point center = bounds.Center;
-		double cosine = Math.Cos (-annotation.Rotation), sine = Math.Sin (-annotation.Rotation);
-		double dx = point.X - center.X, dy = point.Y - center.Y;
-		Point local = new (center.X + dx * cosine - dy * sine, center.Y + dx * sine + dy * cosine);
+		PointD center = new (bounds.Center.X, bounds.Center.Y);
+		PointD localPoint = ShapeAlgorithms.RotatePoint (point, center, -annotation.Rotation);
+		Point local = new (localPoint.X, localPoint.Y);
 		return bounds.Contains (local);
 	}
 
@@ -732,6 +733,22 @@ public sealed class CanvasHost : Control, IDisposable
 			fill_options.Tolerance = next;
 			ToolOptionsChanged?.Invoke (this, EventArgs.Empty);
 		}
+	}
+	public int RecolorTolerance { get; set; } = 128;
+
+	public bool RecolorAt (PointD point, bool reverse)
+	{
+		IImageSurface? surface = Surface;
+		if (IsActiveLayerLocked || !RasterAlgorithms.TrySampleNearest (surface, point, out ColorBgra basis))
+			return false;
+		ColorBgra oldColor = reverse ? SecondaryBrushColor : BrushColor;
+		ColorBgra newColor = reverse ? BrushColor : SecondaryBrushColor;
+		if (!RasterAlgorithms.TryRecolorPixel (basis, newColor, oldColor, newColor, RecolorTolerance, out ColorBgra recolored))
+			return false;
+		int x = (int) Math.Round (point.X), y = (int) Math.Round (point.Y);
+		surface!.GetPixelData ()[y * surface.Width + x] = recolored;
+		MarkCanvasChanged (true);
+		return true;
 	}
 	public FillToolOptions GetFillToolOptions () => fill_options;
 
@@ -2248,8 +2265,6 @@ public sealed class CanvasHost : Control, IDisposable
 	{
 		Rect bounds = GetAnnotationDisplayBounds (annotation);
 		Point center = bounds.Center;
-		double cosine = Math.Cos (annotation.Rotation);
-		double sine = Math.Sin (annotation.Rotation);
 		Point[] corners = [
 			new Point (bounds.Left, bounds.Top),
 			new Point (bounds.Right, bounds.Top),
@@ -2257,9 +2272,10 @@ public sealed class CanvasHost : Control, IDisposable
 			new Point (bounds.Left, bounds.Bottom)
 		];
 		for (int i = 0; i < corners.Length; i++) {
-			double dx = corners[i].X - center.X;
-			double dy = corners[i].Y - center.Y;
-			corners[i] = new Point (center.X + dx * cosine - dy * sine, center.Y + dx * sine + dy * cosine);
+			PointD rotated = ShapeAlgorithms.RotatePoint (
+				new PointD (corners[i].X, corners[i].Y),
+				new PointD (center.X, center.Y), annotation.Rotation);
+			corners[i] = new Point (rotated.X, rotated.Y);
 		}
 		return corners;
 	}
@@ -2283,7 +2299,7 @@ public sealed class CanvasHost : Control, IDisposable
 
 	private void DrawGridOverlay (DrawingContext context, Point origin)
 	{
-		int step = Math.Max (PintoraViewSettings.MinGridSize, grid_size);
+		int step = GridAlgorithms.GetCellStep (grid_size, PintoraViewSettings.MinGridSize, PintoraViewSettings.MaxGridSize);
 		double scaled = step * Scale;
 		if (scaled < 4)
 			return;

@@ -23,6 +23,8 @@ public sealed class PintoraViewSettings
 	public bool ShowToolbox { get; set; } = true;
 	public bool ShowStatusBar { get; set; } = true;
 	public bool ShowToolWindows { get; set; } = true;
+	public bool ShowColors { get; set; } = true;
+	public bool ShowLayers { get; set; } = true;
 	public bool ShowImageTabs { get; set; } = true;
 
 	public void Save ()
@@ -35,6 +37,8 @@ public sealed class PintoraViewSettings
 		settings.PutSetting ("Pintora.View.ShowToolbox", ShowToolbox);
 		settings.PutSetting ("Pintora.View.ShowStatusBar", ShowStatusBar);
 		settings.PutSetting ("Pintora.View.ShowToolWindows", ShowToolWindows);
+		settings.PutSetting ("Pintora.View.ShowColors", ShowColors);
+		settings.PutSetting ("Pintora.View.ShowLayers", ShowLayers);
 		settings.PutSetting ("Pintora.View.ShowImageTabs", ShowImageTabs);
 	}
 
@@ -48,6 +52,8 @@ public sealed class PintoraViewSettings
 		ShowToolbox = settings.GetSetting ("Pintora.View.ShowToolbox", ShowToolbox);
 		ShowStatusBar = settings.GetSetting ("Pintora.View.ShowStatusBar", ShowStatusBar);
 		ShowToolWindows = settings.GetSetting ("Pintora.View.ShowToolWindows", ShowToolWindows);
+		ShowColors = settings.GetSetting ("Pintora.View.ShowColors", ShowColors);
+		ShowLayers = settings.GetSetting ("Pintora.View.ShowLayers", ShowLayers);
 		ShowImageTabs = settings.GetSetting ("Pintora.View.ShowImageTabs", ShowImageTabs);
 	}
 }

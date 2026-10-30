@@ -22,6 +22,8 @@ internal sealed class PintoraViewSettingsTests
 		Assert.That (settings.ShowToolbox, Is.True);
 		Assert.That (settings.ShowStatusBar, Is.True);
 		Assert.That (settings.ShowToolWindows, Is.True);
+		Assert.That (settings.ShowColors, Is.True);
+		Assert.That (settings.ShowLayers, Is.True);
 		Assert.That (settings.ShowImageTabs, Is.True);
 	}
 
@@ -37,6 +39,8 @@ internal sealed class PintoraViewSettingsTests
 			ShowToolbox = false,
 			ShowStatusBar = false,
 			ShowToolWindows = false,
+			ShowColors = false,
+			ShowLayers = false,
 			ShowImageTabs = false
 		};
 		first.Save ();
@@ -50,6 +54,8 @@ internal sealed class PintoraViewSettingsTests
 		Assert.That (reloaded.ShowToolbox, Is.False);
 		Assert.That (reloaded.ShowStatusBar, Is.False);
 		Assert.That (reloaded.ShowToolWindows, Is.False);
+		Assert.That (reloaded.ShowColors, Is.False);
+		Assert.That (reloaded.ShowLayers, Is.False);
 		Assert.That (reloaded.ShowImageTabs, Is.False);
 	}
 
@@ -68,6 +74,8 @@ internal sealed class PintoraViewSettingsTests
 		Assert.That (reloaded.ShowToolbar, Is.True);
 		Assert.That (reloaded.ShowStatusBar, Is.True);
 		Assert.That (reloaded.ShowToolWindows, Is.True);
+		Assert.That (reloaded.ShowColors, Is.True);
+		Assert.That (reloaded.ShowLayers, Is.True);
 		Assert.That (reloaded.ShowRulers, Is.False);
 	}
 

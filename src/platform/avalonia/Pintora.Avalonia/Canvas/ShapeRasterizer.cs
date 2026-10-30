@@ -17,10 +17,8 @@ internal static class ShapeRasterizer
 			DrawSmooth (surface, kind, from, to, outline, fill, style, width, dash, cornerRadius, 0);
 			return;
 		}
-		double left = Math.Min (from.X, to.X);
-		double top = Math.Min (from.Y, to.Y);
-		double right = Math.Max (from.X, to.X);
-		double bottom = Math.Max (from.Y, to.Y);
+		RectangleD bounds = ShapeAlgorithms.Bounds (from, to);
+		double left = bounds.X, top = bounds.Y, right = bounds.X + bounds.Width, bottom = bounds.Y + bounds.Height;
 		if (kind != CanvasHost.ShapeKind.Line && style != CanvasHost.ShapeFillStyle.Outline)
 			Fill (surface, kind, left, top, right, bottom,
 				style == CanvasHost.ShapeFillStyle.Fill ? outline : fill, cornerRadius);
@@ -44,10 +42,9 @@ internal static class ShapeRasterizer
 		double centerX = (from.X + to.X) / 2, centerY = (from.Y + to.Y) / 2;
 		if (Math.Abs (angle) > 0.001) canvas.RotateDegrees ((float) angle, (float) centerX, (float) centerY);
 		using var path = new SKPath ();
-		float left = (float) Math.Min (from.X, to.X);
-		float top = (float) Math.Min (from.Y, to.Y);
-		float right = (float) Math.Max (from.X, to.X);
-		float bottom = (float) Math.Max (from.Y, to.Y);
+		RectangleD bounds = ShapeAlgorithms.Bounds (from, to);
+		float left = (float) bounds.X, top = (float) bounds.Y;
+		float right = (float) (bounds.X + bounds.Width), bottom = (float) (bounds.Y + bounds.Height);
 		var rect = new SKRect (left, top, right, bottom);
 		switch (kind) {
 			case CanvasHost.ShapeKind.Line:
@@ -58,7 +55,7 @@ internal static class ShapeRasterizer
 				path.AddRect (rect);
 				break;
 			case CanvasHost.ShapeKind.Ellipse:
-				path.AddOval (rect);
+				AppendGtkEllipsePath (path, rect);
 				break;
 			case CanvasHost.ShapeKind.RoundedRectangle:
 				float radius = Math.Min (cornerRadius, Math.Min ((right - left) / 2, (bottom - top) / 2));
@@ -100,15 +97,9 @@ internal static class ShapeRasterizer
 		canvas.Flush ();
 		Span<ColorBgra> pixels = surface.GetPixelData ();
 		int margin = width + 2;
-		double radians = angle * Math.PI / 180;
-		double cos = Math.Abs (Math.Cos (radians));
-		double sin = Math.Abs (Math.Sin (radians));
-		double rotatedWidth = (right - left) * cos + (bottom - top) * sin;
-		double rotatedHeight = (right - left) * sin + (bottom - top) * cos;
-		double rotatedLeft = centerX - rotatedWidth / 2;
-		double rotatedTop = centerY - rotatedHeight / 2;
-		double rotatedRight = centerX + rotatedWidth / 2;
-		double rotatedBottom = centerY + rotatedHeight / 2;
+		RectangleD rotated = ShapeAlgorithms.RotatedBounds (bounds, angle);
+		double rotatedLeft = rotated.X, rotatedTop = rotated.Y;
+		double rotatedRight = rotated.X + rotated.Width, rotatedBottom = rotated.Y + rotated.Height;
 		int minX = Math.Max (0, (int) Math.Floor (rotatedLeft) - margin);
 		int minY = Math.Max (0, (int) Math.Floor (rotatedTop) - margin);
 		int maxX = Math.Min (surface.Width - 1, (int) Math.Ceiling (rotatedRight) + margin);
@@ -118,141 +109,40 @@ internal static class ShapeRasterizer
 				SKColor color = overlay.GetPixel (x, y);
 				if (color.Alpha == 0) continue;
 				int index = y * surface.Width + x;
-				pixels[index] = Blend (pixels[index], ColorBgra.FromBgra (color.Blue, color.Green, color.Red, color.Alpha));
+				pixels[index] = RasterAlgorithms.CompositeOver (pixels[index], ColorBgra.FromBgra (color.Blue, color.Green, color.Red, color.Alpha));
 			}
+	}
+
+	private static void AppendGtkEllipsePath (SKPath path, SKRect rect)
+	{
+		const float c = 0.552285f;
+		float rx = rect.Width / 2, ry = rect.Height / 2;
+		float cx = rect.MidX, cy = rect.MidY;
+		path.MoveTo (cx + rx, cy);
+		path.CubicTo (cx + rx, cy - c * ry, cx + c * rx, cy - ry, cx, cy - ry);
+		path.CubicTo (cx - c * rx, cy - ry, cx - rx, cy - c * ry, cx - rx, cy);
+		path.CubicTo (cx - rx, cy + c * ry, cx - c * rx, cy + ry, cx, cy + ry);
+		path.CubicTo (cx + c * rx, cy + ry, cx + rx, cy + c * ry, cx + rx, cy);
+		path.Close ();
 	}
 
 	private static void Fill (MemoryImageSurface surface, CanvasHost.ShapeKind kind,
 		double left, double top, double right, double bottom, ColorBgra color, int cornerRadius)
-	{
-		Span<ColorBgra> pixels = surface.GetPixelData ();
-		double cx = (left + right) / 2;
-		double cy = (top + bottom) / 2;
-		double rx = (right - left) / 2;
-		double ry = (bottom - top) / 2;
-		double radius = Math.Min (cornerRadius, Math.Min (rx, ry));
-		for (int y = Math.Max (0, (int) Math.Ceiling (top)); y <= Math.Min (surface.Height - 1, (int) Math.Floor (bottom)); y++)
-			for (int x = Math.Max (0, (int) Math.Ceiling (left)); x <= Math.Min (surface.Width - 1, (int) Math.Floor (right)); x++) {
-				bool inside = kind switch {
-					CanvasHost.ShapeKind.Ellipse => rx == 0 || ry == 0 ||
-						Math.Pow ((x - cx) / rx, 2) + Math.Pow ((y - cy) / ry, 2) <= 1,
-					CanvasHost.ShapeKind.RoundedRectangle when radius > 0 =>
-						Math.Pow (Math.Max (Math.Abs (x - cx) - (rx - radius), 0), 2)
-						+ Math.Pow (Math.Max (Math.Abs (y - cy) - (ry - radius), 0), 2) <= radius * radius,
-					_ => true
-				};
-				if (inside) {
-					int index = y * surface.Width + x;
-					pixels[index] = Blend (pixels[index], color);
-				}
-			}
-	}
+		=> ShapeAlgorithms.Fill (surface, (ShapePathKind) kind, new RectangleD (left, top, right - left, bottom - top), color, cornerRadius);
 
 	private static List<PointD> BuildPath (CanvasHost.ShapeKind kind, PointD from, PointD to, int cornerRadius)
-	{
-		if (kind == CanvasHost.ShapeKind.Line)
-			return [from, to];
-		double left = Math.Min (from.X, to.X);
-		double top = Math.Min (from.Y, to.Y);
-		double right = Math.Max (from.X, to.X);
-		double bottom = Math.Max (from.Y, to.Y);
-		if (kind == CanvasHost.ShapeKind.Rectangle)
-			return [new (left, top), new (right, top), new (right, bottom), new (left, bottom), new (left, top)];
-		var points = new List<PointD> ();
-		if (kind == CanvasHost.ShapeKind.Ellipse) {
-			double rx = (right - left) / 2;
-			double ry = (bottom - top) / 2;
-			int steps = Math.Max (64, (int) Math.Ceiling (2 * Math.PI * Math.Max (rx, ry)));
-			for (int i = 0; i <= steps; i++) {
-				double angle = 2 * Math.PI * i / steps;
-				points.Add (new PointD ((left + right) / 2 + rx * Math.Cos (angle), (top + bottom) / 2 + ry * Math.Sin (angle)));
-			}
-			return points;
-		}
-		if (kind != CanvasHost.ShapeKind.RoundedRectangle)
-			throw new ArgumentOutOfRangeException (nameof (kind));
-		double radius = Math.Min (cornerRadius, Math.Min ((right - left) / 2, (bottom - top) / 2));
-		if (radius <= 0)
-			return [new (left, top), new (right, top), new (right, bottom), new (left, bottom), new (left, top)];
-		AddArc (points, right - radius, top + radius, radius, -Math.PI / 2, 0);
-		AddArc (points, right - radius, bottom - radius, radius, 0, Math.PI / 2);
-		AddArc (points, left + radius, bottom - radius, radius, Math.PI / 2, Math.PI);
-		AddArc (points, left + radius, top + radius, radius, Math.PI, 3 * Math.PI / 2);
-		points.Add (points[0]);
-		return points;
-	}
-
-	private static void AddArc (List<PointD> points, double cx, double cy, double radius, double start, double end)
-	{
-		int steps = Math.Max (8, (int) Math.Ceiling (radius * Math.PI / 2));
-		for (int i = 0; i <= steps; i++) {
-			double angle = start + (end - start) * i / steps;
-			points.Add (new PointD (cx + radius * Math.Cos (angle), cy + radius * Math.Sin (angle)));
-		}
-	}
+		=> [.. ShapeAlgorithms.BuildPath ((ShapePathKind) kind, from, to, cornerRadius)];
 
 	private static void Outline (MemoryImageSurface surface, List<PointD> path, ColorBgra color, int width, CanvasHost.ShapeDashStyle dash)
-	{
-		var mask = new bool[surface.Width * surface.Height];
-		double distance = 0;
-		for (int i = 1; i < path.Count; i++) {
-			PointD a = path[i - 1];
-			PointD b = path[i];
-			double length = Math.Sqrt (Math.Pow (b.X - a.X, 2) + Math.Pow (b.Y - a.Y, 2));
-			int steps = Math.Max (1, (int) Math.Ceiling (length * 2));
-			for (int step = 0; step <= steps; step++) {
-				double t = step / (double) steps;
-				if (IsOn (distance + length * t, dash, width))
-					Stamp (mask, surface.Width, surface.Height,
-						(int) Math.Round (a.X + (b.X - a.X) * t),
-						(int) Math.Round (a.Y + (b.Y - a.Y) * t), width);
-			}
-			distance += length;
-		}
-		Span<ColorBgra> pixels = surface.GetPixelData ();
-		for (int i = 0; i < mask.Length; i++)
-			if (mask[i]) pixels[i] = Blend (pixels[i], color);
-	}
+		=> ShapeAlgorithms.Outline (surface, path, color, width, ToDashPattern (dash));
 
-	private static bool IsOn (double distance, CanvasHost.ShapeDashStyle dash, int width)
-	{
-		int unit = Math.Max (1, width);
-		int[] pattern = dash switch {
-			CanvasHost.ShapeDashStyle.Solid => [1],
-			CanvasHost.ShapeDashStyle.Dash => [6, 4],
-			CanvasHost.ShapeDashStyle.Dot => [1, 3],
-			CanvasHost.ShapeDashStyle.DashDot => [6, 3, 1, 3],
+	private static ShapeDashPattern ToDashPattern (CanvasHost.ShapeDashStyle dash)
+		=> dash switch {
+			CanvasHost.ShapeDashStyle.Solid => ShapeDashPattern.Solid,
+			CanvasHost.ShapeDashStyle.Dash => ShapeDashPattern.Dash,
+			CanvasHost.ShapeDashStyle.Dot => ShapeDashPattern.Dot,
+			CanvasHost.ShapeDashStyle.DashDot => ShapeDashPattern.DashDot,
 			_ => throw new ArgumentOutOfRangeException (nameof (dash))
 		};
-		if (pattern.Length == 1) return true;
-		int cycle = 0;
-		foreach (int part in pattern) cycle += part * unit;
-		double position = distance % cycle;
-		for (int i = 0; i < pattern.Length; i++) {
-			position -= pattern[i] * unit;
-			if (position < 0) return i % 2 == 0;
-		}
-		return true;
-	}
 
-	private static void Stamp (bool[] mask, int width, int height, int x, int y, int size)
-	{
-		int firstX = x - (size - 1) / 2;
-		int firstY = y - (size - 1) / 2;
-		for (int py = Math.Max (0, firstY); py <= Math.Min (height - 1, firstY + size - 1); py++)
-			for (int px = Math.Max (0, firstX); px <= Math.Min (width - 1, firstX + size - 1); px++)
-				mask[py * width + px] = true;
-	}
-
-	private static ColorBgra Blend (ColorBgra destination, ColorBgra source)
-	{
-		if (source.A == 255) return source;
-		if (source.A == 0) return destination;
-		int alpha = source.A + destination.A * (255 - source.A) / 255;
-		return ColorBgra.FromBgra (
-			(byte) ((source.B * source.A + destination.B * destination.A * (255 - source.A) / 255) / alpha),
-			(byte) ((source.G * source.A + destination.G * destination.A * (255 - source.A) / 255) / alpha),
-			(byte) ((source.R * source.A + destination.R * destination.A * (255 - source.A) / 255) / alpha),
-			(byte) alpha);
-	}
 }

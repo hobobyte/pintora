@@ -168,7 +168,7 @@ public sealed partial class PointPickerGraphic
 		g.DrawLine (settings.horizontalLineStart, settings.horizontalLineEnd, settings.lineColor, 1);
 
 		// Point
-		g.DrawEllipse (settings.pointMarker, settings.pointMarkerColor, 2);
+		GtkShapeRasterizer.DrawEllipse (g, settings.pointMarker, settings.pointMarkerColor, 2);
 
 		g.Dispose ();
 	}

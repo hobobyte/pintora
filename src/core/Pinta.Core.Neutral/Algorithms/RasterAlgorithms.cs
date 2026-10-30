@@ -6,11 +6,55 @@ namespace Pinta.Core;
 /// <summary>Platform-neutral raster operations shared by GTK and Avalonia adapters.</summary>
 public static class RasterAlgorithms
 {
+	public static byte[,] CreateRadialFalloffLut (int resolution)
+	{
+		if (resolution <= 0) throw new ArgumentOutOfRangeException (nameof (resolution));
+		var result = new byte[resolution + 1, resolution + 1];
+		for (int y = 0; y <= resolution; y++)
+			for (int x = 0; x <= resolution; x++) {
+				double distance = Math.Sqrt (x * x + y * y) / resolution;
+				result[y, x] = distance > 1
+					? (byte) 255
+					: (byte) (255 - Math.Cos (Math.Sqrt (distance) * Math.PI / 2) * 255);
+			}
+		return result;
+	}
+
+	public static bool TryRecolorPixel (ColorBgra basis, ColorBgra search, ColorBgra oldColor,
+		ColorBgra newColor, int tolerance, out ColorBgra result)
+	{
+		if (!ColorBgra.ColorsWithinTolerance (search, basis, Math.Clamp (tolerance, 0, 256))) {
+			result = basis;
+			return false;
+		}
+		result = AdjustColorDifference (search, oldColor, basis);
+		return true;
+	}
+
+	public static ColorBgra AdjustColorDifference (ColorBgra oldColor, ColorBgra newColor, ColorBgra basisColor)
+		=> ColorBgra.FromBgra (
+			AdjustColorByte (oldColor.B, newColor.B, basisColor.B),
+			AdjustColorByte (oldColor.G, newColor.G, basisColor.G),
+			AdjustColorByte (oldColor.R, newColor.R, basisColor.R),
+			basisColor.A);
+
+	private static byte AdjustColorByte (byte oldByte, byte newByte, byte basisByte)
+	{
+		int delta = newByte - oldByte;
+		return (byte) Math.Clamp (basisByte + delta, 0, 255);
+	}
+
 	public static ColorBgra ApplyOpacity (ColorBgra color, double opacity)
 	{
 		if (opacity >= 1) return color;
 		if (opacity <= 0) return ColorBgra.FromBgra (color.B, color.G, color.R, 0);
 		return ColorBgra.FromBgra (color.B, color.G, color.R, (byte) Math.Round (color.A * opacity));
+	}
+
+	public static void ApplyOpacity (Span<ColorBgra> pixels, double opacity)
+	{
+		for (int i = 0; i < pixels.Length; i++)
+			pixels[i] = ApplyOpacity (pixels[i], opacity);
 	}
 
 	public static ColorBgra CompositeOver (ColorBgra destination, ColorBgra source)
