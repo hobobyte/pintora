@@ -22,7 +22,7 @@ public sealed class AvaloniaUiScheduler : IUiScheduler
 		=> Dispatcher.UIThread.Post (action);
 
 	public void PumpPending ()
-		=> Dispatcher.UIThread.RunJobs (DispatcherPriority.Layout);
+		=> Dispatcher.UIThread.RunJobs (DispatcherPriority.Render);
 
 	private sealed class TimerHandle (DispatcherTimer timer) : IDisposable
 	{
