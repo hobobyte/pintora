@@ -86,21 +86,35 @@ public abstract class FloodTool : BaseTool
 		var surface = document.Layers.CurrentUserLayer.CairoSurface;
 		var stencilBuffer = new BitMask (surface.Width, surface.Height);
 		var tol = (int) (Tolerance * Tolerance * 256);
+		bool[]? allowed = null;
+		if (LimitToSelection) {
+			allowed = new bool[surface.Width * surface.Height];
+			for (int y = 0; y < surface.Height; y++)
+				for (int x = 0; x < surface.Width; x++)
+					allowed[y * surface.Width + x] = currentRegion.ContainsPoint (x, y);
+		}
 
-		RectangleD boundingBox;
-
-		if (IsGlobalMode || e.IsShiftPressed)
-			CairoExtensions.FillStencilByColor (surface, stencilBuffer, surface.GetColorBgra (pos), tol, out boundingBox, currentRegion, LimitToSelection);
-		else
-			CairoExtensions.FillStencilFromPoint (surface, stencilBuffer, pos, tol, out boundingBox, currentRegion, LimitToSelection);
+		using var neutralSurface = CairoImageSurface.Wrap (surface);
+		bool[]? mask = IsGlobalMode || e.IsShiftPressed
+			? FloodStencil.ByColor (neutralSurface, (int) pos.X, (int) pos.Y, tol, allowed)
+			: FloodStencil.FromPoint (neutralSurface, (int) pos.X, (int) pos.Y, tol, allowed);
+		if (mask is null)
+			return;
+		for (int y = 0; y < surface.Height; y++)
+			for (int x = 0; x < surface.Width; x++)
+				if (mask[y * surface.Width + x])
+					stencilBuffer.Set (x, y, true);
 
 		OnFillRegionComputed (document, stencilBuffer);
 
 		// If a derived tool is only going to use the stencil,
 		// don't waste time building the polygon set
 		if (CalculatePolygonSet) {
-			var polygonSet = stencilBuffer.CreatePolygonSet (boundingBox, PointI.Zero);
-			OnFillRegionComputed (document, polygonSet);
+			RectangleI? bounds = FloodStencil.GetBounds (mask, surface.Width, surface.Height);
+			if (bounds is RectangleI boundingBox) {
+				var polygonSet = stencilBuffer.CreatePolygonSet (new RectangleD (boundingBox.X, boundingBox.Y, boundingBox.Width, boundingBox.Height), PointI.Zero);
+				OnFillRegionComputed (document, polygonSet);
+			}
 		}
 	}
 

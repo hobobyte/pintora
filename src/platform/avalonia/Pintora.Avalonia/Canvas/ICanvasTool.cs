@@ -19,4 +19,6 @@ internal readonly record struct CanvasToolPointerContext (
 	PointD PreviousPoint,
 	ColorBgra Color,
 	bool IsRightButton,
-	bool ShiftPressed);
+	bool ShiftPressed,
+	bool ControlPressed = false,
+	bool AltPressed = false);

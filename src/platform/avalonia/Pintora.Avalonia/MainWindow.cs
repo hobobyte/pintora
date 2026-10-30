@@ -116,6 +116,8 @@ public sealed class MainWindow : Window
 		canvas.BrushHardness = settings.GetSetting ("Pintora.Brush.Hardness", 1.0);
 		canvas.BrushOpacity = settings.GetSetting ("Pintora.Brush.Opacity", 1.0);
 		canvas.FillTolerance = settings.GetSetting ("Pintora.Fill.Tolerance", 0);
+		canvas.MagicWandTolerance = settings.GetSetting ("Pintora.MagicWand.Tolerance", 0);
+		canvas.MagicWandGlobalMode = settings.GetSetting ("Pintora.MagicWand.GlobalMode", false);
 		canvas.ShapeFilled = settings.GetSetting ("Pintora.Shape.Filled", false);
 		if (Enum.TryParse (settings.GetSetting ("Pintora.Shape.FillStyle", canvas.ShapeFilled ? "Fill" : "Outline"), out CanvasHost.ShapeFillStyle saved_fill_style)
 			&& Enum.IsDefined (saved_fill_style))
@@ -175,6 +177,8 @@ public sealed class MainWindow : Window
 			settings.PutSetting ("Pintora.Brush.Hardness", canvas.BrushHardness);
 			settings.PutSetting ("Pintora.Brush.Opacity", canvas.BrushOpacity);
 			settings.PutSetting ("Pintora.Fill.Tolerance", canvas.FillTolerance);
+			settings.PutSetting ("Pintora.MagicWand.Tolerance", canvas.MagicWandTolerance);
+			settings.PutSetting ("Pintora.MagicWand.GlobalMode", canvas.MagicWandGlobalMode);
 			settings.PutSetting ("Pintora.Shape.Filled", canvas.ShapeFilled);
 			settings.PutSetting ("Pintora.Shape.FillStyle", canvas.FillStyle.ToString ());
 			settings.PutSetting ("Pintora.Shape.OutlineWidth", canvas.ShapeOutlineWidth);
@@ -327,7 +331,12 @@ public sealed class MainWindow : Window
 			CanvasHost active = ActiveCanvas;
 			dimensions.Text = $"{active.ImageSize.Width} × {active.ImageSize.Height} px";
 			string position = active.PointerPosition is PointD point ? $"  •  X: {point.X:0}  Y: {point.Y:0}" : string.Empty;
-			details.Text = $"{(active.ActiveTool == CanvasHost.CanvasTool.Shapes ? active.SelectedShape.ToString () : active.ActiveTool.ToString ())}  •  Brush {active.BrushSize}px{position}";
+			string toolName = active.ActiveTool switch {
+				CanvasHost.CanvasTool.Shapes => active.SelectedShape.ToString (),
+				CanvasHost.CanvasTool.MagicWand => "Magic Wand",
+				_ => active.ActiveTool.ToString (),
+			};
+			details.Text = $"{toolName}  •  Brush {active.BrushSize}px{position}";
 		}
 		refresh_status = RefreshDetails;
 		RefreshDetails ();
@@ -848,6 +857,8 @@ public sealed class MainWindow : Window
 			"M4 4h16v16H4V4zm2 12L16 6h4L8 18H6z");
 		Button fill = CreateToolButton (canvas, "Fill", CanvasHost.CanvasTool.Fill,
 			"M5 3h10v2H5V3zm0 4h10v2H5V7zm0 4h10v2H5v-2zm12-8h2v18h-2V3z");
+		Button magicWand = CreateToolButton (canvas, "Magic Wand", CanvasHost.CanvasTool.MagicWand,
+			"M7 21L14 3l1.5 4.5L20 9l-4.5 1.5L14 15l-2-2-1 1 2 2-4 5-2-1zm9.5-13.5l-.9 2.6 2.6-.9-1.7-1.7z");
 		Button picker = CreateToolButton (canvas, "Color Picker", CanvasHost.CanvasTool.ColorPicker,
 			"M19.35 10.04L14 4.69 15.41 3.28 20.76 8.63 19.35 10.04zM3 17.25V21h3.75l10.81-10.81-3.75-3.75L3 17.25z");
 		Button zoom = CreateToolButton (canvas, "Zoom", CanvasHost.CanvasTool.Zoom,
@@ -868,6 +879,7 @@ public sealed class MainWindow : Window
 		buttons.Add ((shapes, CanvasHost.CanvasTool.Shapes));
 		buttons.Add ((gradient, CanvasHost.CanvasTool.Gradient));
 		buttons.Add ((fill, CanvasHost.CanvasTool.Fill));
+		buttons.Add ((magicWand, CanvasHost.CanvasTool.MagicWand));
 		buttons.Add ((picker, CanvasHost.CanvasTool.ColorPicker));
 		buttons.Add ((zoom, CanvasHost.CanvasTool.Zoom));
 		buttons.Add ((eraser, CanvasHost.CanvasTool.Eraser));
@@ -1224,6 +1236,18 @@ public sealed class MainWindow : Window
 			case CanvasHost.CanvasTool.Fill:
 				tool_options.Children.Add (new TextBlock { Text = "Tolerance", VerticalAlignment = VerticalAlignment.Center });
 				tool_options.Children.Add (CreateBrushSlider (0, 255, canvas.FillTolerance, value => canvas.FillTolerance = (int) value, 90));
+				break;
+			case CanvasHost.CanvasTool.MagicWand:
+				tool_options.Children.Add (CreateToolbarLabel ("Tolerance"));
+				tool_options.Children.Add (CreateBrushSlider (0, 100, canvas.MagicWandTolerance, value => canvas.MagicWandTolerance = (int) value, 90));
+				tool_options.Children.Add (CreateToolbarLabel ("Mode"));
+				var flood_mode = new ComboBox {
+					ItemsSource = new[] { "Contiguous", "Global" },
+					SelectedIndex = canvas.MagicWandGlobalMode ? 1 : 0,
+					MinWidth = 105
+				};
+				flood_mode.SelectionChanged += (_, _) => canvas.MagicWandGlobalMode = flood_mode.SelectedIndex == 1;
+				tool_options.Children.Add (flood_mode);
 				break;
 			case CanvasHost.CanvasTool.Gradient:
 				tool_options.Children.Add (CreateToolbarLabel ("From:"));

@@ -47,7 +47,8 @@ public sealed class CanvasHost : Control, IDisposable
 		ColorPicker,
 		Zoom,
 		Eraser,
-		Blur, Pixelate, Highlight, Magnify, Spotlight
+		Blur, Pixelate, Highlight, Magnify, Spotlight,
+		MagicWand
 	}
 
 	public enum ShapeKind { Line, Rectangle, Ellipse, RoundedRectangle }
@@ -733,6 +734,12 @@ public sealed class CanvasHost : Control, IDisposable
 		}
 	}
 	public FillToolOptions GetFillToolOptions () => fill_options;
+
+	/// <summary>Magic Wand tolerance, 0–100 (percent); converted to the GTK stencil scale at use time.</summary>
+	public int MagicWandTolerance { get; set; } = 0;
+	/// <summary>False = Contiguous (default), true = Global flood mode.</summary>
+	public bool MagicWandGlobalMode { get; set; }
+
 	public ShapeFillStyle FillStyle {
 		get => shape_options.FillStyle;
 		set {
@@ -878,6 +885,18 @@ public sealed class CanvasHost : Control, IDisposable
 
 	public bool SelectAll ()
 		=> SelectRectangle (new PointI (0, 0), new PointI (ImageSize.Width, ImageSize.Height));
+
+	/// <summary>Applies a pixel-mask selection (Magic Wand) with the given combine mode.</summary>
+	public bool ApplySelectionMask (bool[] mask, SelectionCombineMode mode)
+	{
+		if (!selection_tool.ApplyMask (mask, ImageSize.Width, ImageSize.Height, mode)) {
+			InvalidateVisual ();
+			return false;
+		}
+		RemoveSelectionAnnotations ();
+		InvalidateVisual ();
+		return true;
+	}
 
 	public void ClearSelection ()
 	{
@@ -1120,9 +1139,9 @@ public sealed class CanvasHost : Control, IDisposable
 		for (int i = 0; i < destination.Length; i++) {
 			ColorBgra color = source[i];
 			if (upper.Opacity < 1)
-				color = ColorBgra.FromBgra (color.B, color.G, color.R, (byte) Math.Round (color.A * upper.Opacity));
+				color = RasterAlgorithms.ApplyOpacity (color, upper.Opacity);
 			if (upper.IsVisible)
-				destination[i] = Blend (destination[i], color);
+				destination[i] = RasterAlgorithms.CompositeOver (destination[i], color);
 		}
 		// The merged layer now contains the complete visible result. Keeping
 		// the lower layer's old opacity would attenuate the upper layer again.
@@ -1915,24 +1934,6 @@ public sealed class CanvasHost : Control, IDisposable
 		MarkCanvasChanged (true);
 	}
 
-	private static ColorBgra Blend (ColorBgra destination, ColorBgra source)
-	{
-		if (source.A == 255)
-			return source;
-		if (source.A == 0)
-			return destination;
-		int sourceAlpha = source.A;
-		int destinationAlpha = destination.A;
-		int outputAlpha = sourceAlpha + destinationAlpha * (255 - sourceAlpha) / 255;
-		if (outputAlpha == 0)
-			return ColorBgra.Zero;
-		return ColorBgra.FromBgra (
-			(byte) ((source.B * sourceAlpha + destination.B * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-			(byte) ((source.G * sourceAlpha + destination.G * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-			(byte) ((source.R * sourceAlpha + destination.R * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-			(byte) outputAlpha);
-	}
-
 	public void PaintCanvasLine (PointD from, PointD to, ColorBgra color)
 	{
 		BrushTool activeBrush = ActiveTool == CanvasTool.Eraser ? eraser_tool : brush_tool;
@@ -2175,6 +2176,25 @@ public sealed class CanvasHost : Control, IDisposable
 			var selection_pen = new Pen (Brushes.DodgerBlue, 1, new DashStyle (new[] { 4d, 4d }, 0));
 			context.DrawRectangle (selection_pen, new Rect (origin.X + selected.X * Scale, origin.Y + selected.Y * Scale, selected.Width * Scale, selected.Height * Scale));
 		}
+		if (selection_tool.SelectionMask is { } selectionMask) {
+			// Mask (Magic Wand) outline: draw 1-view-pixel dots at mask boundary pixels,
+			// alternating black/white like marching ants.
+			int width = ImageSize.Width, height = ImageSize.Height;
+			double dot = Math.Max (1, Scale);
+			for (int y = 0; y < height; y++)
+				for (int x = 0; x < width; x++) {
+					int index = y * width + x;
+					if (!selectionMask[index])
+						continue;
+					bool boundary = x == 0 || y == 0 || x == width - 1 || y == height - 1
+						|| !selectionMask[index - 1] || !selectionMask[index + 1]
+						|| !selectionMask[index - width] || !selectionMask[index + width];
+					if (!boundary)
+						continue;
+					var brush = ((x + y) & 1) == 0 ? Brushes.White : Brushes.Black;
+					context.FillRectangle (brush, new Rect (origin.X + x * Scale, origin.Y + y * Scale, dot, dot));
+				}
+		}
 		if (selected_annotation is not null) {
 			var annotation_pen = new Pen (Brushes.DodgerBlue, 1.5, new DashStyle (new[] { 5d, 3d }, 0));
 			Point[] corners = GetAnnotationDisplayCorners (selected_annotation);
@@ -2312,19 +2332,9 @@ public sealed class CanvasHost : Control, IDisposable
 			sourceSurface.GetReadOnlyPixelData ().CopyTo (layerComposite.GetPixelData ());
 			RenderNonRasterAnnotations (layerComposite, layer.Annotations.Items);
 			ReadOnlySpan<ColorBgra> source = layerComposite.GetReadOnlyPixelData ();
-			int opacity = (int) Math.Round (Math.Clamp (layer.Opacity, 0, 1) * 255);
+			double opacity = Math.Clamp (layer.Opacity, 0, 1);
 			for (int i = 0; i < destination.Length; i++) {
-				ColorBgra top = source[i];
-				int sourceAlpha = top.A * opacity / 255;
-				int destinationAlpha = destination[i].A;
-				int outputAlpha = sourceAlpha + destinationAlpha * (255 - sourceAlpha) / 255;
-				if (outputAlpha == 0)
-					continue;
-				destination[i] = ColorBgra.FromBgra (
-					(byte) ((top.B * sourceAlpha + destination[i].B * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-					(byte) ((top.G * sourceAlpha + destination[i].G * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-					(byte) ((top.R * sourceAlpha + destination[i].R * destinationAlpha * (255 - sourceAlpha) / 255) / outputAlpha),
-					(byte) outputAlpha);
+				destination[i] = RasterAlgorithms.CompositeOver (destination[i], RasterAlgorithms.ApplyOpacity (source[i], opacity));
 			}
 		}
 		return composite;
@@ -2427,7 +2437,8 @@ public sealed class CanvasHost : Control, IDisposable
 			return;
 		}
 		CanvasToolPointerContext context = new (this, position, last_canvas_point.Value, last_canvas_point.Value,
-			stroke_color, properties.IsRightButtonPressed, false);
+			stroke_color, properties.IsRightButtonPressed, false,
+			(e.KeyModifiers & KeyModifiers.Control) != 0, (e.KeyModifiers & KeyModifiers.Alt) != 0);
 		bool handled = tool_set.Get<ICanvasTool> (ActiveTool).PointerPressed (context);
 		if (ActiveTool == CanvasTool.Zoom) {
 			e.Pointer.Capture (null);
@@ -2473,7 +2484,8 @@ public sealed class CanvasHost : Control, IDisposable
 			PointD point = GetCoordinateMapper ().ViewToCanvas (position);
 			PointD previous = last_canvas_point ?? point;
 			tool_set.Get<ICanvasTool> (pointer_action_tool ?? ActiveTool).PointerReleased (
-				new CanvasToolPointerContext (this, position, point, previous, stroke_color, false, false));
+				new CanvasToolPointerContext (this, position, point, previous, stroke_color, false, false,
+				(e.KeyModifiers & KeyModifiers.Control) != 0, (e.KeyModifiers & KeyModifiers.Alt) != 0));
 			if (pointer_action_tool == CanvasTool.Selection)
 				SyncSelectionAnnotation ();
 		}
@@ -2518,7 +2530,8 @@ public sealed class CanvasHost : Control, IDisposable
 		PointD previous = last_canvas_point ?? current;
 		bool handled = tool_set.Get<ICanvasTool> (pointer_action_tool ?? ActiveTool).PointerMoved (
 			new CanvasToolPointerContext (this, position, current, previous, stroke_color, false,
-				(e.KeyModifiers & KeyModifiers.Shift) != 0));
+				(e.KeyModifiers & KeyModifiers.Shift) != 0,
+				(e.KeyModifiers & KeyModifiers.Control) != 0, (e.KeyModifiers & KeyModifiers.Alt) != 0));
 		last_canvas_point = current;
 		e.Handled = handled;
 	}

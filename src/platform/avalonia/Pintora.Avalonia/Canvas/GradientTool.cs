@@ -86,19 +86,5 @@ internal sealed class GradientTool : ICanvasTool
 
 	public static void Apply (IImageSurface surface, PointD from, PointD to,
 		ColorBgra primaryColor, ColorBgra secondaryColor, bool reverse)
-	{
-		double dx = to.X - from.X, dy = to.Y - from.Y;
-		double lengthSquared = Math.Max (dx * dx + dy * dy, 1);
-		Span<ColorBgra> pixels = surface.GetPixelData ();
-		for (int y = 0; y < surface.Height; y++)
-			for (int x = 0; x < surface.Width; x++) {
-				double t = Math.Clamp (((x - from.X) * dx + (y - from.Y) * dy) / lengthSquared, 0, 1);
-				if (reverse) t = 1 - t;
-				pixels[y * surface.Width + x] = ColorBgra.FromBgra (
-					(byte) Math.Round (primaryColor.B + (secondaryColor.B - primaryColor.B) * t),
-					(byte) Math.Round (primaryColor.G + (secondaryColor.G - primaryColor.G) * t),
-					(byte) Math.Round (primaryColor.R + (secondaryColor.R - primaryColor.R) * t),
-					(byte) Math.Round (primaryColor.A + (secondaryColor.A - primaryColor.A) * t));
-			}
-	}
+		=> RasterAlgorithms.ApplyLinearGradient (surface, from, to, primaryColor, secondaryColor, reverse);
 }

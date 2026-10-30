@@ -73,12 +73,11 @@ public sealed record CursorAnnotation : Annotation
 }
 
 public enum SelectionAnnotationKind { Rectangle, Ellipse, Freeform, Polygon }
-public enum SelectionCombineMode { Replace, Add, Subtract, Intersect }
 
 public sealed record SelectionAnnotation : Annotation
 {
 	public required SelectionAnnotationKind Kind { get; init; }
-	public SelectionCombineMode CombineMode { get; init; } = SelectionCombineMode.Replace;
+	public Pinta.Core.SelectionCombineMode CombineMode { get; init; } = Pinta.Core.SelectionCombineMode.Replace;
 	public double FeatherRadius { get; init; }
 	public IReadOnlyList<Point> Points { get; init; } = Array.Empty<Point> ();
 }
