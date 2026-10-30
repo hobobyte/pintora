@@ -10,9 +10,9 @@ Pintora is a cross-platform raster editor focused on a familiar Paint.NET-style
 workflow: a canvas in the center, dockable tool windows, document tabs, layers,
 and direct keyboard shortcuts.
 
-![Pintora UI preview](assets/pintora-ui-preview.png)
+![Pintora 0.0.3-alpha](assets/pintora-ui-preview.jpg)
 
-_Early UI preview. The Avalonia interface is still under active development._
+Pintora 0.0.3-alpha with a document open in the Avalonia interface.
 
 ## Current alpha
 
