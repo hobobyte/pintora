@@ -133,8 +133,8 @@ public class RecolorTool : BaseBrushTool
 					continue;
 
 				ColorBgra surf_color = surf_data[j * surf_width + i];
-				if (ColorBgra.ColorsWithinTolerance (new_color, surf_color, myTolerance))
-					tmp_data[j * tmp_width + i] = AdjustColorDifference (new_color, old_color, surf_color);
+				if (RasterAlgorithms.TryRecolorPixel (surf_color, new_color, old_color, new_color, myTolerance, out ColorBgra recolored))
+					tmp_data[j * tmp_width + i] = recolored;
 
 				stencil[i, j] = true;
 			}
@@ -167,26 +167,6 @@ public class RecolorTool : BaseBrushTool
 		if (tolerance_slider is not null)
 			settings.PutSetting (SettingNames.RECOLOR_TOLERANCE, (int) tolerance_slider.Value);
 	}
-
-	#region Private PDN Methods
-	private static ColorBgra AdjustColorDifference (ColorBgra oldColor, ColorBgra newColor, ColorBgra basisColor)
-	{
-		return ColorBgra.FromBgra (
-			b: AdjustColorByte (oldColor.B, newColor.B, basisColor.B),
-			g: AdjustColorByte (oldColor.G, newColor.G, basisColor.G),
-			r: AdjustColorByte (oldColor.R, newColor.R, basisColor.R),
-			a: basisColor.A
-		);
-	}
-
-	private static byte AdjustColorByte (byte oldByte, byte newByte, byte basisByte)
-	{
-		if (oldByte > newByte)
-			return Utility.ClampToByte (basisByte - (oldByte - newByte));
-		else
-			return Utility.ClampToByte (basisByte + (newByte - oldByte));
-	}
-	#endregion
 
 	private IToolBarLabel? tolerance_label;
 	private IToolBarSlider? tolerance_slider;

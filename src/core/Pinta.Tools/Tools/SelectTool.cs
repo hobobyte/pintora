@@ -69,11 +69,7 @@ public abstract class SelectTool : BaseTool
 	}
 
 	private static PointD AdjustMousePosition (Document document, in PointD position)
-	{
-		double x = Math.Round (Math.Clamp (position.X, 0, document.ImageSize.Width));
-		double y = Math.Round (Math.Clamp (position.Y, 0, document.ImageSize.Height));
-		return new (x, y);
-	}
+		=> SelectionAlgorithms.ClampPointToImage (position, document.ImageSize);
 
 	protected override void OnMouseDown (Document document, ToolMouseEventArgs e)
 	{

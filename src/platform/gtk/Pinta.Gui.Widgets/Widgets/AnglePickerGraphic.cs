@@ -132,8 +132,8 @@ public sealed partial class AnglePickerGraphic
 	private void Draw (Context g)
 	{
 		AngleGraphicSettings settings = CreateSettings ();
-		g.DrawEllipse (settings.ellipseOutlineRect, settings.color, 1);
-		g.FillEllipse (settings.gripEllipseRect, settings.color);
+		GtkShapeRasterizer.DrawEllipse (g, settings.ellipseOutlineRect, settings.color, 1);
+		GtkShapeRasterizer.FillEllipse (g, settings.gripEllipseRect, settings.color);
 		g.DrawLine (settings.center, settings.endPoint, settings.color, 1);
 
 		g.Dispose ();

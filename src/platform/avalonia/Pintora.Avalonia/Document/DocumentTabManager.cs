@@ -167,6 +167,18 @@ public sealed class DocumentTabManager : IDisposable
 		return true;
 	}
 
+	/// <summary>Moves a tab to a new position without changing the active tab.</summary>
+	public bool MoveTab (int fromIndex, int toIndex)
+	{
+		if ((uint) fromIndex >= (uint) tabs.Count || (uint) toIndex >= (uint) tabs.Count || fromIndex == toIndex)
+			return false;
+		DocumentTab? active = active_tab;
+		tabs.Move (fromIndex, toIndex);
+		if (active is not null)
+			SetActiveTab (active);
+		return true;
+	}
+
 	/// <summary>
 	/// Closes the tab at <paramref name="index"/> according to
 	/// <paramref name="decision"/>. Returns <c>true</c> when the tab was

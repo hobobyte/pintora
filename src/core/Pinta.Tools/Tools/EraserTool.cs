@@ -160,20 +160,7 @@ public sealed class EraserTool : BaseBrushTool
 	}
 
 	private static byte[,] CreateLookupTable ()
-	{
-		int arrayDimensions = LUT_Resolution + 1;
-		byte[,] result = new byte[arrayDimensions, arrayDimensions];
-		for (int dy = 0; dy < arrayDimensions; dy++) {
-			for (int dx = 0; dx < arrayDimensions; dx++) {
-				double d = Mathematics.Magnitude<double> (dx, dy) / LUT_Resolution;
-				result[dy, dx] =
-					d > 1.0
-					? (byte) 255
-					: (byte) (255.0 - Math.Cos (Math.Sqrt (d) * Math.PI / 2.0) * 255.0);
-			}
-		}
-		return result;
-	}
+		=> RasterAlgorithms.CreateRadialFalloffLut (LUT_Resolution);
 
 	private static ImageSurface CopySurfacePart (ImageSurface surface, RectangleI destinationBounds)
 	{

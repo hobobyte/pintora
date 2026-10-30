@@ -13,9 +13,16 @@ internal sealed class SelectionTool : ICanvasTool
 	private Pinta.Core.Size clipboardSize;
 	private PointD? dragStart;
 	private PointD? dragEnd;
-	public RectangleI? Selection { get; private set; }
+	private RectangleI? rectangleSelection;
+	/// <summary>Bounding box of the active selection (rectangle or mask).</summary>
+	public RectangleI? Selection => SelectionMask is not null ? maskBounds : rectangleSelection;
+	private RectangleI maskBounds;
 	public SelectionAnnotation? Annotation { get; private set; }
 	public bool IsSelecting => dragStart is not null;
+
+	/// <summary>Pixel-accurate selection (Magic Wand); when set, <see cref="Selection"/> is its bounding box.</summary>
+	public bool[]? SelectionMask { get; private set; }
+	public bool HasMaskSelection => SelectionMask is not null;
 
 	public bool PointerPressed (CanvasToolPointerContext context)
 	{
@@ -82,20 +89,51 @@ internal sealed class SelectionTool : ICanvasTool
 		int right = Math.Clamp (requested.X + requested.Width, 0, imageSize.Width);
 		int bottom = Math.Clamp (requested.Y + requested.Height, 0, imageSize.Height);
 		if (right <= left || bottom <= top) {
-			Selection = null;
+			rectangleSelection = null;
+			SelectionMask = null;
 			Annotation = null;
 			return false;
 		}
-		Selection = new RectangleI (left, top, right - left, bottom - top);
+		SelectionMask = null;
+		rectangleSelection = new RectangleI (left, top, right - left, bottom - top);
 		Annotation = new SelectionAnnotation {
 			Bounds = new Rect (left, top, right - left, bottom - top),
 			Kind = SelectionAnnotationKind.Rectangle,
-			CombineMode = SelectionCombineMode.Replace
+			CombineMode = Pinta.Core.SelectionCombineMode.Replace
 		};
 		return true;
 	}
 
-	public void Clear () { Selection = null; Annotation = null; }
+	public void Clear () { rectangleSelection = null; SelectionMask = null; Annotation = null; }
+
+	/// <summary>
+	/// Applies a pixel mask as the selection, combining with the current selection
+	/// according to <paramref name="mode"/> (GTK SelectionModeHandler semantics,
+	/// but as boolean mask ops — no polygon clipping needed).
+	/// </summary>
+	public bool ApplyMask (bool[] mask, int width, int height, SelectionCombineMode mode)
+	{
+		ArgumentNullException.ThrowIfNull (mask);
+		if (width < 0 || height < 0 || mask.Length != width * height)
+			throw new ArgumentException ("Selection mask dimensions do not match the image.", nameof (mask));
+
+		bool[] combined = mask;
+		if (mode != SelectionCombineMode.Replace && SelectionMask is { } current && current.Length == mask.Length)
+			combined = FloodStencil.Combine (current, mask, mode);
+		else if (mode != SelectionCombineMode.Replace && SelectionMask is null && rectangleSelection is RectangleI rect)
+			combined = FloodStencil.Combine (FloodStencil.FromRectangle (rect, width, height), mask, mode);
+
+		// Compute the bounding box; an empty result clears the selection.
+		RectangleI? bounds = FloodStencil.GetBounds (combined, width, height);
+		if (bounds is not RectangleI selectionBounds) {
+			Clear ();
+			return false;
+		}
+		SelectionMask = combined;
+		maskBounds = selectionBounds;
+		Annotation = null;
+		return true;
+	}
 
 	public bool Copy (IImageSurface? surface)
 	{
@@ -144,7 +182,7 @@ internal sealed class SelectionTool : ICanvasTool
 		for (int y = 0; y < clipped.Height; y++)
 			for (int x = 0; x < clipped.Width; x++)
 				pixels[(clipped.Y + y) * surface.Width + clipped.X + x] = clipboard![y * area.Width + (clipped.X - destination.X) + x];
-		Selection = clipped;
+		rectangleSelection = clipped;
 		if (Annotation is not null)
 			Annotation = Annotation with { Bounds = new Rect (clipped.X, clipped.Y, clipped.Width, clipped.Height) };
 		commitStroke ();

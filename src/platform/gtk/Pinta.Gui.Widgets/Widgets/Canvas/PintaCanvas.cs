@@ -339,18 +339,11 @@ internal sealed partial class PintaCanvas
 	/// </summary>
 	private bool ShouldShowCanvasGrid ()
 	{
-		if (!canvas_grid.ShowGrid)
-			return false;
-
-		const int MIN_GRID_LINE_DISTANCE = 5;
-
-		int cellHeight = canvas_grid.CellHeight;
-		int cellWidth = canvas_grid.CellWidth;
-
-		int minCanvasDistance = Math.Min (cellHeight, cellWidth);
-		int minViewDistance = (int) Math.Ceiling (minCanvasDistance * document.Workspace.Scale);
-
-		return minViewDistance >= MIN_GRID_LINE_DISTANCE;
+		return GridAlgorithms.ShouldShow (
+			canvas_grid.ShowGrid,
+			canvas_grid.CellWidth,
+			canvas_grid.CellHeight,
+			document.Workspace.Scale);
 	}
 
 	private void DrawCanvasAxonometricGrid (Gtk.Snapshot snapshot, Graphene.Rect canvasViewBounds)

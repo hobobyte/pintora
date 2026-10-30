@@ -63,7 +63,7 @@ public sealed partial class ColorPanelWidget
 
 	private void Draw (Context cr)
 	{
-		cr.FillRoundedRectangle (
+		GtkShapeRasterizer.FillRoundedRectangle (cr,
 			new RectangleD (
 				0,
 				0,

@@ -463,10 +463,51 @@ partial class CairoExtensions
 		double pixbuf_x,
 		double pixbuf_y)
 	{
+		GdkPixbufLibrary.EnsureRegistered ();
+		using ImageSurface surface = pixbuf.ToImageSurface ();
 		g.Save ();
-		Gdk.Functions.CairoSetSourcePixbuf (g, pixbuf, pixbuf_x, pixbuf_y);
+		g.SetSourceSurface (surface, pixbuf_x, pixbuf_y);
 		g.Paint ();
 		g.Restore ();
+	}
+
+	/// <summary>
+	/// Neutral equivalent of gdk_cairo_set_source_pixbuf's pixel conversion: copies the pixbuf's
+	/// RGB/RGBA pixels (unpremultiplied, rowstride-padded) into a premultiplied ARGB32 surface.
+	/// </summary>
+	public static unsafe ImageSurface ToImageSurface (this GdkPixbuf.Pixbuf pixbuf)
+	{
+		if (pixbuf.Colorspace != GdkPixbuf.Colorspace.Rgb)
+			throw new ArgumentException ("Only RGB pixbufs are supported.", nameof (pixbuf));
+
+		int width = pixbuf.Width;
+		int height = pixbuf.Height;
+		int rowstride = pixbuf.Rowstride;
+		int channels = pixbuf.NChannels;
+		bool hasAlpha = pixbuf.HasAlpha;
+
+		if (channels < 3)
+			throw new ArgumentException ("Pixbuf must have at least 3 channels.", nameof (pixbuf));
+
+		var surface = new ImageSurface (Format.Argb32, width, height);
+		Span<ColorBgra> dest = surface.GetPixelData ();
+
+		byte* src = (byte*) pixbuf.Pixels;
+		for (int y = 0; y < height; y++) {
+			byte* row = src + y * rowstride;
+			for (int x = 0; x < width; x++) {
+				byte* p = row + x * channels;
+				byte a = hasAlpha ? p[3] : (byte) 255;
+				dest[y * width + x] = ColorBgra.FromBgra (
+					(byte) ((p[2] * a + 127) / 255),
+					(byte) ((p[1] * a + 127) / 255),
+					(byte) ((p[0] * a + 127) / 255),
+					a);
+			}
+		}
+
+		surface.MarkDirty ();
+		return surface;
 	}
 
 	public static void DrawPixbuf (

@@ -87,31 +87,17 @@ public abstract class BaseTransformTool : BaseTool
 		// so that we only translate by entire pixels.
 		// (Otherwise, blurring / anti-aliasing may be introduced)
 
-		double dx = Math.Floor (e.PointDouble.X - original_point.X);
-		double dy = Math.Floor (e.PointDouble.Y - original_point.Y);
-
-		PointD c1 = original_point - center;
-		PointD c2 = e.PointDouble - center;
-
-		RadiansAngle angle = new (Math.Atan2 (c1.Y, c1.X) - Math.Atan2 (c2.Y, c2.X));
+		PointD translation = TransformAlgorithms.Translation (original_point, e.PointDouble);
+		RadiansAngle angle = TransformAlgorithms.Rotation (original_point, e.PointDouble, center);
 
 		transform.InitIdentity ();
 
 		if (is_scaling) {
 
-			double sx = (c1.X + dx) / c1.X;
-			double sy = (c1.Y + dy) / c1.Y;
-
-			if (constrain) {
-
-				double max_scale = Math.Max (Math.Abs (sx), Math.Abs (sy));
-
-				sx = max_scale * Math.Sign (sx);
-				sy = max_scale * Math.Sign (sy);
-			}
+			PointD scale = TransformAlgorithms.Scale (original_point, e.PointDouble, center, constrain);
 
 			transform.Translate (center.X, center.Y);
-			transform.Scale (sx, sy);
+			transform.Scale (scale.X, scale.Y);
 			transform.Translate (-center.X, -center.Y);
 		} else if (is_rotating) {
 
@@ -123,7 +109,7 @@ public abstract class BaseTransformTool : BaseTool
 			transform.Translate (-center.X, -center.Y);
 
 		} else {
-			transform.Translate (dx, dy);
+			transform.Translate (translation.X, translation.Y);
 		}
 
 		OnUpdateTransform (document, transform);

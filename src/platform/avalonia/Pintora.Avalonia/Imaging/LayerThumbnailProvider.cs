@@ -175,30 +175,7 @@ public sealed class LayerThumbnailProvider : IDisposable
 	/// platform-independent so it can be tested headlessly.
 	/// </summary>
 	internal static (int Width, int Height, ColorBgra[] Pixels) SampleThumbnail (MemoryImageSurface surface, int maxWidth, int maxHeight)
-	{
-		int width = surface.Width;
-		int height = surface.Height;
-		if (width <= 0 || height <= 0) {
-			// Empty layers still need a valid bitmap so the UI can render a
-			// transparent placeholder without special-casing.
-			return (1, 1, Array.Empty<ColorBgra> ());
-		}
-		double scale = Math.Min ((double) maxWidth / width, (double) maxHeight / height);
-		if (scale > 1)
-			scale = 1;
-		int targetWidth = Math.Max (1, (int) Math.Round (width * scale));
-		int targetHeight = Math.Max (1, (int) Math.Round (height * scale));
-		ReadOnlySpan<ColorBgra> source = surface.GetReadOnlyPixelData ();
-		var pixels = new ColorBgra[targetWidth * targetHeight];
-		for (int y = 0; y < targetHeight; y++) {
-			int sourceY = Math.Min (height - 1, y * height / targetHeight);
-			for (int x = 0; x < targetWidth; x++) {
-				int sourceX = Math.Min (width - 1, x * width / targetWidth);
-				pixels[y * targetWidth + x] = source[sourceY * width + sourceX];
-			}
-		}
-		return (targetWidth, targetHeight, pixels);
-	}
+		=> RasterAlgorithms.SampleThumbnail (surface, maxWidth, maxHeight);
 
 	public void Dispose ()
 	{

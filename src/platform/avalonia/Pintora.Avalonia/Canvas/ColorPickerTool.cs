@@ -1,4 +1,3 @@
-using System;
 using Pinta.Core;
 
 namespace Pintora.Avalonia.Canvas;
@@ -13,13 +12,6 @@ internal sealed class ColorPickerTool : ICanvasTool
 	}
 	public bool TryPick (IImageSurface? surface, PointD point, out ColorBgra color)
 	{
-		color = default;
-		if (surface is null)
-			return false;
-		int x = (int) Math.Round (point.X), y = (int) Math.Round (point.Y);
-		if ((uint) x >= surface.Width || (uint) y >= surface.Height)
-			return false;
-		color = surface.GetReadOnlyPixelData ()[y * surface.Width + x];
-		return true;
+		return RasterAlgorithms.TrySampleNearest (surface, point, out color);
 	}
 }

@@ -7,6 +7,8 @@ namespace Pintora.Avalonia;
 
 public sealed class NewDocumentWindow : Window
 {
+	public bool Created { get; private set; }
+
 	public NewDocumentWindow (CanvasHost canvas)
 	{
 		Title = "New image";
@@ -19,6 +21,7 @@ public sealed class NewDocumentWindow : Window
 		create.Click += (_, _) => {
 			try {
 				canvas.NewDocument ((int) (width.Value ?? 800), (int) (height.Value ?? 600));
+				Created = true;
 				Close ();
 			} catch (ArgumentOutOfRangeException exception) {
 				error.Text = exception.Message;

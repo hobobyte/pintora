@@ -12,6 +12,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Cairo;
+using Pinta.Gui.Widgets;
 
 
 
@@ -129,9 +130,9 @@ public static class GdkExtensions
 
 			switch (shape) {
 				case CursorShape.Ellipse:
-					g.DrawEllipse (shapeRect, outerColor, 2);
+					GtkShapeRasterizer.DrawEllipse (g, shapeRect, outerColor, 2);
 					shapeRect = shapeRect.Inflated (-1, -1);
-					g.DrawEllipse (shapeRect, innerColor, 1);
+					GtkShapeRasterizer.DrawEllipse (g, shapeRect, innerColor, 1);
 					break;
 				case CursorShape.Rectangle:
 					if (shapeAngle == 0) {

@@ -28,6 +28,7 @@ namespace Pintora.Avalonia;
 
 public sealed class MainWindow : Window
 {
+	private const double PanelEdgeInset = 8;
 	private readonly PintoraKeyboardSettings keyboard;
 	private readonly SettingsManager settings;
 	private readonly PintoraViewSettings view_settings;
@@ -36,6 +37,7 @@ public sealed class MainWindow : Window
 	private readonly IAvaloniaClipboardService? clipboard_service;
 	private readonly List<ColorBgra> recent_colors = new ();
 	private readonly List<ColorBgra> palette_colors = new ();
+	private readonly List<Control> draggable_panels = new ();
 	private LayerThumbnailProvider? thumbnail_provider;
 	private EventHandler<LayerThumbnailUpdatedEventArgs>? thumbnail_updated_handler;
 	private Action? refresh_layers;
@@ -46,6 +48,7 @@ public sealed class MainWindow : Window
 	private readonly DocumentCloseCoordinator close_coordinator;
 	private readonly DocumentTabStrip tab_strip = new ();
 	private readonly ContentControl canvas_host = new ();
+	private CanvasHost? startup_canvas;
 	private Control? toolbar_control;
 	private Control? toolbox_control;
 	private Control? status_bar_control;
@@ -70,7 +73,7 @@ public sealed class MainWindow : Window
 		int buildMetadata = version.IndexOf ('+');
 		if (buildMetadata >= 0)
 			version = version[..buildMetadata];
-		Title = $"Pintora {version} — Simple. Powerful. Creative.";
+		Title = string.Empty;
 		Width = 1200;
 		Height = 760;
 		MinWidth = 900;
@@ -81,13 +84,20 @@ public sealed class MainWindow : Window
 		keyboard = new PintoraKeyboardSettings (settings);
 		view_settings = new PintoraViewSettings (settings);
 		CanvasHost canvas = CreateCanvasHost (keyboard);
+		startup_canvas = canvas;
 		// Close prompts perform the save asynchronously before asking the manager
 		// to remove the tab; the synchronous delegate is therefore a final guard.
 		tab_manager = new DocumentTabManager (_ => true, tab => tab.Canvas.Dispose ());
 		close_coordinator = new DocumentCloseCoordinator (tab_manager, PromptCloseDecisionAsync, SaveTabAsync);
-		tab_manager.AddTab (canvas, canvas.DocumentSession);
+		// The first document is added only after the startup size dialog is accepted.
 		tab_manager.ActiveTabChanged += (_, _) => {
-			CanvasHost active = ActiveCanvas;
+			if (tab_manager.ActiveTab is not { Canvas: { } active }) {
+				if (!closing_after_confirmation)
+					tab_manager.AddNewDocument ();
+				else
+					canvas_host.Content = null;
+				return;
+			}
 			ApplyGridViewSettings (active);
 			active.ShowRulers = view_settings.ShowRulers;
 			active.ActiveTool = active_tool;
@@ -98,8 +108,6 @@ public sealed class MainWindow : Window
 			RebindActiveCanvas ();
 			rebuild_layers_panel?.Invoke ();
 		};
-		SyncActiveCanvas ();
-		thumbnail_provider = new LayerThumbnailProvider (canvas);
 		clipboard_service = Clipboard is null ? null : new AvaloniaClipboardService (Clipboard);
 		if (Clipboard is not null)
 			application.Services.ReplaceService<Pinta.Core.IClipboardService> (new AvaloniaNeutralClipboardService (Clipboard));
@@ -114,6 +122,8 @@ public sealed class MainWindow : Window
 		canvas.BrushHardness = settings.GetSetting ("Pintora.Brush.Hardness", 1.0);
 		canvas.BrushOpacity = settings.GetSetting ("Pintora.Brush.Opacity", 1.0);
 		canvas.FillTolerance = settings.GetSetting ("Pintora.Fill.Tolerance", 0);
+		canvas.MagicWandTolerance = settings.GetSetting ("Pintora.MagicWand.Tolerance", 0);
+		canvas.MagicWandGlobalMode = settings.GetSetting ("Pintora.MagicWand.GlobalMode", false);
 		canvas.ShapeFilled = settings.GetSetting ("Pintora.Shape.Filled", false);
 		if (Enum.TryParse (settings.GetSetting ("Pintora.Shape.FillStyle", canvas.ShapeFilled ? "Fill" : "Outline"), out CanvasHost.ShapeFillStyle saved_fill_style)
 			&& Enum.IsDefined (saved_fill_style))
@@ -173,6 +183,8 @@ public sealed class MainWindow : Window
 			settings.PutSetting ("Pintora.Brush.Hardness", canvas.BrushHardness);
 			settings.PutSetting ("Pintora.Brush.Opacity", canvas.BrushOpacity);
 			settings.PutSetting ("Pintora.Fill.Tolerance", canvas.FillTolerance);
+			settings.PutSetting ("Pintora.MagicWand.Tolerance", canvas.MagicWandTolerance);
+			settings.PutSetting ("Pintora.MagicWand.GlobalMode", canvas.MagicWandGlobalMode);
 			settings.PutSetting ("Pintora.Shape.Filled", canvas.ShapeFilled);
 			settings.PutSetting ("Pintora.Shape.FillStyle", canvas.FillStyle.ToString ());
 			settings.PutSetting ("Pintora.Shape.OutlineWidth", canvas.ShapeOutlineWidth);
@@ -190,48 +202,80 @@ public sealed class MainWindow : Window
 			settings.DoSaveSettingsBeforeQuit ();
 		};
 		Content = new Grid {
-			RowDefinitions = new RowDefinitions ("Auto,Auto,Auto,*,Auto"),
+			RowDefinitions = new RowDefinitions ("Auto,Auto,*,Auto"),
 			Children = {
-				CreateMainMenu (canvas),
-				CreateCommandBar (canvas),
+				CreateMenuBar (canvas),
 				CreateToolbar (canvas),
 				CreateWorkspace (canvas),
 				CreateStatusBar (canvas)
 			}
 		};
 		ApplyChromeViewSettings ();
+		Opened += async (_, _) => await ShowStartupDocumentDialogAsync (canvas);
 	}
 
-	private Control CreateCommandBar (CanvasHost canvas)
+	private Control CreateMenuBar (CanvasHost canvas)
 	{
-		var commands = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
-		commands.Children.Add (CreateCompactCommand ("New", "New image", () => tab_manager.AddNewDocument ()));
-		commands.Children.Add (CreateCompactCommand ("Open", "Open image", () => _ = OpenImageAsync (ActiveCanvas)));
-		commands.Children.Add (CreateCompactCommand ("Save", "Save image as", () => _ = SaveAsAsync (ActiveCanvas)));
-		commands.Children.Add (new Separator { Width = 1, Margin = new global::Avalonia.Thickness (6, 4) });
-		var undo = CreateCompactCommand ("↶", "Undo", () => this.commands.TryExecute (PintoraKeyCommands.Undo.Id));
-		var redo = CreateCompactCommand ("↷", "Redo", () => this.commands.TryExecute (PintoraKeyCommands.Redo.Id));
-		void RefreshHistory () {
-			CanvasHost active = ActiveCanvas;
-			undo.IsEnabled = active.CanUndoStroke;
-			redo.IsEnabled = active.CanRedoStroke;
-		}
-		refresh_history_commands = RefreshHistory;
-		RefreshHistory ();
-		commands.Children.Add (undo);
-		commands.Children.Add (redo);
-		var bar = new Border { Padding = new global::Avalonia.Thickness (8, 3), Child = commands };
-		bar.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Toolbar.Background"));
-		Grid.SetRow (bar, 1);
+		Menu menu = CreateMainMenu (canvas);
+		tab_strip.AttachAsync (tab_manager, RequestCloseDecisionAsync);
+		var tabs_host = new Border {
+			MinHeight = 34,
+			Padding = new global::Avalonia.Thickness (4, 0),
+			Child = new ScrollViewer {
+				HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+				VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden,
+				HorizontalContentAlignment = HorizontalAlignment.Left,
+				Content = tab_strip
+			}
+		};
+		tab_strip_host = tabs_host;
+		var bar = new Grid {
+			ColumnDefinitions = new ColumnDefinitions ("Auto,*"),
+			Children = { menu, tabs_host }
+		};
+		Grid.SetColumn (tabs_host, 1);
+		bar.Bind (Grid.BackgroundProperty, new DynamicResourceExtension ("Pintora.Toolbar.Background"));
 		return bar;
 	}
 
 	private static Button CreateCompactCommand (string label, string tooltip, Action action)
 	{
-		var button = new Button { Content = label, MinWidth = 34, Height = 30, Padding = new global::Avalonia.Thickness (6, 2) };
+		var button = new Button {
+			Content = CreateCommandIcon (label) is { } icon ? icon : label,
+			MinWidth = 34,
+			Height = 30,
+			Padding = new global::Avalonia.Thickness (6, 2),
+			HorizontalContentAlignment = HorizontalAlignment.Center,
+			VerticalContentAlignment = VerticalAlignment.Center
+		};
 		button.Click += (_, _) => action ();
 		ToolTip.SetTip (button, tooltip);
 		return button;
+	}
+
+	private static PathIcon? CreateCommandIcon (string label)
+	{
+		string? path = label switch {
+			"−" or "-" => "M5 11h14v2H5z",
+			"+" => "M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z",
+			"×" => "M6 6l12 12m0-12L6 18",
+			"Select all" => "M4 4h16v16H4V4zm2 2v12h12V6H6z",
+			"Deselect" => "M6 6l12 12m0-12L6 18",
+			"Apply" => "M5 12l4 4L19 6l1.4 1.4L9 19 3.6 13.4 5 12z",
+			"Fit" => "M4 4h6v2H6v4H4V4zm10 0h6v6h-2V6h-4V4zM4 14h2v4h4v2H4v-6zm14 0h2v6h-6v-2h4v-4z",
+			"⇄" => "M4 7h13l-3-3 1.4-1.4L21.8 9l-6.4 6.4L14 14l3-3H4V7zm16 10H7l3 3-1.4 1.4L2.2 15l6.4-6.4L10 10l-3 3h13v4z",
+			"◩" => "M5 5h10v10H5V5zm4-2h10v10h-2V5H9V3z",
+			"More…" => "M5 12a2 2 0 1 0 0 .1M12 12a2 2 0 1 0 0 .1M19 12a2 2 0 1 0 0 .1",
+			"⧉" => "M8 8h11v11H8V8zM5 5h11v2H7v9H5V5z",
+			"↑" => "M11 19V8l-4 4-1.4-1.4L12 4.2l6.4 6.4L17 12l-4-4v11h-2z",
+			"↓" => "M11 5v11l-4-4-1.4 1.4 6.4 6.4 6.4-6.4L17 12l-4 4V5h-2z",
+			"↶" => "M9 7H4v5h2V9.8c1.1-1 2.6-1.6 4.3-1.6 3.7 0 6.7 2.7 6.7 6.1s-3 6.1-6.7 6.1c-2.1 0-4-.9-5.2-2.4l-1.6 1.2C5.1 21.1 7.4 22 10.3 22 15.2 22 19 18.4 19 14.3S15.2 6.6 10.3 6.6L9 7z",
+			"↷" => "M15 7h5v5h-2V9.8c-1.1-1-2.6-1.6-4.3-1.6-3.7 0-6.7 2.7-6.7 6.1s3 6.1 6.7 6.1c2.1 0 4-.9 5.2-2.4l1.6 1.2C18.9 21.1 16.6 22 13.7 22 8.8 22 5 18.4 5 14.3s3.8-7.7 8.7-7.7L15 7z",
+			"⧨" => "M5 6h14v2H5V6zm2 4h10v2H7v-2zm3 4h4v2h-4v-2z",
+			"✎" => "M5 17.3V20h2.7L18.8 8.9l-2.7-2.7L5 17.3zM20.7 7c.4-.4.4-1 0-1.4l-2.3-2.3c-.4-.4-1-.4-1.4 0l-1.3 1.3 3.7 3.7L20.7 7z",
+			_ => null
+		};
+		return path is null ? null : new PathIcon { Data = StreamGeometry.Parse (path), Width = 16, Height = 16 };
 	}
 
 	private Control CreateToolbar (CanvasHost canvas)
@@ -239,15 +283,20 @@ public sealed class MainWindow : Window
 		tool_options = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
 		var toolbar = new Border {
 			Padding = new global::Avalonia.Thickness (8, 4),
-			Child = new ScrollViewer {
-				HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
-				VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-				Content = tool_options
+			Child = new DockPanel {
+				LastChildFill = true,
+				Children = {
+					new ScrollViewer {
+						HorizontalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+						VerticalScrollBarVisibility = global::Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+						Content = tool_options
+					}
+				}
 			}
 		};
 		RefreshToolOptions (canvas);
 		toolbar.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Toolbar.Background"));
-		Grid.SetRow (toolbar, 2);
+		Grid.SetRow (toolbar, 1);
 		toolbar_control = toolbar;
 		return toolbar;
 	}
@@ -283,7 +332,12 @@ public sealed class MainWindow : Window
 			CanvasHost active = ActiveCanvas;
 			dimensions.Text = $"{active.ImageSize.Width} × {active.ImageSize.Height} px";
 			string position = active.PointerPosition is PointD point ? $"  •  X: {point.X:0}  Y: {point.Y:0}" : string.Empty;
-			details.Text = $"{(active.ActiveTool == CanvasHost.CanvasTool.Shapes ? active.SelectedShape.ToString () : active.ActiveTool.ToString ())}  •  Brush {active.BrushSize}px{position}";
+			string toolName = active.ActiveTool switch {
+				CanvasHost.CanvasTool.Shapes => active.SelectedShape.ToString (),
+				CanvasHost.CanvasTool.MagicWand => "Magic Wand",
+				_ => active.ActiveTool.ToString (),
+			};
+			details.Text = $"{toolName}  •  Brush {active.BrushSize}px{position}";
 		}
 		refresh_status = RefreshDetails;
 		RefreshDetails ();
@@ -311,7 +365,7 @@ public sealed class MainWindow : Window
 		};
 		status.Bind (Border.BorderBrushProperty, new DynamicResourceExtension ("Pintora.Control.Border"));
 		status.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Status.Background"));
-		Grid.SetRow (status, 4);
+		Grid.SetRow (status, 3);
 		status_bar_control = status;
 		return status;
 	}
@@ -340,14 +394,8 @@ public sealed class MainWindow : Window
 				new MenuItem { Header = "_File", Items = {
 					CreateMenuItem ("_New", () => tab_manager.AddNewDocument ()),
 					CreateMenuItem ("_Open", () => _ = OpenImageAsync (ActiveCanvas)),
-					CreateMenuItem ("Import image as layer", () => _ = ImportImageLayerAsync (ActiveCanvas)),
-					CreateMenuItem ("Insert image annotation", () => _ = InsertImageAnnotationAsync (ActiveCanvas)),
 					new Separator (),
 					CreateMenuItem ("_Save", () => _ = SaveActiveTabAsync (), keyboard, PintoraKeyCommands.Save),
-					CreateMenuItem ("Save _All", () => _ = SaveAllDocumentsAsync (), keyboard, PintoraKeyCommands.SaveAll),
-					CreateMenuItem ("_Close", () => _ = CloseActiveTabAsync (), keyboard, PintoraKeyCommands.CloseDocument),
-					CreateMenuItem ("Close _All", () => _ = CloseAllDocumentsAsync ()),
-					new Separator (),
 					CreateMenuItem ("Save _As", () => _ = SaveAsAsync (ActiveCanvas)),
 					CreateMenuItem ("Save _PNG", () => _ = SavePngAsync (ActiveCanvas)),
 					CreateMenuItem ("Save _JPEG", () => _ = SaveJpegAsync (ActiveCanvas)),
@@ -355,15 +403,22 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("Save _TIFF", () => _ = SaveTiffAsync (ActiveCanvas)),
 					CreateMenuItem ("Save _ORA", () => _ = SaveOraAsync (ActiveCanvas)),
 					new Separator (),
+					CreateMenuItem ("Save _All", () => _ = SaveAllDocumentsAsync (), keyboard, PintoraKeyCommands.SaveAll),
+					CreateMenuItem ("_Close", () => _ = CloseActiveTabAsync (), keyboard, PintoraKeyCommands.CloseDocument),
+					CreateMenuItem ("Close _All", () => _ = CloseAllDocumentsAsync ()),
+					new Separator (),
+					CreateMenuItem ("Import image as layer", () => _ = ImportImageLayerAsync (ActiveCanvas)),
+					CreateMenuItem ("Insert image annotation", () => _ = InsertImageAnnotationAsync (ActiveCanvas)),
+					new Separator (),
 					CreateMenuItem ("E_xit", () => _ = ExitAsync (), keyboard, PintoraKeyCommands.Exit)
 				} },
 				new MenuItem { Header = "_Edit", Items = {
 					undo,
 					redo,
+					new Separator (),
 					clear_history,
 					layer_undo,
 					layer_redo,
-					CreateMenuItem ("Clear layer", () => ActiveCanvas.ClearActiveLayer (), keyboard, PintoraKeyCommands.ClearLayer),
 					new Separator (),
 					CreateMenuItem ("Copy selection", () => ActiveCanvas.CopySelection (), keyboard, PintoraKeyCommands.Copy),
 					CreateMenuItem ("Copy selection to clipboard", () => _ = CopySelectionToClipboardAsync (ActiveCanvas), keyboard, PintoraKeyCommands.CopySelectionImage),
@@ -387,8 +442,7 @@ public sealed class MainWindow : Window
 					CreateMenuItem ("Flip selection horizontally", () => ActiveCanvas.FlipSelectionHorizontal ()),
 					CreateMenuItem ("Flip selection vertically", () => ActiveCanvas.FlipSelectionVertical ()),
 					CreateMenuItem ("Rotate selection 90° clockwise", () => ActiveCanvas.RotateSelectionClockwise ()),
-					new Separator (),
-					preferences
+					CreateMenuItem ("Clear layer", () => ActiveCanvas.ClearActiveLayer (), keyboard, PintoraKeyCommands.ClearLayer)
 				} },
 				new MenuItem { Header = "_View", Items = {
 					CreateMenuItem ("Fit canvas", () => ActiveCanvas.FitToWindow (), keyboard, PintoraKeyCommands.FitCanvas),
@@ -397,10 +451,12 @@ public sealed class MainWindow : Window
 					CreateViewGridToggle (),
 					CreateViewRulersToggle (),
 					new Separator (),
-					CreateViewToggle ("Show tool_bar", () => view_settings.ShowToolbar, value => view_settings.ShowToolbar = value),
+					CreateViewToggle ("Show _toolbar", () => view_settings.ShowToolbar, value => view_settings.ShowToolbar = value),
 					CreateViewToggle ("Show _toolbox", () => view_settings.ShowToolbox, value => view_settings.ShowToolbox = value),
 					CreateViewToggle ("Show _status bar", () => view_settings.ShowStatusBar, value => view_settings.ShowStatusBar = value),
 					CreateViewToggle ("Show tool _windows", () => view_settings.ShowToolWindows, value => view_settings.ShowToolWindows = value),
+					CreateViewToggle ("Show _colors", () => view_settings.ShowColors, value => view_settings.ShowColors = value),
+					CreateViewToggle ("Show _layers", () => view_settings.ShowLayers, value => view_settings.ShowLayers = value),
 					CreateViewToggle ("Show image _tabs", () => view_settings.ShowImageTabs, value => view_settings.ShowImageTabs = value),
 					new Separator (),
 					CreateMenuItem ("Light theme", () => App.SetTheme (global::Avalonia.Styling.ThemeVariant.Light)),
@@ -434,10 +490,12 @@ public sealed class MainWindow : Window
 					})
 				} },
 				new MenuItem { Header = "_Window", Items = {
-					CreateMenuItem ("History", () => new HistoryWindow (ActiveCanvas).Show (this))
+					CreateMenuItem ("History", () => new HistoryWindow (ActiveCanvas).Show (this)),
+					new Separator (),
+					preferences
 				} },
 				new MenuItem { Header = "_Help", Items = {
-					CreateMenuItem ("Keyboard shortcuts", () => new KeyboardSettingsWindow (keyboard).Show (this)),
+					CreateMenuItem ("Keyboard _shortcuts", () => new KeyboardSettingsWindow (keyboard).Show (this)),
 					CreateMenuItem ("About Pintora", () => new AboutWindow ().ShowDialog (this))
 				} }
 			}
@@ -446,7 +504,24 @@ public sealed class MainWindow : Window
 		return menu;
 	}
 
-	private CanvasHost ActiveCanvas => tab_manager.ActiveTab?.Canvas ?? throw new InvalidOperationException ("No active document tab.");
+	private CanvasHost ActiveCanvas
+		=> tab_manager.ActiveTab?.Canvas ?? startup_canvas ?? throw new InvalidOperationException ("No active document tab.");
+
+	private async Task ShowStartupDocumentDialogAsync (CanvasHost canvas)
+	{
+		// Keep the startup document visible as a real tab while its dimensions are chosen.
+		if (tab_manager.ActiveTab is null)
+			tab_manager.AddTab (canvas, canvas.DocumentSession);
+		var dialog = new NewDocumentWindow (canvas);
+		await dialog.ShowDialog (this);
+		if (!dialog.Created) {
+			Close ();
+			return;
+		}
+		startup_canvas = null;
+		SyncActiveCanvas ();
+		UpdateDocumentTitle (canvas, version);
+	}
 
 	private MenuItem CreateViewGridToggle ()
 	{
@@ -503,16 +578,13 @@ public sealed class MainWindow : Window
 		if (toolbar_control is not null) toolbar_control.IsVisible = view_settings.ShowToolbar;
 		if (toolbox_control is not null) toolbox_control.IsVisible = view_settings.ShowToolbox;
 		if (status_bar_control is not null) status_bar_control.IsVisible = view_settings.ShowStatusBar;
-		if (palette_control is not null) palette_control.IsVisible = view_settings.ShowToolWindows;
-		if (layers_control is not null) layers_control.IsVisible = view_settings.ShowToolWindows;
+		if (palette_control is not null) palette_control.IsVisible = view_settings.ShowToolWindows && view_settings.ShowColors;
+		if (layers_control is not null) layers_control.IsVisible = view_settings.ShowToolWindows && view_settings.ShowLayers;
 		if (tab_strip_host is not null) tab_strip_host.IsVisible = view_settings.ShowImageTabs;
-		if (canvas_panel_control is not null) {
-			canvas_panel_control.Margin = new global::Avalonia.Thickness (
-				view_settings.ShowToolbox ? 96 : 10,
-				10,
-				view_settings.ShowToolWindows ? 252 : 10,
-				view_settings.ShowToolWindows ? 190 : 10);
-		}
+		// Tool windows float above the workspace, so the canvas keeps the full
+		// central area instead of reserving fixed margins for those panels.
+		if (canvas_panel_control is not null)
+			canvas_panel_control.Margin = new global::Avalonia.Thickness (0);
 	}
 
 	/// <summary>
@@ -534,28 +606,280 @@ public sealed class MainWindow : Window
 
 	private void UpdateDocumentTitle (CanvasHost canvas, string version)
 	{
-		DocumentSession document = canvas.DocumentSession;
-		string dirty_marker = document.IsDirty ? "* " : string.Empty;
-		string document_name = document.FilePath is null ? string.Empty : $" — {document.Title}";
-		Title = $"{dirty_marker}Pintora {version}{document_name} — Simple. Powerful. Creative.";
+		// Keep the native window chrome empty; document state is shown by the tab preview.
+		Title = string.Empty;
 	}
 
 	private static Button CreateBrushButton (string label, Action action)
 	{
-		var button = new Button { Content = label };
-		button.Click += (_, _) => action ();
-		return button;
+		return CreateCompactCommand (label, label, action);
 	}
 
 	private static NumericUpDown CreateBrushSizeInput (CanvasHost canvas)
 	{
 		var input = new NumericUpDown { Minimum = 1, Maximum = 256, Value = canvas.BrushSize, Width = 70 };
 		input.ValueChanged += (_, args) => canvas.BrushSize = (int) (args.NewValue ?? 1);
+		// Paint.NET-style wheel adjustment: hover the width control and scroll.
+		input.PointerWheelChanged += (_, args) => {
+			canvas.AdjustBrushSize (args.Delta.Y > 0 ? 1 : -1);
+			input.Value = canvas.BrushSize;
+			args.Handled = true;
+		};
 		return input;
 	}
 
 	private static TextBlock CreateToolbarLabel (string text)
 		=> new () { Text = text, VerticalAlignment = VerticalAlignment.Center };
+
+	private Control CreatePanelHeader (string title, Action hide)
+	{
+		bool collapsed = false;
+		var collapse = new Button {
+			Content = CreateCommandIcon ("−"),
+			Width = 24,
+			Height = 24,
+			Padding = new global::Avalonia.Thickness (0),
+			HorizontalContentAlignment = HorizontalAlignment.Center,
+			VerticalContentAlignment = VerticalAlignment.Center
+		};
+		var button = new Button {
+			Content = CreateCommandIcon ("×") is { } close_icon ? close_icon : "×",
+			Width = 24,
+			Height = 24,
+			Padding = new global::Avalonia.Thickness (0),
+			HorizontalContentAlignment = HorizontalAlignment.Center,
+			VerticalContentAlignment = VerticalAlignment.Center
+		};
+		ToolTip.SetTip (collapse, $"Collapse {title}");
+		ToolTip.SetTip (button, $"Hide {title}");
+		collapse.Click += (_, _) => {
+			if (collapse.Parent?.Parent is not StackPanel panel)
+				return;
+			collapsed = !collapsed;
+			foreach (Control child in panel.Children)
+				if (!ReferenceEquals (child, collapse.Parent)) child.IsVisible = !collapsed;
+			collapse.Content = CreateCommandIcon (collapsed ? "+" : "−");
+			ToolTip.SetTip (collapse, collapsed ? $"Collapse {title}" : $"Expand {title}");
+		};
+		button.Click += (_, _) => {
+			hide ();
+			view_settings.Save ();
+			ApplyChromeViewSettings ();
+		};
+		var header = new Grid {
+			ColumnDefinitions = new ColumnDefinitions ("*,Auto,Auto"),
+			Cursor = new Cursor (StandardCursorType.SizeAll),
+			Children = {
+				new TextBlock { Text = title, FontSize = 12, VerticalAlignment = VerticalAlignment.Center },
+				collapse,
+				button
+			}
+		};
+		header.Bind (Grid.BackgroundProperty, new DynamicResourceExtension ("Pintora.Panel.Header"));
+		Grid.SetColumn (collapse, 1);
+		Grid.SetColumn (button, 2);
+		var transform = new TranslateTransform ();
+		Point drag_start = default;
+		Vector drag_origin = default;
+		Point root_origin = default;
+		bool dragging = false;
+		bool has_root_origin = false;
+		bool snapped_left = false;
+		bool snapped_right = false;
+		bool snapped_top = false;
+		bool snapped_bottom = false;
+		Control? x_anchor_panel = null;
+		Control? y_anchor_panel = null;
+		bool x_anchor_after = false;
+		bool y_anchor_after = false;
+		const double snap_distance = 12;
+		void SnapToOtherPanels (Control root, ref double x, ref double y)
+		{
+			Rect current = new (root_origin.X + x, root_origin.Y + y, root.Bounds.Width, root.Bounds.Height);
+			double? snapped_x = null;
+			double? snapped_y = null;
+			foreach (Control other in draggable_panels) {
+				if (ReferenceEquals (other, root) || other.Bounds.Width <= 0 || other.Bounds.Height <= 0)
+					continue;
+				Point? origin = other.TranslatePoint (new Point (0, 0), this);
+				if (origin is null)
+					continue;
+				Rect target = new (origin.Value.X, origin.Value.Y, other.Bounds.Width, other.Bounds.Height);
+				double[] x_candidates = {
+					target.Left - root_origin.X,
+					target.Right - current.Width - root_origin.X,
+					target.Right + PanelEdgeInset - root_origin.X,
+					target.Left - PanelEdgeInset - current.Width - root_origin.X
+				};
+				double[] y_candidates = {
+					target.Top - root_origin.Y,
+					target.Bottom - current.Height - root_origin.Y,
+					target.Bottom + PanelEdgeInset - root_origin.Y,
+					target.Top - PanelEdgeInset - current.Height - root_origin.Y
+				};
+				snapped_x ??= NearestSnap (x, x_candidates);
+				snapped_y ??= NearestSnap (y, y_candidates);
+			}
+			if (snapped_x is double snap_x) x = snap_x;
+			if (snapped_y is double snap_y) y = snap_y;
+
+			double? NearestSnap (double value, double[] candidates)
+			{
+				double candidate = candidates.OrderBy (item => Math.Abs (item - value)).First ();
+				return Math.Abs (candidate - value) <= snap_distance ? candidate : null;
+			}
+		}
+		void ResolvePanelCollisions (Control root, ref double x, ref double y)
+		{
+			foreach (Control other in draggable_panels) {
+				if (ReferenceEquals (other, root) || other.Bounds.Width <= 0 || other.Bounds.Height <= 0)
+					continue;
+				Point? origin = other.TranslatePoint (new Point (0, 0), this);
+				if (origin is null)
+					continue;
+				Rect current = new (root_origin.X + x, root_origin.Y + y, root.Bounds.Width, root.Bounds.Height);
+				Rect target = new (
+					origin.Value.X - PanelEdgeInset,
+					origin.Value.Y - PanelEdgeInset,
+					other.Bounds.Width + PanelEdgeInset * 2,
+					other.Bounds.Height + PanelEdgeInset * 2);
+				if (!(current.Left < target.Right && current.Right > target.Left && current.Top < target.Bottom && current.Bottom > target.Top))
+					continue;
+
+				double move_left = target.Left - current.Right;
+				double move_right = target.Right - current.Left;
+				double move_up = target.Top - current.Bottom;
+				double move_down = target.Bottom - current.Top;
+				double horizontal = Math.Abs (move_left) < Math.Abs (move_right) ? move_left : move_right;
+				double vertical = Math.Abs (move_up) < Math.Abs (move_down) ? move_up : move_down;
+				if (Math.Abs (horizontal) <= Math.Abs (vertical))
+					x += horizontal;
+				else
+					y += vertical;
+			}
+		}
+		void UpdatePanelAnchors (Control root)
+		{
+			x_anchor_panel = null;
+			y_anchor_panel = null;
+			Rect current = new (root_origin.X + transform.X, root_origin.Y + transform.Y, root.Bounds.Width, root.Bounds.Height);
+			foreach (Control other in draggable_panels) {
+				if (ReferenceEquals (other, root) || other.Bounds.Width <= 0 || other.Bounds.Height <= 0)
+					continue;
+				Point? origin = other.TranslatePoint (new Point (0, 0), this);
+				if (origin is null)
+					continue;
+				Rect target = new (origin.Value.X, origin.Value.Y, other.Bounds.Width, other.Bounds.Height);
+				if (!snapped_left && !snapped_right && Math.Abs (current.Left - target.Right - PanelEdgeInset) < 1)
+					(x_anchor_panel, x_anchor_after) = (other, true);
+				else if (!snapped_left && !snapped_right && Math.Abs (current.Right - target.Left + PanelEdgeInset) < 1)
+					(x_anchor_panel, x_anchor_after) = (other, false);
+				if (!snapped_top && !snapped_bottom && Math.Abs (current.Top - target.Bottom - PanelEdgeInset) < 1)
+					(y_anchor_panel, y_anchor_after) = (other, true);
+				else if (!snapped_top && !snapped_bottom && Math.Abs (current.Bottom - target.Top + PanelEdgeInset) < 1)
+					(y_anchor_panel, y_anchor_after) = (other, false);
+			}
+		}
+		void ConstrainToWindow (Control root)
+		{
+			if (!has_root_origin)
+				return;
+			Control boundary = root.Parent as Control ?? this;
+			Point boundary_origin = boundary.TranslatePoint (new Point (0, 0), this) ?? default;
+			double min_x = boundary_origin.X + PanelEdgeInset - root_origin.X;
+			double min_y = boundary_origin.Y + PanelEdgeInset - root_origin.Y;
+			double max_x = Math.Max (min_x, boundary_origin.X + boundary.Bounds.Width - PanelEdgeInset - root_origin.X - root.Bounds.Width);
+			double max_y = Math.Max (min_y, boundary_origin.Y + boundary.Bounds.Height - PanelEdgeInset - root_origin.Y - root.Bounds.Height);
+			double x = transform.X;
+			double y = transform.Y;
+			if (Math.Abs (x - min_x) <= snap_distance) x = min_x;
+			if (Math.Abs (x - max_x) <= snap_distance) x = max_x;
+			if (Math.Abs (y - min_y) <= snap_distance) y = min_y;
+			if (Math.Abs (y - max_y) <= snap_distance) y = max_y;
+			SnapToOtherPanels (root, ref x, ref y);
+			ResolvePanelCollisions (root, ref x, ref y);
+			transform.X = Math.Clamp (x, min_x, max_x);
+			transform.Y = Math.Clamp (y, min_y, max_y);
+			snapped_left = Math.Abs (transform.X - min_x) < 1;
+			snapped_right = Math.Abs (transform.X - max_x) < 1;
+			snapped_top = Math.Abs (transform.Y - min_y) < 1;
+			snapped_bottom = Math.Abs (transform.Y - max_y) < 1;
+			UpdatePanelAnchors (root);
+		}
+		header.PointerPressed += (_, e) => {
+			if (e.Source is Control source && (ReferenceEquals (source, collapse) || ReferenceEquals (source, button)))
+				return;
+			if (!e.GetCurrentPoint (header).Properties.IsLeftButtonPressed || header.Parent?.Parent is not Control root)
+				return;
+			dragging = true;
+			snapped_left = snapped_right = snapped_top = snapped_bottom = false;
+			x_anchor_panel = y_anchor_panel = null;
+			drag_start = e.GetPosition (this);
+			drag_origin = new Vector (transform.X, transform.Y);
+			// TranslatePoint includes RenderTransform. Clear it briefly so the
+			// collision rectangle always uses the panel's layout position, not
+			// the position left by the previous drag.
+			root.RenderTransform = null;
+			root_origin = root.TranslatePoint (new Point (0, 0), this) ?? default;
+			root.RenderTransform = transform;
+			has_root_origin = true;
+			e.Pointer.Capture (header);
+		};
+		header.PointerMoved += (_, e) => {
+			if (!dragging || header.Parent?.Parent is not Control root)
+				return;
+			Point current = e.GetPosition (this);
+		transform.X = drag_origin.X + current.X - drag_start.X;
+		transform.Y = drag_origin.Y + current.Y - drag_start.Y;
+		ConstrainToWindow (root);
+			root.RenderTransform = transform;
+		};
+		header.PointerReleased += (_, e) => {
+			if (!dragging)
+				return;
+			dragging = false;
+			e.Pointer.Capture (null);
+		};
+		header.PointerCaptureLost += (_, _) => dragging = false;
+		header.AttachedToVisualTree += (_, _) => {
+			if (header.Parent?.Parent is Control root && !draggable_panels.Contains (root))
+				draggable_panels.Add (root);
+		};
+		this.SizeChanged += (_, _) => {
+			if (!has_root_origin || dragging || header.Parent?.Parent is not Control root)
+				return;
+			Point visual_origin = new (root_origin.X + transform.X, root_origin.Y + transform.Y);
+			root.RenderTransform = null;
+			root_origin = root.TranslatePoint (new Point (0, 0), this) ?? root_origin;
+			root.RenderTransform = transform;
+			Control boundary = root.Parent as Control ?? this;
+			Point boundary_origin = boundary.TranslatePoint (new Point (0, 0), this) ?? default;
+			double min_x = boundary_origin.X + PanelEdgeInset - root_origin.X;
+			double min_y = boundary_origin.Y + PanelEdgeInset - root_origin.Y;
+			double max_x = Math.Max (min_x, boundary_origin.X + boundary.Bounds.Width - PanelEdgeInset - root_origin.X - root.Bounds.Width);
+			double max_y = Math.Max (min_y, boundary_origin.Y + boundary.Bounds.Height - PanelEdgeInset - root_origin.Y - root.Bounds.Height);
+			if (snapped_left) transform.X = min_x;
+			if (snapped_right) transform.X = max_x;
+			if (snapped_top) transform.Y = min_y;
+			if (snapped_bottom) transform.Y = max_y;
+			if (!snapped_left && !snapped_right && x_anchor_panel is not null) {
+				Point? anchor_origin = x_anchor_panel.TranslatePoint (new Point (0, 0), this);
+				if (anchor_origin is not null)
+					transform.X = (x_anchor_after ? anchor_origin.Value.X + x_anchor_panel.Bounds.Width + PanelEdgeInset : anchor_origin.Value.X - PanelEdgeInset - root.Bounds.Width) - root_origin.X;
+			}
+			if (!snapped_top && !snapped_bottom && y_anchor_panel is not null) {
+				Point? anchor_origin = y_anchor_panel.TranslatePoint (new Point (0, 0), this);
+				if (anchor_origin is not null)
+					transform.Y = (y_anchor_after ? anchor_origin.Value.Y + y_anchor_panel.Bounds.Height + PanelEdgeInset : anchor_origin.Value.Y - PanelEdgeInset - root.Bounds.Height) - root_origin.Y;
+			}
+			if (!snapped_left && !snapped_right && x_anchor_panel is null)
+				transform.X = visual_origin.X - root_origin.X;
+			if (!snapped_top && !snapped_bottom && y_anchor_panel is null)
+				transform.Y = visual_origin.Y - root_origin.Y;
+			root.RenderTransform = transform;
+		};
+		return header;
+	}
 
 	private static Control CreateShapeWidthInput (CanvasHost canvas)
 	{
@@ -573,7 +897,14 @@ public sealed class MainWindow : Window
 		Button increase = new () { Content = "+", Width = 30, Height = 30 };
 		decrease.Click += (_, _) => { canvas.ShapeOutlineWidth--; value.Text = canvas.ShapeOutlineWidth.ToString (); };
 		increase.Click += (_, _) => { canvas.ShapeOutlineWidth++; value.Text = canvas.ShapeOutlineWidth.ToString (); };
-		return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { value, decrease, increase } };
+		var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { value, decrease, increase } };
+		// Paint.NET-style wheel adjustment: hover the width control and scroll.
+		panel.PointerWheelChanged += (_, args) => {
+			canvas.ShapeOutlineWidth += args.Delta.Y > 0 ? 1 : -1;
+			value.Text = canvas.ShapeOutlineWidth.ToString ();
+			args.Handled = true;
+		};
+		return panel;
 	}
 
 	private static Slider CreateBrushSlider (double minimum, double maximum, double value, Action<double> changed, double width)
@@ -671,8 +1002,11 @@ public sealed class MainWindow : Window
 			}
 		});
 
-		if (file.Count > 0)
-			tab_manager.AddExistingDocument (file[0].Path.LocalPath);
+		if (file.Count > 0) {
+			DocumentTab tab = tab_manager.AddExistingDocument (file[0].Path.LocalPath);
+			// Fit after layout so the new image uses the available viewport immediately.
+			global::Avalonia.Threading.Dispatcher.UIThread.Post (tab.Canvas.FitToWindow, global::Avalonia.Threading.DispatcherPriority.Loaded);
+		}
 	}
 
 	private async Task ImportImageLayerAsync (CanvasHost canvas)
@@ -683,8 +1017,52 @@ public sealed class MainWindow : Window
 			AllowMultiple = false,
 			FileTypeFilter = new[] { new FilePickerFileType ("Image") { Patterns = new[] { "*.png", "*.jpg", "*.jpeg", "*.webp", "*.tif", "*.tiff", "*.bmp", "*.gif", "*.svg" } } }
 		});
-		if (file.Count > 0)
-			canvas.ImportImageAsLayer (file[0].Path.LocalPath);
+		if (file.Count == 0)
+			return;
+
+		string path = file[0].Path.LocalPath;
+		if (!string.Equals (Path.GetExtension (path), ".svg", StringComparison.OrdinalIgnoreCase)) {
+			using var image = new Bitmap (path);
+			int width = image.PixelSize.Width;
+			int height = image.PixelSize.Height;
+			Pinta.Core.Size canvas_size = canvas.ImageSize;
+			if (width > canvas_size.Width || height > canvas_size.Height) {
+				bool expand = await ConfirmCanvasExpansionAsync (width, height);
+				if (!expand)
+					return;
+				canvas.ResizeCanvas (Math.Max (width, canvas_size.Width), Math.Max (height, canvas_size.Height));
+			}
+		}
+		canvas.ImportImageAsLayer (path);
+	}
+
+	private async Task<bool> ConfirmCanvasExpansionAsync (int width, int height)
+	{
+		var cancel = new Button { Content = "Cancel", MinWidth = 96, IsCancel = true };
+		var expand = new Button { Content = "Expand canvas", MinWidth = 112, IsDefault = true };
+		var dialog = new Window {
+			Title = "Image is larger than the canvas",
+			MinWidth = 380,
+			SizeToContent = SizeToContent.WidthAndHeight,
+			CanResize = false,
+			WindowStartupLocation = WindowStartupLocation.CenterOwner,
+			Content = new StackPanel {
+				Spacing = 16,
+				Margin = new Thickness (22, 18),
+				Children = {
+					new TextBlock { Text = $"The selected image is {width} × {height} px. Expand the canvas to fit it?", TextWrapping = TextWrapping.Wrap },
+					new StackPanel {
+						Orientation = Orientation.Horizontal,
+						HorizontalAlignment = HorizontalAlignment.Right,
+						Spacing = 10,
+						Children = { cancel, expand }
+					}
+				}
+			}
+		};
+		cancel.Click += (_, _) => dialog.Close (false);
+		expand.Click += (_, _) => dialog.Close (true);
+		return await dialog.ShowDialog<bool> (this);
 	}
 
 	private async Task InsertImageAnnotationAsync (CanvasHost canvas)
@@ -773,7 +1151,7 @@ public sealed class MainWindow : Window
 			}
 		};
 		workspace.Bind (Grid.BackgroundProperty, new DynamicResourceExtension ("Pintora.Workspace.Background"));
-		Grid.SetRow (workspace, 3);
+		Grid.SetRow (workspace, 2);
 		return workspace;
 	}
 
@@ -791,6 +1169,8 @@ public sealed class MainWindow : Window
 			"M4 4h16v16H4V4zm2 12L16 6h4L8 18H6z");
 		Button fill = CreateToolButton (canvas, "Fill", CanvasHost.CanvasTool.Fill,
 			"M5 3h10v2H5V3zm0 4h10v2H5V7zm0 4h10v2H5v-2zm12-8h2v18h-2V3z");
+		Button magicWand = CreateToolButton (canvas, "Magic Wand", CanvasHost.CanvasTool.MagicWand,
+			"M7 21L14 3l1.5 4.5L20 9l-4.5 1.5L14 15l-2-2-1 1 2 2-4 5-2-1zm9.5-13.5l-.9 2.6 2.6-.9-1.7-1.7z");
 		Button picker = CreateToolButton (canvas, "Color Picker", CanvasHost.CanvasTool.ColorPicker,
 			"M19.35 10.04L14 4.69 15.41 3.28 20.76 8.63 19.35 10.04zM3 17.25V21h3.75l10.81-10.81-3.75-3.75L3 17.25z");
 		Button zoom = CreateToolButton (canvas, "Zoom", CanvasHost.CanvasTool.Zoom,
@@ -811,6 +1191,7 @@ public sealed class MainWindow : Window
 		buttons.Add ((shapes, CanvasHost.CanvasTool.Shapes));
 		buttons.Add ((gradient, CanvasHost.CanvasTool.Gradient));
 		buttons.Add ((fill, CanvasHost.CanvasTool.Fill));
+		buttons.Add ((magicWand, CanvasHost.CanvasTool.MagicWand));
 		buttons.Add ((picker, CanvasHost.CanvasTool.ColorPicker));
 		buttons.Add ((zoom, CanvasHost.CanvasTool.Zoom));
 		buttons.Add ((eraser, CanvasHost.CanvasTool.Eraser));
@@ -845,7 +1226,7 @@ public sealed class MainWindow : Window
 			HorizontalAlignment = HorizontalAlignment.Left,
 			VerticalAlignment = VerticalAlignment.Top,
 			Child = new StackPanel { Spacing = 4, Children = {
-				new TextBlock { Text = "Tools", FontSize = 12 }, tools
+				CreatePanelHeader ("Tools", () => view_settings.ShowToolbox = false), tools
 			} }
 		};
 		panel.Bind (Border.BackgroundProperty, new DynamicResourceExtension ("Pintora.Panel.Background"));
@@ -965,7 +1346,7 @@ public sealed class MainWindow : Window
 		var content = new StackPanel {
 			Spacing = 5,
 			Children = {
-				new TextBlock { Text = "Colors", FontSize = 12 },
+				CreatePanelHeader ("Colors", () => view_settings.ShowColors = false),
 				new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Children = { primary, secondary, swap, reset, more } },
 				advancedColors,
 				new Border { HorizontalAlignment = HorizontalAlignment.Center, Child = wheel },
@@ -1120,14 +1501,14 @@ public sealed class MainWindow : Window
 			case CanvasHost.CanvasTool.Pencil:
 				break;
 			case CanvasHost.CanvasTool.Shapes:
-				tool_options.Children.Add (new TextBlock { Text = "Shape Type:", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (new TextBlock { Text = "Shape:", VerticalAlignment = VerticalAlignment.Center });
 				var shape = new ComboBox {
 					ItemsSource = new[] { "Line", "Rectangle", "Ellipse", "Rounded rectangle" },
 					SelectedIndex = (int) canvas.SelectedShape,
 					MinWidth = 135
 				};
 				tool_options.Children.Add (shape);
-				tool_options.Children.Add (new TextBlock { Text = "Fill Style:", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (new TextBlock { Text = "Fill:", VerticalAlignment = VerticalAlignment.Center });
 				var fill = new ComboBox {
 					ItemsSource = new[] { "Outline", "Fill", "Fill + outline" },
 					SelectedIndex = (int) canvas.FillStyle,
@@ -1138,7 +1519,7 @@ public sealed class MainWindow : Window
 					if (fill.SelectedIndex >= 0) canvas.FillStyle = (CanvasHost.ShapeFillStyle) fill.SelectedIndex;
 				};
 				tool_options.Children.Add (fill);
-				tool_options.Children.Add (new TextBlock { Text = "Outline width:", VerticalAlignment = VerticalAlignment.Center });
+				tool_options.Children.Add (new TextBlock { Text = "Width:", VerticalAlignment = VerticalAlignment.Center });
 				tool_options.Children.Add (CreateShapeWidthInput (canvas));
 				tool_options.Children.Add (new TextBlock { Text = "Dash:", VerticalAlignment = VerticalAlignment.Center });
 				var dash = new ComboBox {
@@ -1150,13 +1531,6 @@ public sealed class MainWindow : Window
 					if (dash.SelectedIndex >= 0) canvas.DashStyle = (CanvasHost.ShapeDashStyle) dash.SelectedIndex;
 				};
 				tool_options.Children.Add (dash);
-				var smoothing = new ComboBox {
-					ItemsSource = new[] { "Smooth", "Pixelated" },
-					SelectedIndex = canvas.ShapeAntialias ? 0 : 1,
-					MinWidth = 105
-				};
-				smoothing.SelectionChanged += (_, _) => canvas.ShapeAntialias = smoothing.SelectedIndex == 0;
-				tool_options.Children.Add (smoothing);
 				var corner = new NumericUpDown { Minimum = 1, Maximum = 256, Value = canvas.ShapeCornerRadius, Width = 70, IsVisible = canvas.SelectedShape == CanvasHost.ShapeKind.RoundedRectangle };
 				corner.ValueChanged += (_, args) => canvas.ShapeCornerRadius = (int) (args.NewValue ?? 8);
 				tool_options.Children.Add (corner);
@@ -1172,6 +1546,18 @@ public sealed class MainWindow : Window
 			case CanvasHost.CanvasTool.Fill:
 				tool_options.Children.Add (new TextBlock { Text = "Tolerance", VerticalAlignment = VerticalAlignment.Center });
 				tool_options.Children.Add (CreateBrushSlider (0, 255, canvas.FillTolerance, value => canvas.FillTolerance = (int) value, 90));
+				break;
+			case CanvasHost.CanvasTool.MagicWand:
+				tool_options.Children.Add (CreateToolbarLabel ("Tolerance"));
+				tool_options.Children.Add (CreateBrushSlider (0, 100, canvas.MagicWandTolerance, value => canvas.MagicWandTolerance = (int) value, 90));
+				tool_options.Children.Add (CreateToolbarLabel ("Mode"));
+				var flood_mode = new ComboBox {
+					ItemsSource = new[] { "Contiguous", "Global" },
+					SelectedIndex = canvas.MagicWandGlobalMode ? 1 : 0,
+					MinWidth = 105
+				};
+				flood_mode.SelectionChanged += (_, _) => canvas.MagicWandGlobalMode = flood_mode.SelectedIndex == 1;
+				tool_options.Children.Add (flood_mode);
 				break;
 			case CanvasHost.CanvasTool.Gradient:
 				tool_options.Children.Add (CreateToolbarLabel ("From:"));
@@ -1258,39 +1644,35 @@ public sealed class MainWindow : Window
 		if (!tab.IsDirty)
 			return CloseDecision.Discard;
 
-		var result = new TaskCompletionSource<CloseDecision> (TaskCreationOptions.RunContinuationsAsynchronously);
-		var dialog = new Window {
-			Title = $"Save changes to {tab.Title}?",
-			Width = 420,
-			Height = 160,
-			CanResize = false,
-			Content = new StackPanel {
-				Margin = new Thickness (16),
-				Spacing = 12,
-				Children = {
-					new TextBlock { Text = $"{tab.Title} has unsaved changes." },
-					new StackPanel {
-						Orientation = Orientation.Horizontal,
-						HorizontalAlignment = HorizontalAlignment.Right,
-						Spacing = 8,
-						Children = {
-							new Button { Content = "Cancel", Tag = CloseDecision.Cancel },
-							new Button { Content = "Discard", Tag = CloseDecision.Discard },
-							new Button { Content = "Save", Tag = CloseDecision.Save }
-						}
-					}
-				}
+		var cancel = new Button { Content = "Cancel", MinWidth = 92, IsCancel = true };
+		var discard = new Button { Content = "Discard", MinWidth = 92 };
+		var save = new Button { Content = "Save", MinWidth = 92, IsDefault = true };
+		var buttons = new StackPanel {
+			Orientation = Orientation.Horizontal,
+			HorizontalAlignment = HorizontalAlignment.Right,
+			Spacing = 10,
+			Children = { cancel, discard, save }
+		};
+		var content = new StackPanel {
+			Spacing = 18,
+			Margin = new Thickness (22, 18),
+			Children = {
+				new TextBlock { Text = "Save changes before closing?", FontSize = 16, FontWeight = FontWeight.Bold },
+				buttons
 			}
 		};
-		if (dialog.Content is StackPanel root && root.Children[1] is StackPanel buttons)
-			foreach (Button button in buttons.Children)
-				button.Click += (_, _) => {
-					result.TrySetResult ((CloseDecision) button.Tag!);
-					dialog.Close ();
-				};
-		dialog.Closed += (_, _) => result.TrySetResult (CloseDecision.Cancel);
-		await dialog.ShowDialog (this);
-		return await result.Task;
+		var dialog = new Window {
+			Title = $"Save changes to {tab.Title}?",
+			MinWidth = 320,
+			SizeToContent = SizeToContent.WidthAndHeight,
+			CanResize = false,
+			WindowStartupLocation = WindowStartupLocation.CenterOwner,
+			Content = content
+		};
+		cancel.Click += (_, _) => dialog.Close (CloseDecision.Cancel);
+		discard.Click += (_, _) => dialog.Close (CloseDecision.Discard);
+		save.Click += (_, _) => dialog.Close (CloseDecision.Save);
+		return await dialog.ShowDialog<CloseDecision> (this);
 	}
 
 	private async Task<CloseDecision> RequestCloseDecisionAsync (DocumentTab tab)
@@ -1324,8 +1706,13 @@ public sealed class MainWindow : Window
 
 	private async Task ExitAsync ()
 	{
+		if (closing_after_confirmation)
+			return;
+		closing_after_confirmation = true;
 		if (await close_coordinator.TryExitAsync ())
 			Close ();
+		else
+			closing_after_confirmation = false;
 	}
 
 	private async Task<bool> SaveTabAsync (DocumentTab tab)
@@ -1388,12 +1775,16 @@ public sealed class MainWindow : Window
 		}
 		e.Cancel = true;
 		close_in_progress = true;
+		closing_after_confirmation = true;
 		try {
 			if (!await close_coordinator.TryExitAsync ())
+			{
+				closing_after_confirmation = false;
 				return;
-			closing_after_confirmation = true;
+			}
 			Close ();
 		} catch (Exception exception) {
+			closing_after_confirmation = false;
 			System.Diagnostics.Debug.WriteLine ($"Failed to close window: {exception.Message}");
 		} finally {
 			close_in_progress = false;
@@ -1402,21 +1793,10 @@ public sealed class MainWindow : Window
 
 	private Control CreateCanvasPlaceholder (CanvasHost canvas)
 	{
-		tab_strip.AttachAsync (tab_manager, RequestCloseDecisionAsync);
-		var tabs_host = new Border {
-			Child = tab_strip
-		};
-		tab_strip_host = tabs_host;
 		var canvas_panel = new Border {
-			Margin = new global::Avalonia.Thickness (96, 10, 252, 190),
-			Child = new DockPanel {
-				Children = {
-					tabs_host,
-					canvas_host
-				}
-			}
+			Margin = new global::Avalonia.Thickness (0),
+			Child = canvas_host
 		};
-		DockPanel.SetDock (tabs_host, Dock.Top);
 		canvas_panel_control = canvas_panel;
 		return canvas_panel;
 	}
@@ -1546,8 +1926,16 @@ public sealed class MainWindow : Window
 			for (int i = canvas.Layers.Count - 1; i >= 0; i--) {
 				int index = i;
 				AvaloniaLayer layer = canvas.Layers[index];
-				var visibility = new CheckBox { IsChecked = layer.IsVisible, Content = layer.Name };
-				var locked = new CheckBox { IsChecked = layer.IsLocked, Content = "Lock" };
+				var visibility = new CheckBox { IsChecked = layer.IsVisible };
+				ToolTip.SetTip (visibility, "Layer visible");
+				var locked = new CheckBox { IsChecked = layer.IsLocked };
+				ToolTip.SetTip (locked, "Layer locked");
+				var name = new TextBlock {
+					Text = layer.Name,
+					VerticalAlignment = VerticalAlignment.Center,
+					MaxWidth = 96,
+					TextTrimming = TextTrimming.CharacterEllipsis
+				};
 				visibility.IsCheckedChanged += (_, _) => {
 					ActiveCanvas.SetLayerVisibility (index, visibility.IsChecked == true);
 				};
@@ -1561,7 +1949,7 @@ public sealed class MainWindow : Window
 						Children = {
 						new TextBlock { Text = index == canvas.ActiveLayerIndex ? "▣" : "□" },
 						thumbnail,
-						visibility, locked
+						visibility, name, locked
 					}
 					},
 					HorizontalContentAlignment = HorizontalAlignment.Left,
@@ -1598,7 +1986,7 @@ public sealed class MainWindow : Window
 		var controls = new StackPanel {
 			Spacing = 5,
 			Children = {
-			new TextBlock { Text = "Layers", FontSize = 12 },
+			CreatePanelHeader ("Layers", () => view_settings.ShowLayers = false),
 			new ScrollViewer { MaxHeight = 280, Content = layers },
 			new TextBlock { Text = "Opacity", FontSize = 11 },
 			opacity_slider,
@@ -1608,8 +1996,8 @@ public sealed class MainWindow : Window
 				CreateCompactCommand ("⧉", "Duplicate layer", () => { ActiveCanvas.DuplicateActiveLayer (); RebuildLayers (); }),
 				CreateCompactCommand ("↑", "Move layer up", () => { ActiveCanvas.MoveLayer (1); RebuildLayers (); }),
 				CreateCompactCommand ("↓", "Move layer down", () => { ActiveCanvas.MoveLayer (-1); RebuildLayers (); }),
-				CreateCompactCommand ("Merge", "Merge layer down", () => { ActiveCanvas.MergeActiveLayerDown (); RebuildLayers (); }),
-				CreateCompactCommand ("Name", "Rename layer", () => new LayerRenameWindow (ActiveCanvas, ActiveCanvas.Layers[ActiveCanvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
+				CreateCompactCommand ("⧨", "Merge layer down", () => { ActiveCanvas.MergeActiveLayerDown (); RebuildLayers (); }),
+				CreateCompactCommand ("✎", "Rename layer", () => new LayerRenameWindow (ActiveCanvas, ActiveCanvas.Layers[ActiveCanvas.ActiveLayerIndex].Name, RebuildLayers).Show (this)),
 				CreateCompactCommand ("↶", "Undo layer operation", () => { ActiveCanvas.UndoLayerOperation (); RebuildLayers (); }),
 				CreateCompactCommand ("↷", "Redo layer operation", () => { ActiveCanvas.RedoLayerOperation (); RebuildLayers (); })
 			} }
