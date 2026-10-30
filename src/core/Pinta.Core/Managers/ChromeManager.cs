@@ -41,7 +41,7 @@ public interface IChromeService
 	void SetMainWindowTitle (string title);
 	void SetMainWindowFullscreen (bool fullscreen);
 	Task LaunchUri (string uri);
-	Pango.Context TextContext { get; }
+	object TextContext { get; }
 	Task ShowErrorDialog (string message, string body, string details);
 	Task ShowMessageDialog (string message, string body);
 }
@@ -68,7 +68,7 @@ public sealed class ChromeManager : IChromeService
 	private Action<string>? set_window_title;
 	private Action<bool>? set_window_fullscreen;
 	private Func<string, Task>? launch_uri;
-	private Func<Pango.Context>? text_context;
+	private Func<object>? text_context;
 	private Action<bool>? set_window_busy;
 
 	public IProgressDialog ProgressDialog => progress_dialog;
@@ -111,7 +111,7 @@ public sealed class ChromeManager : IChromeService
 	}
 
 	public void InitializeWindowBusy (Action<bool> setBusy) => set_window_busy = setBusy;
-	public void InitializeTextContext (Func<Pango.Context> getContext) => text_context = getContext;
+	public void InitializeTextContext (Func<object> getContext) => text_context = getContext;
 
 	public void InitializeMenuAdapter (Action<Command> addAdjustment, Action<Command> removeAdjustment, Action<string, Command> addEffect, Action<string, Command> removeEffect)
 	{
@@ -174,7 +174,7 @@ public sealed class ChromeManager : IChromeService
 	public void SetMainWindowTitle (string title) => set_window_title?.Invoke (title);
 	public void SetMainWindowFullscreen (bool fullscreen) => set_window_fullscreen?.Invoke (fullscreen);
 	public Task LaunchUri (string uri) => launch_uri?.Invoke (uri) ?? Task.CompletedTask;
-	public Pango.Context TextContext => text_context?.Invoke () ?? throw new InvalidOperationException ("Text context is not initialized.");
+	public object TextContext => text_context?.Invoke () ?? throw new InvalidOperationException ("Text context is not initialized.");
 
 	public Task<bool> LaunchSimpleEffectDialog (
 		BaseEffect effect,
