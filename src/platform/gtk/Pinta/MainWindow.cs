@@ -351,7 +351,7 @@ internal sealed class MainWindow
 		int height = PintaCore.Settings.GetSetting (SettingNames.WINDOW_SIZE_HEIGHT, 750);
 		bool maximize = PintaCore.Settings.GetSetting (SettingNames.WINDOW_MAXIMIZED, false);
 
-		ResourceLoader.LoadCssStyles ();
+		GtkIconProvider.LoadCssStyles ();
 
 		window_shell = new WindowShell (
 			app,
