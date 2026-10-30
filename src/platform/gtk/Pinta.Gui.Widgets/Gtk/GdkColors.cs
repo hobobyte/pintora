@@ -1,9 +1,8 @@
 //
 // GdkColors.cs
 //
-// Gdk.RGBA to Cairo.Color conversion. Remains in Pinta.Core while Core classes
-// (Document, HsvColor, CairoExtensions.Color) still consume Gdk.RGBA; moves with
-// them in a later slice.
+// Gdk.RGBA to Cairo.Color conversion. Lives in the GTK platform assembly;
+// namespace kept as Pinta.Core so call sites need no using changes.
 //
 
 namespace Pinta.Core;
