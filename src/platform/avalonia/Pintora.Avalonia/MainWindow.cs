@@ -86,7 +86,8 @@ public sealed class MainWindow : Window
 		// to remove the tab; the synchronous delegate is therefore a final guard.
 		tab_manager = new DocumentTabManager (_ => true, tab => tab.Canvas.Dispose ());
 		close_coordinator = new DocumentCloseCoordinator (tab_manager, PromptCloseDecisionAsync, SaveTabAsync);
-		tab_manager.AddTab (canvas, canvas.DocumentSession);
+		// Subscribe before AddTab: the initial AddTab raises ActiveTabChanged,
+		// which is what wires RebindActiveCanvas (canvas events, thumbnails).
 		tab_manager.ActiveTabChanged += (_, _) => {
 			CanvasHost active = ActiveCanvas;
 			ApplyGridViewSettings (active);
@@ -99,8 +100,8 @@ public sealed class MainWindow : Window
 			RebindActiveCanvas ();
 			rebuild_layers_panel?.Invoke ();
 		};
+		tab_manager.AddTab (canvas, canvas.DocumentSession);
 		SyncActiveCanvas ();
-		thumbnail_provider = new LayerThumbnailProvider (canvas);
 		clipboard_service = Clipboard is null ? null : new AvaloniaClipboardService (Clipboard);
 		if (Clipboard is not null)
 			application.Services.ReplaceService<Pinta.Core.IClipboardService> (new AvaloniaNeutralClipboardService (Clipboard));
